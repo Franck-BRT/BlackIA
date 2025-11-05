@@ -5,6 +5,7 @@ import { ChatInput } from '../components/chat/ChatInput';
 import { ModelSelector } from '../components/chat/ModelSelector';
 import { ChatSettings, ChatSettingsData, DEFAULT_CHAT_SETTINGS } from '../components/chat/ChatSettings';
 import { ConversationSidebar } from '../components/chat/ConversationSidebar';
+import { ExportMenu } from '../components/chat/ExportMenu';
 import { useConversations } from '../hooks/useConversations';
 import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
 
@@ -333,6 +334,14 @@ export function ChatPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <ExportMenu
+              messages={messages}
+              conversationTitle={
+                currentConversationId
+                  ? conversations.find((c) => c.id === currentConversationId)?.title
+                  : 'Conversation'
+              }
+            />
             <button
               onClick={handleClearChat}
               className="p-2 rounded-xl glass-hover hover:bg-red-500/20 transition-colors"
