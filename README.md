@@ -24,7 +24,8 @@ BlackIA est une suite complète d'assistance IA fonctionnant intégralement en l
 
 ## Documentation
 
-Pour plus de détails, consultez le [Cahier des Charges](CAHIER_DES_CHARGES.md).
+- [Cahier des Charges](CAHIER_DES_CHARGES.md) - Vision produit et spécifications fonctionnelles
+- [Décisions Techniques](DECISIONS_TECHNIQUES.md) - Choix technologiques et architecture détaillée
 
 ## Licence
 

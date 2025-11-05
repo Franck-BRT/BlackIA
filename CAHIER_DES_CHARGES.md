@@ -165,21 +165,27 @@ Créer une plateforme d'assistance IA tout-en-un permettant :
 - **MLX:** Framework d'apprentissage automatique optimisé pour Apple Silicon
 - Support multi-modèles (LLM, vision, embeddings)
 
-#### Stack Technologique (Recommandations)
+#### Stack Technologique (Décidée)
 - **Interface:**
-  - Electron ou Tauri pour application desktop native
-  - React/Vue/Svelte pour l'UI
-  - TailwindCSS pour le styling
+  - **Electron** pour application desktop native
+  - **React 18+ avec TypeScript** pour l'UI
+  - **TailwindCSS + shadcn/ui** pour le styling
+  - **ReactFlow** pour le workflow editor
+  - **Monaco Editor** pour l'éditeur de code
 - **Backend:**
-  - Python (pour MLX, orchestration IA)
-  - Node.js/TypeScript (pour serveur MCP, API)
+  - **Python 3.11+** (pour MLX, orchestration IA)
+  - **Node.js 20+ / TypeScript** (main process, API)
+  - **electron-trpc** pour IPC type-safe
 - **Base de données:**
-  - SQLite (local, léger)
-  - Vector DB local (ChromaDB, LanceDB) pour embeddings
-- **Workflow Engine:**
-  - Custom ou adaptation de Node-RED, Temporal
-- **Éditeur de code:**
-  - Monaco Editor (VSCode base)
+  - **SQLite** avec Drizzle ORM (local, léger)
+  - **LanceDB** pour vector embeddings
+- **IA:**
+  - **Ollama** (mode intégré + distant)
+  - **MLX** (optimisé Apple Silicon)
+  - AI Router intelligent pour dispatch automatique
+- **État:**
+  - **Zustand** (state management)
+  - **TanStack Query** (data fetching)
 
 ### 4.3 Architecture Modulaire
 
@@ -308,21 +314,53 @@ BlackIA/
 
 ---
 
-## 10. Extensibilité
+## 10. Modèle de Licence
 
-### 10.1 Système de Plugins
+### 10.1 Open Source (MIT)
+**Composants Open Source:**
+- Core BlackIA et architecture de base
+- Module Chat conversationnel
+- Workflow Engine (fonctionnalités de base)
+- Bibliothèques de Prompts et Personas
+- Intégration Ollama
+- Module Logs (fonctionnalités de base)
+- API publique et documentation
+
+### 10.2 Modules Propriétaires (Premium)
+**Composants Propriétaires:**
+- Module MLX avancé (fine-tuning, modèles custom)
+- Workflow Engine (nœuds avancés : parallélisme, API, intégrations)
+- Générateurs "parfaits" optimisés par IA
+- Module MCP Server complet
+- Module Projets (fonctionnalités avancées : refactoring IA, tests auto)
+- Analytics et insights détaillés
+- Synchronisation cloud optionnelle (chiffrée)
+- Support technique prioritaire
+
+### 10.3 Stratégie
+- **Freemium:** Core gratuit et puissant pour adoption
+- **Premium:** Fonctionnalités avancées pour professionnels
+- **Communauté:** Contributions bienvenues sur partie open source
+- **Transparence:** Code source core accessible sur GitHub
+
+---
+
+## 11. Extensibilité
+
+### 11.1 Système de Plugins
 - Architecture modulaire permettant ajout de fonctionnalités
 - API pour développeurs tiers
 - Marketplace de prompts/personas/workflows communautaires
 
-### 10.2 API Interne
-- RESTful API pour modules
+### 11.2 API Interne
+- Type-safe IPC avec electron-trpc
+- RESTful API pour modules Python
 - WebSocket pour temps réel
-- Documentation complète
+- Documentation complète auto-générée
 
 ---
 
-## 11. Phases de Développement
+## 12. Phases de Développement
 
 ### Phase 1: MVP (Minimum Viable Product)
 - Module Chat basique
@@ -350,15 +388,15 @@ BlackIA/
 
 ---
 
-## 12. Critères de Succès
+## 13. Critères de Succès
 
-### 12.1 Métriques Techniques
+### 13.1 Métriques Techniques
 - ✅ 100% fonctionnement local
 - ✅ Support complet Apple Silicon
 - ✅ Tous les modules fonctionnels
 - ✅ Performance satisfaisante
 
-### 12.2 Métriques Utilisateur
+### 13.2 Métriques Utilisateur
 - Interface intuitive (feedback utilisateurs)
 - Productivité améliorée
 - Adoption des différents modules
@@ -366,7 +404,7 @@ BlackIA/
 
 ---
 
-## 13. Risques et Mitigation
+## 14. Risques et Mitigation
 
 | Risque | Impact | Probabilité | Mitigation |
 |--------|--------|-------------|------------|
@@ -377,34 +415,34 @@ BlackIA/
 
 ---
 
-## 14. Livrables
+## 15. Livrables
 
-### 14.1 Code
+### 15.1 Code
 - Application desktop BlackIA
 - Documentation technique
 - Tests unitaires et d'intégration
 
-### 14.2 Documentation
+### 15.2 Documentation
 - Guide utilisateur
 - Documentation API
 - Tutoriels et exemples
 - Documentation d'architecture
 
-### 14.3 Assets
+### 15.3 Assets
 - Bibliothèques de prompts/personas par défaut
 - Templates de workflows
 - Exemples de projets
 
 ---
 
-## 15. Maintenance et Évolution
+## 16. Maintenance et Évolution
 
-### 15.1 Mises à jour
+### 16.1 Mises à jour
 - Système de mise à jour automatique
 - Changelog détaillé
 - Rétrocompatibilité
 
-### 15.2 Support
+### 16.2 Support
 - Documentation en ligne
 - Système de feedback intégré
 - Issues GitHub
@@ -424,6 +462,12 @@ BlackIA/
 - Ollama: https://ollama.ai
 - MLX: https://github.com/ml-explore/mlx
 - MCP: https://modelcontextprotocol.io
+- React: https://react.dev
+- Electron: https://www.electronjs.org
+- ReactFlow: https://reactflow.dev
+
+### C. Documents Complémentaires
+- [Décisions Techniques](DECISIONS_TECHNIQUES.md) - Choix technologiques détaillés et architecture
 
 ---
 
