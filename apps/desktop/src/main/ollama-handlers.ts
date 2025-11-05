@@ -9,7 +9,7 @@ let ollamaClient: OllamaClient | null = null;
 function getOllamaClient(): OllamaClient {
   if (!ollamaClient) {
     ollamaClient = new OllamaClient({
-      baseUrl: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+      baseUrl: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
       timeout: 120000, // 2 minutes pour les longues générations
       mode: 'local',
     });
