@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Settings } from 'lucide-react';
+import { Trash2, Settings, Menu } from 'lucide-react';
 import { ChatMessage } from '../components/chat/ChatMessage';
 import { ChatInput } from '../components/chat/ChatInput';
 import { ModelSelector } from '../components/chat/ModelSelector';
 import { ChatSettings, ChatSettingsData, DEFAULT_CHAT_SETTINGS } from '../components/chat/ChatSettings';
+import { ConversationSidebar } from '../components/chat/ConversationSidebar';
+import { useConversations } from '../hooks/useConversations';
 import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
 
 export function ChatPage() {
@@ -12,6 +14,7 @@ export function ChatPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
     // Charger les settings depuis localStorage au démarrage
     try {
@@ -24,6 +27,18 @@ export function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentStreamIdRef = useRef<string | null>(null);
 
+  // Hook pour gérer les conversations
+  const {
+    conversations,
+    currentConversationId,
+    createConversation,
+    updateConversation,
+    deleteConversation,
+    loadConversation,
+    getCurrentConversation,
+    generateTitle,
+  } = useConversations();
+
   // Auto-scroll vers le bas
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -32,6 +47,19 @@ export function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, streamingMessage]);
+
+  // Auto-sauvegarder la conversation quand les messages changent
+  useEffect(() => {
+    if (currentConversationId && messages.length > 0) {
+      const title = generateTitle(messages);
+      updateConversation(currentConversationId, {
+        messages,
+        model: selectedModel,
+        title,
+      });
+      console.log('[ChatPage] 💾 Conversation auto-sauvegardée:', currentConversationId);
+    }
+  }, [messages, currentConversationId, selectedModel, updateConversation, generateTitle]);
 
   // Setup des listeners pour le streaming
   useEffect(() => {
@@ -144,10 +172,43 @@ export function ChatPage() {
     };
   }, []); // Pas de dépendances pour n'enregistrer qu'une seule fois
 
+  // Nouvelle conversation
+  const handleNewConversation = () => {
+    if (messages.length > 0 && !confirm('Voulez-vous créer une nouvelle conversation ?')) {
+      return;
+    }
+
+    setMessages([]);
+    setStreamingMessage('');
+    setIsGenerating(false);
+    currentStreamIdRef.current = null;
+
+    console.log('[ChatPage] ✨ Nouvelle conversation');
+  };
+
+  // Charger une conversation
+  const handleSelectConversation = (id: string) => {
+    const conv = loadConversation(id);
+    if (conv) {
+      setMessages(conv.messages);
+      setSelectedModel(conv.model);
+      setStreamingMessage('');
+      setIsGenerating(false);
+      currentStreamIdRef.current = null;
+      console.log('[ChatPage] 📂 Conversation chargée:', id, 'Messages:', conv.messages.length);
+    }
+  };
+
   const handleSendMessage = async (content: string) => {
     if (!selectedModel) {
       alert('Veuillez sélectionner un modèle');
       return;
+    }
+
+    // Créer une nouvelle conversation si nécessaire
+    if (!currentConversationId && messages.length === 0) {
+      const newConv = createConversation(selectedModel);
+      console.log('[ChatPage] ✨ Nouvelle conversation créée automatiquement:', newConv.id);
     }
 
     // Ajouter le message de l'utilisateur
@@ -241,34 +302,56 @@ export function ChatPage() {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 glass-card border-b border-white/10">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold">Chat</h1>
-          <ModelSelector selectedModel={selectedModel} onModelChange={setSelectedModel} />
+    <div className="h-full flex">
+      {/* Sidebar */}
+      {isSidebarOpen && (
+        <div className="w-80 flex-shrink-0">
+          <ConversationSidebar
+            conversations={conversations}
+            currentConversationId={currentConversationId}
+            onSelectConversation={handleSelectConversation}
+            onNewConversation={handleNewConversation}
+            onDeleteConversation={deleteConversation}
+          />
+        </div>
+      )}
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 glass-card border-b border-white/10">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              title={isSidebarOpen ? 'Masquer la sidebar' : 'Afficher la sidebar'}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <h1 className="text-xl font-bold">Chat</h1>
+            <ModelSelector selectedModel={selectedModel} onModelChange={setSelectedModel} />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleClearChat}
+              className="p-2 rounded-xl glass-hover hover:bg-red-500/20 transition-colors"
+              title="Effacer la conversation"
+            >
+              <Trash2 className="w-5 h-5 text-red-400" />
+            </button>
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              title="Paramètres"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleClearChat}
-            className="p-2 rounded-xl glass-hover hover:bg-red-500/20 transition-colors"
-            title="Effacer la conversation"
-          >
-            <Trash2 className="w-5 h-5 text-red-400" />
-          </button>
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
-            title="Paramètres"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6">
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-6">
         {messages.length === 0 && !streamingMessage ? (
           <div className="h-full flex items-center justify-center">
             <div className="text-center max-w-md">
@@ -304,22 +387,23 @@ export function ChatPage() {
             <div ref={messagesEndRef} />
           </div>
         )}
-      </div>
+        </div>
 
-      {/* Input */}
-      <div className="p-4">
-        <div className="max-w-4xl mx-auto">
-          <ChatInput
-            onSend={handleSendMessage}
-            onStop={handleStop}
-            disabled={!selectedModel}
-            isGenerating={isGenerating}
-            placeholder={
-              selectedModel
-                ? 'Tapez votre message...'
-                : 'Sélectionnez d\'abord un modèle...'
-            }
-          />
+        {/* Input */}
+        <div className="p-4">
+          <div className="max-w-4xl mx-auto">
+            <ChatInput
+              onSend={handleSendMessage}
+              onStop={handleStop}
+              disabled={!selectedModel}
+              isGenerating={isGenerating}
+              placeholder={
+                selectedModel
+                  ? 'Tapez votre message...'
+                  : 'Sélectionnez d\'abord un modèle...'
+              }
+            />
+          </div>
         </div>
       </div>
 
