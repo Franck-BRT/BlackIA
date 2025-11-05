@@ -1,5 +1,5 @@
-import React from 'react';
-import { User, Bot, RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Bot, RefreshCw, Copy, Check } from 'lucide-react';
 import type { OllamaMessage } from '@blackia/ollama';
 
 interface ChatMessageProps {
@@ -20,6 +20,17 @@ export function ChatMessage({
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   const isAssistant = message.role === 'assistant';
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (error) {
+      console.error('Erreur lors de la copie:', error);
+    }
+  };
 
   if (isSystem) {
     return (
@@ -65,22 +76,45 @@ export function ChatMessage({
           </div>
         </div>
 
-        {/* Regenerate button and counter for assistant messages */}
-        {isAssistant && isLastAssistantMessage && onRegenerate && (
+        {/* Action buttons for assistant messages */}
+        {isAssistant && !isStreaming && (
           <div className="flex items-center gap-2 px-2">
+            {/* Copy button - always visible for assistant messages */}
             <button
-              onClick={onRegenerate}
-              disabled={isStreaming}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg glass-hover hover:bg-white/10 transition-colors text-sm text-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Régénérer la réponse"
+              onClick={handleCopy}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg glass-hover hover:bg-white/10 transition-colors text-sm text-muted-foreground"
+              title={isCopied ? 'Copié !' : 'Copier'}
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Régénérer</span>
+              {isCopied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-green-400" />
+                  <span className="text-green-400">Copié !</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Copier</span>
+                </>
+              )}
             </button>
-            {regenerationCount > 0 && (
-              <span className="text-xs text-muted-foreground opacity-60">
-                {regenerationCount} régénération{regenerationCount > 1 ? 's' : ''}
-              </span>
+
+            {/* Regenerate button - only for last assistant message */}
+            {isLastAssistantMessage && onRegenerate && (
+              <>
+                <button
+                  onClick={onRegenerate}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg glass-hover hover:bg-white/10 transition-colors text-sm text-muted-foreground"
+                  title="Régénérer la réponse"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Régénérer</span>
+                </button>
+                {regenerationCount > 0 && (
+                  <span className="text-xs text-muted-foreground opacity-60">
+                    {regenerationCount} régénération{regenerationCount > 1 ? 's' : ''}
+                  </span>
+                )}
+              </>
             )}
           </div>
         )}
