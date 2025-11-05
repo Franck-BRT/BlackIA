@@ -102,28 +102,48 @@ export function registerOllamaHandlers(): void {
 
   // Chat avec streaming
   ipcMain.handle('ollama:chatStream', async (event, request) => {
+    console.log('[IPC Handler] 🚀 ollama:chatStream appelé');
+    console.log('[IPC Handler] Request:', JSON.stringify(request, null, 2));
+
     try {
       const client = getOllamaClient();
+      console.log('[IPC Handler] Client Ollama récupéré');
 
       // Créer un ID unique pour ce stream
       const streamId = `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      console.log('[IPC Handler] StreamId créé:', streamId);
 
       // Envoyer l'ID du stream au renderer
+      console.log('[IPC Handler] 📤 Envoi event ollama:streamStart');
       event.sender.send('ollama:streamStart', { streamId });
 
+      let chunkCount = 0;
+      console.log('[IPC Handler] ⏳ Début du chatStream...');
+
       await client.chatStream(request, (chunk) => {
+        chunkCount++;
+        console.log('[IPC Handler] 📦 Chunk #' + chunkCount + ' reçu du client');
+        console.log('[IPC Handler] Chunk data:', JSON.stringify(chunk).substring(0, 150));
+
         // Envoyer chaque chunk au renderer
+        console.log('[IPC Handler] 📤 Envoi event ollama:streamChunk #' + chunkCount);
         event.sender.send('ollama:streamChunk', {
           streamId,
           chunk,
         });
+        console.log('[IPC Handler] ✅ Event ollama:streamChunk #' + chunkCount + ' envoyé');
       });
 
+      console.log('[IPC Handler] ✅ chatStream terminé, total chunks:', chunkCount);
+
       // Signaler la fin du stream
+      console.log('[IPC Handler] 📤 Envoi event ollama:streamEnd');
       event.sender.send('ollama:streamEnd', { streamId });
 
+      console.log('[IPC Handler] 🎉 Handler ollama:chatStream terminé avec succès');
       return { success: true, streamId };
     } catch (error: any) {
+      console.error('[IPC Handler] ❌ Erreur dans chatStream:', error);
       event.sender.send('ollama:streamError', {
         error: error.message,
       });

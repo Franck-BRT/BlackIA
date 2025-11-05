@@ -161,10 +161,17 @@ export class OllamaClient {
     request: OllamaChatRequest,
     onChunk: StreamCallback
   ): Promise<void> {
+    console.log('[OllamaClient.chatStream] 🚀 Début du chatStream');
+    console.log('[OllamaClient.chatStream] Request:', JSON.stringify(request, null, 2));
+    console.log('[OllamaClient.chatStream] onChunk type:', typeof onChunk);
+
     const response = await this.fetch('/api/chat', {
       method: 'POST',
       body: JSON.stringify({ ...request, stream: true }),
     });
+
+    console.log('[OllamaClient.chatStream] Response reçue, status:', response.status);
+    console.log('[OllamaClient.chatStream] Response.body exists:', !!response.body);
 
     if (!response.ok) {
       throw new OllamaError(
@@ -173,7 +180,9 @@ export class OllamaClient {
       );
     }
 
+    console.log('[OllamaClient.chatStream] ⏳ Début du processStream...');
     await this.processStream<OllamaChatStreamChunk>(response, onChunk);
+    console.log('[OllamaClient.chatStream] ✅ processStream terminé');
   }
 
   /**
@@ -306,6 +315,8 @@ export class OllamaClient {
     response: Response,
     onChunk: (chunk: T) => void
   ): Promise<void> {
+    console.log('[OllamaClient.processStream] 🎬 Début du processStream');
+
     if (!response.body) {
       throw new OllamaStreamError('Pas de corps de réponse pour le stream');
     }
@@ -313,26 +324,39 @@ export class OllamaClient {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let chunkCount = 0;
+
+    console.log('[OllamaClient.processStream] Reader créé, début de la lecture...');
 
     try {
       while (true) {
         const { done, value } = await reader.read();
 
         if (done) {
+          console.log('[OllamaClient.processStream] ✅ Stream terminé, total chunks:', chunkCount);
           break;
         }
 
-        buffer += decoder.decode(value, { stream: true });
+        chunkCount++;
+        const decodedChunk = decoder.decode(value, { stream: true });
+        console.log('[OllamaClient.processStream] 📦 Chunk #' + chunkCount + ' reçu, taille:', decodedChunk.length);
+
+        buffer += decodedChunk;
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
+
+        console.log('[OllamaClient.processStream] Lignes à traiter:', lines.length);
 
         for (const line of lines) {
           if (line.trim()) {
             try {
               const data = JSON.parse(line) as T;
+              console.log('[OllamaClient.processStream] 🔄 Calling onChunk avec data:', JSON.stringify(data).substring(0, 100));
               onChunk(data);
+              console.log('[OllamaClient.processStream] ✅ onChunk appelé avec succès');
             } catch (error) {
-              console.error('Erreur lors du parsing JSON:', error);
+              console.error('[OllamaClient.processStream] ❌ Erreur lors du parsing JSON:', error);
+              console.error('[OllamaClient.processStream] Ligne problématique:', line);
             }
           }
         }
@@ -340,19 +364,25 @@ export class OllamaClient {
 
       // Traiter le reste du buffer
       if (buffer.trim()) {
+        console.log('[OllamaClient.processStream] Traitement du buffer final, taille:', buffer.length);
         try {
           const data = JSON.parse(buffer) as T;
+          console.log('[OllamaClient.processStream] 🔄 Calling onChunk (final) avec data:', JSON.stringify(data).substring(0, 100));
           onChunk(data);
+          console.log('[OllamaClient.processStream] ✅ onChunk final appelé avec succès');
         } catch (error) {
-          console.error('Erreur lors du parsing JSON final:', error);
+          console.error('[OllamaClient.processStream] ❌ Erreur lors du parsing JSON final:', error);
+          console.error('[OllamaClient.processStream] Buffer final problématique:', buffer);
         }
       }
     } catch (error: any) {
+      console.error('[OllamaClient.processStream] ❌ Erreur critique dans le stream:', error);
       throw new OllamaStreamError(
         `Erreur lors du traitement du stream: ${error.message}`
       );
     } finally {
       reader.releaseLock();
+      console.log('[OllamaClient.processStream] 🏁 Fin du processStream');
     }
   }
 
