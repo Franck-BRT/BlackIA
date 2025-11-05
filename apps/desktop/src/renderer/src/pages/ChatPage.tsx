@@ -9,9 +9,9 @@ export function ChatPage() {
   const [messages, setMessages] = useState<OllamaMessage[]>([]);
   const [selectedModel, setSelectedModel] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
   const [streamingMessage, setStreamingMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const currentStreamIdRef = useRef<string | null>(null);
 
   // Auto-scroll vers le bas
   const scrollToBottom = () => {
@@ -24,30 +24,51 @@ export function ChatPage() {
 
   // Setup des listeners pour le streaming
   useEffect(() => {
+    console.log('[ChatPage] 🎧 Enregistrement des listeners de streaming');
+
     // Listener pour les chunks de streaming
     window.electronAPI.ollama.onStreamChunk((data: { streamId: string; chunk: OllamaChatStreamChunk }) => {
-      if (data.streamId === currentStreamId) {
-        setStreamingMessage((prev) => prev + data.chunk.message.content);
+      console.log('[ChatPage] 📥 Chunk reçu:', {
+        receivedStreamId: data.streamId,
+        currentStreamId: currentStreamIdRef.current,
+        content: data.chunk.message.content,
+        done: data.chunk.done,
+      });
+
+      // Utiliser le ref au lieu du state pour éviter les problèmes de timing
+      if (data.streamId === currentStreamIdRef.current) {
+        console.log('[ChatPage] ✅ StreamId match! Traitement du chunk');
+        setStreamingMessage((prev) => {
+          const newContent = prev + data.chunk.message.content;
+          console.log('[ChatPage] 📝 Contenu accumulé:', newContent);
+          return newContent;
+        });
 
         // Si le stream est terminé
         if (data.chunk.done) {
-          const finalMessage: OllamaMessage = {
-            role: 'assistant',
-            content: streamingMessage + data.chunk.message.content,
-          };
-          setMessages((prev) => [...prev, finalMessage]);
-          setStreamingMessage('');
+          console.log('[ChatPage] 🏁 Stream terminé, création du message final');
+          setStreamingMessage((currentContent) => {
+            const finalContent = currentContent + data.chunk.message.content;
+            const finalMessage: OllamaMessage = {
+              role: 'assistant',
+              content: finalContent,
+            };
+            setMessages((prev) => [...prev, finalMessage]);
+            return '';
+          });
           setIsGenerating(false);
-          setCurrentStreamId(null);
+          currentStreamIdRef.current = null;
         }
+      } else {
+        console.log('[ChatPage] ⚠️ StreamId ne correspond pas, chunk ignoré');
       }
     });
 
     // Listener pour les erreurs
     window.electronAPI.ollama.onStreamError((data: { error: string }) => {
-      console.error('Erreur de streaming:', data.error);
+      console.error('[ChatPage] ❌ Erreur de streaming:', data.error);
       setIsGenerating(false);
-      setCurrentStreamId(null);
+      currentStreamIdRef.current = null;
       setStreamingMessage('');
 
       // Ajouter un message d'erreur
@@ -60,10 +81,11 @@ export function ChatPage() {
 
     // Cleanup
     return () => {
+      console.log('[ChatPage] 🧹 Nettoyage des listeners');
       window.electronAPI.ollama.removeAllListeners('ollama:streamChunk');
       window.electronAPI.ollama.removeAllListeners('ollama:streamError');
     };
-  }, [currentStreamId, streamingMessage]);
+  }, []); // Pas de dépendances pour n'enregistrer qu'une seule fois
 
   const handleSendMessage = async (content: string) => {
     if (!selectedModel) {
@@ -82,6 +104,8 @@ export function ChatPage() {
     setStreamingMessage('');
 
     try {
+      console.log('[ChatPage] 📤 Envoi du message au backend');
+
       // Envoyer la requête de chat avec streaming
       const response = await window.electronAPI.ollama.chatStream({
         model: selectedModel,
@@ -93,7 +117,8 @@ export function ChatPage() {
         },
       });
 
-      setCurrentStreamId(response.streamId);
+      console.log('[ChatPage] ✅ Réponse reçue, streamId:', response.streamId);
+      currentStreamIdRef.current = response.streamId;
     } catch (error: any) {
       console.error('Erreur lors de l\'envoi du message:', error);
       setIsGenerating(false);
@@ -109,7 +134,7 @@ export function ChatPage() {
   const handleStop = () => {
     // TODO: Implémenter l'arrêt du streaming
     setIsGenerating(false);
-    setCurrentStreamId(null);
+    currentStreamIdRef.current = null;
 
     if (streamingMessage) {
       // Sauvegarder le message partiel
@@ -127,7 +152,7 @@ export function ChatPage() {
       setMessages([]);
       setStreamingMessage('');
       setIsGenerating(false);
-      setCurrentStreamId(null);
+      currentStreamIdRef.current = null;
     }
   };
 
