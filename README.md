@@ -22,10 +22,44 @@ BlackIA est une suite complète d'assistance IA fonctionnant intégralement en l
 - **MLX** - Framework ML optimisé pour Apple Silicon
 - **100% Local** - Toutes vos données restent sur votre machine
 
+## Statut du Projet
+
+🚧 **En développement actif** - Version 0.1.0 MVP
+
+Actuellement implémenté :
+- ✅ Architecture de base (Electron + React + TypeScript)
+- ✅ Interface utilisateur avec thème glassmorphism
+- ✅ Navigation et routing
+- ✅ Structure modulaire extensible
+
+À venir :
+- ⏳ Intégration Ollama
+- ⏳ Intégration MLX
+- ⏳ Module Chat
+- ⏳ Workflow Engine
+- ⏳ Et plus...
+
+## Installation
+
+```bash
+# Prérequis : Node.js 20+, pnpm 8+
+git clone https://github.com/Franck-BRT/BlackIA.git
+cd BlackIA
+pnpm install
+
+# Lancer en mode développement
+pnpm desktop:dev
+```
+
 ## Documentation
 
-- [Cahier des Charges](CAHIER_DES_CHARGES.md) - Vision produit et spécifications fonctionnelles
-- [Décisions Techniques](DECISIONS_TECHNIQUES.md) - Choix technologiques et architecture détaillée
+- 📖 [Cahier des Charges](CAHIER_DES_CHARGES.md) - Vision produit et spécifications fonctionnelles
+- 🏗️ [Décisions Techniques](DECISIONS_TECHNIQUES.md) - Choix technologiques et architecture détaillée
+- 💻 [Guide de Développement](DEVELOPMENT.md) - Setup, scripts, conventions
+
+## Contribuer
+
+Les contributions sont les bienvenues ! Consultez le [Guide de Développement](DEVELOPMENT.md) pour commencer.
 
 ## Licence
 
