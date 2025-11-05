@@ -75,7 +75,8 @@ export function useConversations() {
   // Mettre à jour une conversation
   const updateConversation = useCallback((
     id: string,
-    updates: Partial<Omit<Conversation, 'id' | 'createdAt'>>
+    updates: Partial<Omit<Conversation, 'id' | 'createdAt'>>,
+    skipSort: boolean = false
   ) => {
     setConversations((prev) => {
       const updated = prev.map((conv) => {
@@ -89,13 +90,16 @@ export function useConversations() {
         return conv;
       });
 
-      // Re-trier par date de mise à jour
-      updated.sort((a, b) => b.updatedAt - a.updatedAt);
+      // Re-trier par date de mise à jour seulement si demandé
+      if (!skipSort) {
+        updated.sort((a, b) => b.updatedAt - a.updatedAt);
+      }
+
       saveToStorage(updated);
       return updated;
     });
 
-    console.log('[useConversations] Conversation mise à jour:', id);
+    console.log('[useConversations] Conversation mise à jour:', id, 'skipSort:', skipSort);
   }, [saveToStorage]);
 
   // Supprimer une conversation

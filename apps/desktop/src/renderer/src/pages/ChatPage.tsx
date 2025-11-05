@@ -27,6 +27,7 @@ export function ChatPage() {
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentStreamIdRef = useRef<string | null>(null);
+  const previousMessagesLengthRef = useRef<number>(0);
 
   // Hook pour gérer les conversations
   const {
@@ -54,12 +55,23 @@ export function ChatPage() {
   useEffect(() => {
     if (currentConversationId && messages.length > 0) {
       const title = generateTitle(messages);
-      updateConversation(currentConversationId, {
-        messages,
-        model: selectedModel,
-        title,
-      });
-      console.log('[ChatPage] 💾 Conversation auto-sauvegardée:', currentConversationId);
+
+      // Déterminer si c'est un nouveau message ou juste un chargement
+      const isNewMessage = messages.length > previousMessagesLengthRef.current;
+      previousMessagesLengthRef.current = messages.length;
+
+      // Ne pas réorganiser la liste si on ne fait que charger
+      updateConversation(
+        currentConversationId,
+        {
+          messages,
+          model: selectedModel,
+          title,
+        },
+        !isNewMessage // skipSort = true si pas de nouveau message
+      );
+
+      console.log('[ChatPage] 💾 Conversation auto-sauvegardée:', currentConversationId, 'isNewMessage:', isNewMessage);
     }
   }, [messages, currentConversationId, selectedModel, updateConversation, generateTitle]);
 
@@ -187,6 +199,7 @@ export function ChatPage() {
     setStreamingMessage('');
     setIsGenerating(false);
     currentStreamIdRef.current = null;
+    previousMessagesLengthRef.current = 0;
 
     console.log('[ChatPage] ✨ Prêt pour une nouvelle conversation');
   };
@@ -200,6 +213,10 @@ export function ChatPage() {
       setStreamingMessage('');
       setIsGenerating(false);
       currentStreamIdRef.current = null;
+
+      // Mettre à jour le ref pour que l'auto-save ne considère pas ça comme un nouveau message
+      previousMessagesLengthRef.current = conv.messages.length;
+
       console.log('[ChatPage] 📂 Conversation chargée:', id, 'Messages:', conv.messages.length);
     }
   };
