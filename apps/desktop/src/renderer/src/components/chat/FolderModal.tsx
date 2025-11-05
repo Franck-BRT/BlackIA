@@ -58,7 +58,7 @@ export function FolderModal({
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="glass-card rounded-2xl w-full max-w-md m-4">
+      <div className="glass-card bg-gray-900/95 rounded-2xl w-full max-w-md m-4">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
