@@ -17,6 +17,7 @@ export function ChatPage() {
   const [streamingMessage, setStreamingMessage] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [regenerationCounts, setRegenerationCounts] = useState<Map<number, number>>(new Map());
   const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
     // Charger les settings depuis localStorage au démarrage
     try {
@@ -211,6 +212,7 @@ export function ChatPage() {
     setIsGenerating(false);
     currentStreamIdRef.current = null;
     previousMessagesLengthRef.current = 0;
+    setRegenerationCounts(new Map());
 
     console.log('[ChatPage] ✨ Prêt pour une nouvelle conversation');
   };
@@ -224,6 +226,7 @@ export function ChatPage() {
       setStreamingMessage('');
       setIsGenerating(false);
       currentStreamIdRef.current = null;
+      setRegenerationCounts(new Map());
 
       // Mettre à jour le ref pour que l'auto-save ne considère pas ça comme un nouveau message
       previousMessagesLengthRef.current = conv.messages.length;
@@ -331,6 +334,71 @@ export function ChatPage() {
       setStreamingMessage('');
       setIsGenerating(false);
       currentStreamIdRef.current = null;
+      setRegenerationCounts(new Map());
+    }
+  };
+
+  // Régénérer la dernière réponse de l'IA
+  const handleRegenerate = async () => {
+    if (isGenerating) {
+      return;
+    }
+
+    // Trouver le dernier message assistant
+    const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant');
+    if (lastAssistantIndex === -1) {
+      return;
+    }
+
+    // Supprimer le dernier message assistant
+    const updatedMessages = messages.slice(0, lastAssistantIndex);
+    setMessages(updatedMessages);
+
+    // Incrémenter le compteur de régénération pour ce message
+    setRegenerationCounts((prev) => {
+      const newCounts = new Map(prev);
+      const currentCount = newCounts.get(lastAssistantIndex) || 0;
+      newCounts.set(lastAssistantIndex, currentCount + 1);
+      return newCounts;
+    });
+
+    try {
+      console.log('[ChatPage] 🔄 Régénération de la réponse');
+
+      // Construire la liste des messages avec le system prompt si défini
+      const messagesToSend: OllamaMessage[] = [];
+
+      if (chatSettings.systemPrompt.trim()) {
+        messagesToSend.push({
+          role: 'system',
+          content: chatSettings.systemPrompt,
+        });
+      }
+
+      messagesToSend.push(...updatedMessages);
+
+      // Relancer la génération avec le même contexte
+      await window.electronAPI.ollama.chatStream({
+        model: selectedModel,
+        messages: messagesToSend,
+        stream: true,
+        options: {
+          temperature: chatSettings.temperature,
+          num_ctx: chatSettings.maxTokens,
+          top_p: chatSettings.topP,
+        },
+      });
+
+      console.log('[ChatPage] ✅ Régénération lancée');
+    } catch (error: any) {
+      console.error('Erreur lors de la régénération:', error);
+      setIsGenerating(false);
+
+      const errorMessage: OllamaMessage = {
+        role: 'system',
+        content: `❌ Erreur: ${error.message || 'Erreur inconnue'}`,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     }
   };
 
@@ -432,9 +500,21 @@ export function ChatPage() {
           </div>
         ) : (
           <div className="max-w-4xl mx-auto">
-            {messages.map((message, index) => (
-              <ChatMessage key={index} message={message} />
-            ))}
+            {messages.map((message, index) => {
+              // Déterminer si c'est le dernier message assistant
+              const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant');
+              const isLastAssistantMessage = message.role === 'assistant' && index === lastAssistantIndex && !isGenerating;
+
+              return (
+                <ChatMessage
+                  key={index}
+                  message={message}
+                  regenerationCount={regenerationCounts.get(index) || 0}
+                  onRegenerate={isLastAssistantMessage ? handleRegenerate : undefined}
+                  isLastAssistantMessage={isLastAssistantMessage}
+                />
+              );
+            })}
 
             {/* Message en cours de streaming */}
             {streamingMessage && (
