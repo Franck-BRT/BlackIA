@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
+import { registerOllamaHandlers } from './ollama-handlers';
 
 // __dirname and __filename are available in CommonJS mode
 
@@ -43,6 +44,9 @@ function createWindow() {
 
 // App lifecycle
 app.whenReady().then(() => {
+  // Enregistrer les handlers IPC Ollama
+  registerOllamaHandlers();
+
   createWindow();
 
   app.on('activate', () => {

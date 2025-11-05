@@ -18,6 +18,7 @@
   "dependencies": {
     "@blackia/shared": "workspace:*",
     "@blackia/ui": "workspace:*",
+    "@blackia/ollama": "workspace:*",
     "electron-trpc": "^0.5.2",
     "@trpc/client": "^10.45.0",
     "@trpc/server": "^10.45.0",
