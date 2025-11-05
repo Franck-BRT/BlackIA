@@ -72,24 +72,13 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
     html = html.replace(/^##\s+(.+)$/gm, '<h2 class="markdown-h2">$1</h2>');
     html = html.replace(/^#\s+(.+)$/gm, '<h1 class="markdown-h1">$1</h1>');
 
-    // Gras (**text** ou __text__)
-    html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="markdown-bold">$1</strong>');
-    html = html.replace(/__(.+?)__/g, '<strong class="markdown-bold">$1</strong>');
-
-    // Italique (*text* ou _text_) - attention à ne pas matcher les **
-    html = html.replace(/\*([^\*]+?)\*/g, '<em class="markdown-italic">$1</em>');
-    html = html.replace(/_([^_]+?)_/g, '<em class="markdown-italic">$1</em>');
-
-    // Liens [text](url)
-    html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" class="markdown-link" target="_blank" rel="noopener noreferrer">$1</a>');
-
-    // Listes non ordonnées (- item ou * item)
+    // Listes non ordonnées (- item ou * item) - AVANT le gras/italique
     html = html.replace(/^[\*\-]\s+(.+)$/gm, '<li class="markdown-list-item">$1</li>');
 
-    // Listes ordonnées (1. item)
+    // Listes ordonnées (1. item) - AVANT le gras/italique
     html = html.replace(/^\d+\.\s+(.+)$/gm, '<li class="markdown-ordered-list-item">$1</li>');
 
-    // Grouper les items de liste consécutifs
+    // Grouper les items de liste consécutifs (les \n ne sont pas encore convertis en <br />)
     html = html.replace(/(<li class="markdown-list-item">[\s\S]+?<\/li>\n?)+/g, (match) => {
       return `<ul class="markdown-list">${match}</ul>`;
     });
@@ -97,6 +86,17 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
     html = html.replace(/(<li class="markdown-ordered-list-item">[\s\S]+?<\/li>\n?)+/g, (match) => {
       return `<ol class="markdown-ordered-list">${match}</ol>`;
     });
+
+    // Gras (**text** ou __text__)
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong class="markdown-bold">$1</strong>');
+    html = html.replace(/__(.+?)__/g, '<strong class="markdown-bold">$1</strong>');
+
+    // Italique (*text* ou _text_) - attention à ne pas matcher les **
+    html = html.replace(/\*([^\*\n]+?)\*/g, '<em class="markdown-italic">$1</em>');
+    html = html.replace(/_([^_\n]+?)_/g, '<em class="markdown-italic">$1</em>');
+
+    // Liens [text](url)
+    html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" class="markdown-link" target="_blank" rel="noopener noreferrer">$1</a>');
 
     // Citations (> text)
     html = html.replace(/^&gt;\s+(.+)$/gm, '<blockquote class="markdown-blockquote">$1</blockquote>');
