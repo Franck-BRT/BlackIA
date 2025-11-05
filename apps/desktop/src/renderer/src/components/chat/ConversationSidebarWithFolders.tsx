@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2, FolderOpen } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { FolderModal } from './FolderModal';
+import { RenameConversationModal } from './RenameConversationModal';
 import { groupConversationsByDate } from '../../hooks/useConversations';
 import type { Conversation, Folder } from '../../hooks/useConversations';
 
@@ -17,6 +18,7 @@ interface ConversationSidebarProps {
   onRenameFolder: (id: string, newName: string) => void;
   onDeleteFolder: (id: string) => void;
   onMoveToFolder: (conversationId: string, folderId: string | null) => void;
+  onRenameConversation: (conversationId: string, newTitle: string) => void;
 }
 
 export function ConversationSidebar({
@@ -30,10 +32,12 @@ export function ConversationSidebar({
   onRenameFolder,
   onDeleteFolder,
   onMoveToFolder,
+  onRenameConversation,
 }: ConversationSidebarProps) {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [contextMenu, setContextMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
+  const [renamingConversation, setRenamingConversation] = useState<Conversation | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // Fermer le menu contextuel si on clique à l'extérieur
@@ -104,6 +108,16 @@ export function ConversationSidebar({
 
       {/* Actions */}
       <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 z-10">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setRenamingConversation(conv);
+          }}
+          className="p-1.5 rounded-lg hover:bg-blue-500/20 transition-all text-blue-400"
+          title="Renommer"
+        >
+          <Edit2 className="w-4 h-4" />
+        </button>
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -273,6 +287,19 @@ export function ConversationSidebar({
         initialName={editingFolder?.name}
         initialColor={editingFolder?.color}
         title={editingFolder ? 'Modifier le dossier' : 'Nouveau dossier'}
+      />
+
+      {/* Rename Conversation Modal */}
+      <RenameConversationModal
+        isOpen={!!renamingConversation}
+        onClose={() => setRenamingConversation(null)}
+        onSave={(newTitle) => {
+          if (renamingConversation) {
+            onRenameConversation(renamingConversation.id, newTitle);
+          }
+          setRenamingConversation(null);
+        }}
+        currentTitle={renamingConversation?.title || ''}
       />
     </div>
   );

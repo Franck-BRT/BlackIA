@@ -42,6 +42,7 @@ export function ChatPage() {
     getCurrentConversation,
     generateTitle,
     moveToFolder,
+    renameConversation,
   } = useConversations();
 
   // Hook pour gérer les dossiers
@@ -365,6 +366,7 @@ export function ChatPage() {
             onRenameFolder={renameFolder}
             onDeleteFolder={handleDeleteFolder}
             onMoveToFolder={moveToFolder}
+            onRenameConversation={renameConversation}
           />
         </div>
       )}

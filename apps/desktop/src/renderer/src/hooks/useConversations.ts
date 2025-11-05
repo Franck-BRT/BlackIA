@@ -197,6 +197,19 @@ export function useConversations() {
     console.log('[useConversations] Conversation déplacée:', conversationId, '→', folderId);
   }, [saveToStorage]);
 
+  // Renommer une conversation
+  const renameConversation = useCallback((conversationId: string, newTitle: string) => {
+    setConversations((prev) => {
+      const updated = prev.map((conv) =>
+        conv.id === conversationId ? { ...conv, title: newTitle.trim() } : conv
+      );
+      saveToStorage(updated);
+      return updated;
+    });
+
+    console.log('[useConversations] Conversation renommée:', conversationId, '→', newTitle);
+  }, [saveToStorage]);
+
   // Générer un titre automatique basé sur le premier message
   const generateTitle = useCallback((messages: OllamaMessage[]): string => {
     if (messages.length === 0) return 'Nouvelle conversation';
@@ -220,5 +233,6 @@ export function useConversations() {
     getCurrentConversation,
     generateTitle,
     moveToFolder,
+    renameConversation,
   };
 }
