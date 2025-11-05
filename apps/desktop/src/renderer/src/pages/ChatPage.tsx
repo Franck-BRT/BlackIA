@@ -402,6 +402,74 @@ export function ChatPage() {
     }
   };
 
+  // Éditer le dernier message utilisateur et régénérer la réponse
+  const handleEditUserMessage = async (newContent: string) => {
+    if (isGenerating) {
+      return;
+    }
+
+    // Trouver le dernier message utilisateur
+    const lastUserIndex = messages.findLastIndex((m) => m.role === 'user');
+    if (lastUserIndex === -1) {
+      return;
+    }
+
+    // Mettre à jour le message utilisateur
+    const updatedMessages = [...messages];
+    updatedMessages[lastUserIndex] = {
+      ...updatedMessages[lastUserIndex],
+      content: newContent,
+    };
+
+    // Trouver et supprimer le dernier message assistant s'il existe
+    const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant');
+    if (lastAssistantIndex > lastUserIndex) {
+      // Il y a une réponse après le message utilisateur, la supprimer
+      updatedMessages.splice(lastAssistantIndex, 1);
+    }
+
+    setMessages(updatedMessages);
+
+    try {
+      console.log('[ChatPage] ✏️ Édition du message et régénération');
+
+      // Construire la liste des messages avec le system prompt si défini
+      const messagesToSend: OllamaMessage[] = [];
+
+      if (chatSettings.systemPrompt.trim()) {
+        messagesToSend.push({
+          role: 'system',
+          content: chatSettings.systemPrompt,
+        });
+      }
+
+      messagesToSend.push(...updatedMessages);
+
+      // Relancer la génération avec le message édité
+      await window.electronAPI.ollama.chatStream({
+        model: selectedModel,
+        messages: messagesToSend,
+        stream: true,
+        options: {
+          temperature: chatSettings.temperature,
+          num_ctx: chatSettings.maxTokens,
+          top_p: chatSettings.topP,
+        },
+      });
+
+      console.log('[ChatPage] ✅ Régénération lancée après édition');
+    } catch (error: any) {
+      console.error('Erreur lors de la régénération après édition:', error);
+      setIsGenerating(false);
+
+      const errorMessage: OllamaMessage = {
+        role: 'system',
+        content: `❌ Erreur: ${error.message || 'Erreur inconnue'}`,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
+  };
+
   // Supprimer un dossier et remettre ses conversations dans "sans dossier"
   const handleDeleteFolder = (folderId: string) => {
     // Trouver toutes les conversations dans ce dossier
@@ -505,6 +573,10 @@ export function ChatPage() {
               const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant');
               const isLastAssistantMessage = message.role === 'assistant' && index === lastAssistantIndex && !isGenerating;
 
+              // Déterminer si c'est le dernier message utilisateur
+              const lastUserIndex = messages.findLastIndex((m) => m.role === 'user');
+              const isLastUserMessage = message.role === 'user' && index === lastUserIndex && !isGenerating;
+
               return (
                 <ChatMessage
                   key={index}
@@ -512,6 +584,8 @@ export function ChatPage() {
                   regenerationCount={regenerationCounts.get(index) || 0}
                   onRegenerate={isLastAssistantMessage ? handleRegenerate : undefined}
                   isLastAssistantMessage={isLastAssistantMessage}
+                  isLastUserMessage={isLastUserMessage}
+                  onEdit={isLastUserMessage ? handleEditUserMessage : undefined}
                 />
               );
             })}
