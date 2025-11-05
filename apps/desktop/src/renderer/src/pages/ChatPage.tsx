@@ -372,7 +372,7 @@ export function ChatPage() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 glass-card border-b border-white/10">
+        <div className="flex items-center justify-between p-4 glass-card border-b border-white/10 relative z-10">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
