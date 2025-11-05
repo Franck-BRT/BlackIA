@@ -10,8 +10,49 @@ export interface Conversation {
   updatedAt: number;
 }
 
+export interface ConversationGroup {
+  label: string;
+  conversations: Conversation[];
+}
+
 const STORAGE_KEY = 'conversations';
 const MAX_CONVERSATIONS = 50; // Limiter le nombre de conversations stockées
+
+/**
+ * Groupe les conversations par période
+ */
+export function groupConversationsByDate(conversations: Conversation[]): ConversationGroup[] {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterdayStart = todayStart - 24 * 60 * 60 * 1000;
+  const weekStart = todayStart - 7 * 24 * 60 * 60 * 1000;
+  const monthStart = todayStart - 30 * 24 * 60 * 60 * 1000;
+
+  const groups: ConversationGroup[] = [
+    { label: "Aujourd'hui", conversations: [] },
+    { label: 'Hier', conversations: [] },
+    { label: 'Cette semaine', conversations: [] },
+    { label: 'Ce mois', conversations: [] },
+    { label: 'Plus ancien', conversations: [] },
+  ];
+
+  for (const conv of conversations) {
+    if (conv.updatedAt >= todayStart) {
+      groups[0].conversations.push(conv);
+    } else if (conv.updatedAt >= yesterdayStart) {
+      groups[1].conversations.push(conv);
+    } else if (conv.updatedAt >= weekStart) {
+      groups[2].conversations.push(conv);
+    } else if (conv.updatedAt >= monthStart) {
+      groups[3].conversations.push(conv);
+    } else {
+      groups[4].conversations.push(conv);
+    }
+  }
+
+  // Filtrer les groupes vides
+  return groups.filter((group) => group.conversations.length > 0);
+}
 
 /**
  * Hook pour gérer les conversations avec persistance localStorage

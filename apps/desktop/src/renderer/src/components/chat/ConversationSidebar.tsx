@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { MessageSquare, Trash2, Plus } from 'lucide-react';
+import { CollapsibleSection } from './CollapsibleSection';
+import { groupConversationsByDate } from '../../hooks/useConversations';
 import type { Conversation } from '../../hooks/useConversations';
 
 interface ConversationSidebarProps {
@@ -17,21 +19,49 @@ export function ConversationSidebar({
   onNewConversation,
   onDeleteConversation,
 }: ConversationSidebarProps) {
-  const formatDate = (timestamp: number): string => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  // Grouper les conversations par date
+  const conversationGroups = useMemo(() => {
+    return groupConversationsByDate(conversations);
+  }, [conversations]);
 
-    if (diffDays === 0) return "Aujourd'hui";
-    if (diffDays === 1) return 'Hier';
-    if (diffDays < 7) return `Il y a ${diffDays} jours`;
+  const renderConversation = (conv: Conversation) => (
+    <div
+      key={conv.id}
+      className={`group relative rounded-xl transition-colors cursor-pointer ${
+        currentConversationId === conv.id
+          ? 'bg-blue-500/20 hover:bg-blue-500/30'
+          : 'hover:bg-white/5'
+      }`}
+    >
+      <div onClick={() => onSelectConversation(conv.id)} className="p-3 pr-10">
+        <div className="flex items-start gap-3">
+          <MessageSquare className="w-4 h-4 mt-1 flex-shrink-0 text-muted-foreground" />
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-medium truncate">{conv.title}</h3>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-xs text-muted-foreground truncate">{conv.model}</span>
+              <span className="text-xs text-muted-foreground">•</span>
+              <span className="text-xs text-muted-foreground">{conv.messages.length} msg</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    return date.toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'short',
-    });
-  };
+      {/* Delete Button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (confirm(`Supprimer "${conv.title}" ?`)) {
+            onDeleteConversation(conv.id);
+          }
+        }}
+        className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-500/20 transition-all text-red-400"
+        title="Supprimer"
+      >
+        <Trash2 className="w-4 h-4" />
+      </button>
+    </div>
+  );
 
   return (
     <div className="h-full flex flex-col glass-card border-r border-white/10">
@@ -55,54 +85,17 @@ export function ConversationSidebar({
             <p className="text-xs mt-1">Commencez une nouvelle conversation</p>
           </div>
         ) : (
-          <div className="p-2 space-y-1">
-            {conversations.map((conv) => (
-              <div
-                key={conv.id}
-                className={`group relative rounded-xl transition-colors cursor-pointer ${
-                  currentConversationId === conv.id
-                    ? 'bg-blue-500/20 hover:bg-blue-500/30'
-                    : 'hover:bg-white/5'
-                }`}
+          <div className="p-2">
+            {conversationGroups.map((group) => (
+              <CollapsibleSection
+                key={group.label}
+                label={group.label}
+                count={group.conversations.length}
+                defaultOpen={true}
+                storageKey={`sidebar-group-${group.label}`}
               >
-                <div
-                  onClick={() => onSelectConversation(conv.id)}
-                  className="p-3 pr-10"
-                >
-                  <div className="flex items-start gap-3">
-                    <MessageSquare className="w-4 h-4 mt-1 flex-shrink-0 text-muted-foreground" />
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium truncate">{conv.title}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(conv.updatedAt)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">•</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          {conv.model}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {conv.messages.length} messages
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Delete Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm(`Supprimer "${conv.title}" ?`)) {
-                      onDeleteConversation(conv.id);
-                    }
-                  }}
-                  className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-500/20 transition-all text-red-400"
-                  title="Supprimer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+                {group.conversations.map((conv) => renderConversation(conv))}
+              </CollapsibleSection>
             ))}
           </div>
         )}
