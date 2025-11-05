@@ -333,6 +333,22 @@ export function ChatPage() {
     }
   };
 
+  // Supprimer un dossier et remettre ses conversations dans "sans dossier"
+  const handleDeleteFolder = (folderId: string) => {
+    // Trouver toutes les conversations dans ce dossier
+    const conversationsInFolder = conversations.filter((conv) => conv.folderId === folderId);
+
+    // Déplacer chaque conversation vers "sans dossier"
+    conversationsInFolder.forEach((conv) => {
+      moveToFolder(conv.id, null);
+    });
+
+    // Supprimer le dossier
+    deleteFolder(folderId);
+
+    console.log('[ChatPage] 🗑️ Dossier supprimé:', folderId, 'Conversations déplacées:', conversationsInFolder.length);
+  };
+
   return (
     <div className="h-full flex">
       {/* Sidebar */}
@@ -347,7 +363,7 @@ export function ChatPage() {
             onDeleteConversation={deleteConversation}
             onCreateFolder={createFolder}
             onRenameFolder={renameFolder}
-            onDeleteFolder={deleteFolder}
+            onDeleteFolder={handleDeleteFolder}
             onMoveToFolder={moveToFolder}
           />
         </div>
