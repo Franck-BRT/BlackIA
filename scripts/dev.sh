@@ -155,6 +155,10 @@ case $MODE in
             rm -f apps/desktop/tsconfig.tsbuildinfo
             log_success "  → apps/desktop/tsconfig.tsbuildinfo supprimé"
         fi
+        if [ -f "apps/desktop/tsconfig.main.tsbuildinfo" ]; then
+            rm -f apps/desktop/tsconfig.main.tsbuildinfo
+            log_success "  → apps/desktop/tsconfig.main.tsbuildinfo supprimé"
+        fi
 
         log_success "Nettoyage terminé !"
         echo ""
@@ -173,6 +177,17 @@ case $MODE in
         log_info "Compilation des packages..."
         echo ""
         build_package "@blackia/ollama" "$PROJECT_ROOT/packages/ollama"
+
+        log_info "Compilation du main process de l'app desktop..."
+        cd "$PROJECT_ROOT/apps/desktop"
+        if [ -f "tsconfig.main.json" ]; then
+            if npx tsc -p tsconfig.main.json --skipLibCheck 2>&1 | grep -q "error TS"; then
+                log_warning "  → Erreurs de compilation détectées (fichiers existants utilisés)"
+            else
+                log_success "  → Main process compilé avec succès"
+            fi
+        fi
+        cd "$PROJECT_ROOT"
         echo ""
 
         # Lancer l'app
@@ -185,6 +200,24 @@ case $MODE in
         log_info "Compilation des packages uniquement"
         echo ""
         build_package "@blackia/ollama" "$PROJECT_ROOT/packages/ollama"
+
+        log_info "Compilation du main process de l'app desktop..."
+        cd "$PROJECT_ROOT/apps/desktop"
+        if [ -f "tsconfig.main.json" ]; then
+            # Nettoyer le cache
+            if [ -f "tsconfig.tsbuildinfo" ]; then
+                rm -f tsconfig.tsbuildinfo
+                log_info "  → Nettoyage du cache TypeScript"
+            fi
+
+            # Compiler le main process (avec --skipLibCheck pour éviter les erreurs de types)
+            if npx tsc -p tsconfig.main.json --skipLibCheck 2>&1 | grep -q "error TS"; then
+                log_warning "  → Erreurs de compilation détectées (fichiers existants utilisés)"
+            else
+                log_success "  → Main process compilé avec succès"
+            fi
+        fi
+        cd "$PROJECT_ROOT"
         echo ""
         log_success "Compilation terminée !"
         ;;
@@ -202,6 +235,18 @@ case $MODE in
 
         # Compiler le package Ollama
         build_package "@blackia/ollama" "$PROJECT_ROOT/packages/ollama"
+
+        # Compiler le main process de l'app desktop
+        log_info "Compilation du main process de l'app desktop..."
+        cd "$PROJECT_ROOT/apps/desktop"
+        if [ -f "tsconfig.main.json" ]; then
+            if npx tsc -p tsconfig.main.json --skipLibCheck 2>&1 | grep -q "error TS"; then
+                log_warning "  → Erreurs de compilation détectées (fichiers existants utilisés)"
+            else
+                log_success "  → Main process compilé avec succès"
+            fi
+        fi
+        cd "$PROJECT_ROOT"
         echo ""
 
         # Lancer l'application
