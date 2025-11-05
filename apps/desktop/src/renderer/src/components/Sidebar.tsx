@@ -6,7 +6,7 @@ import {
   FileText,
   User,
   Sparkles,
-  FolderCode,
+  FolderOpen,
   ScrollText,
   Settings,
   Home,
@@ -25,7 +25,7 @@ const navItems: NavItem[] = [
   { icon: Workflow, label: 'Workflows', path: '/workflows' },
   { icon: FileText, label: 'Prompts', path: '/prompts' },
   { icon: User, label: 'Personas', path: '/personas' },
-  { icon: FolderCode, label: 'Projets', path: '/projects' },
+  { icon: FolderOpen, label: 'Projets', path: '/projects' },
   { icon: ScrollText, label: 'Logs', path: '/logs' },
 ];
 
