@@ -32,6 +32,7 @@ export function ChatPage() {
   const {
     conversations,
     currentConversationId,
+    setCurrentConversationId,
     createConversation,
     updateConversation,
     deleteConversation,
@@ -179,12 +180,15 @@ export function ChatPage() {
       return;
     }
 
+    // Reset l'UI et le currentConversationId
+    // La conversation sera créée automatiquement au premier message
+    setCurrentConversationId(null);
     setMessages([]);
     setStreamingMessage('');
     setIsGenerating(false);
     currentStreamIdRef.current = null;
 
-    console.log('[ChatPage] ✨ Nouvelle conversation');
+    console.log('[ChatPage] ✨ Prêt pour une nouvelle conversation');
   };
 
   // Charger une conversation

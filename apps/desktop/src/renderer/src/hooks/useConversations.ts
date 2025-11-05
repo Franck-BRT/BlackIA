@@ -145,6 +145,7 @@ export function useConversations() {
   return {
     conversations,
     currentConversationId,
+    setCurrentConversationId,
     createConversation,
     updateConversation,
     deleteConversation,
