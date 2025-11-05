@@ -3,6 +3,7 @@ import { Trash2, Settings } from 'lucide-react';
 import { ChatMessage } from '../components/chat/ChatMessage';
 import { ChatInput } from '../components/chat/ChatInput';
 import { ModelSelector } from '../components/chat/ModelSelector';
+import { ChatSettings, ChatSettingsData, DEFAULT_CHAT_SETTINGS } from '../components/chat/ChatSettings';
 import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
 
 export function ChatPage() {
@@ -10,6 +11,16 @@ export function ChatPage() {
   const [selectedModel, setSelectedModel] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
+    // Charger les settings depuis localStorage au démarrage
+    try {
+      const saved = localStorage.getItem('chatSettings');
+      return saved ? JSON.parse(saved) : DEFAULT_CHAT_SETTINGS;
+    } catch {
+      return DEFAULT_CHAT_SETTINGS;
+    }
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentStreamIdRef = useRef<string | null>(null);
 
@@ -149,16 +160,30 @@ export function ChatPage() {
 
     try {
       console.log('[ChatPage] 📤 Envoi du message au backend');
+      console.log('[ChatPage] 📋 Settings:', chatSettings);
+
+      // Construire la liste des messages avec le system prompt si défini
+      const messagesToSend: OllamaMessage[] = [];
+
+      if (chatSettings.systemPrompt.trim()) {
+        messagesToSend.push({
+          role: 'system',
+          content: chatSettings.systemPrompt,
+        });
+      }
+
+      messagesToSend.push(...messages, userMessage);
 
       // Envoyer la requête de chat avec streaming
       // Le streamId sera défini par le listener onStreamStart
       await window.electronAPI.ollama.chatStream({
         model: selectedModel,
-        messages: [...messages, userMessage],
+        messages: messagesToSend,
         stream: true,
         options: {
-          temperature: 0.7,
-          num_ctx: 4096,
+          temperature: chatSettings.temperature,
+          num_ctx: chatSettings.maxTokens,
+          top_p: chatSettings.topP,
         },
       });
 
@@ -233,6 +258,7 @@ export function ChatPage() {
             <Trash2 className="w-5 h-5 text-red-400" />
           </button>
           <button
+            onClick={() => setIsSettingsOpen(true)}
             className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
             title="Paramètres"
           >
@@ -296,6 +322,19 @@ export function ChatPage() {
           />
         </div>
       </div>
+
+      {/* Settings Modal */}
+      <ChatSettings
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={chatSettings}
+        onSave={(newSettings) => {
+          console.log('[ChatPage] 💾 Nouveaux settings sauvegardés:', newSettings);
+          setChatSettings(newSettings);
+          // Persister dans localStorage
+          localStorage.setItem('chatSettings', JSON.stringify(newSettings));
+        }}
+      />
     </div>
   );
 }
