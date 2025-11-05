@@ -18,13 +18,25 @@ export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorPro
       setIsLoading(true);
       setError(null);
 
+      console.log('=== DEBUG ModelSelector ===');
+      console.log('window.electronAPI:', window.electronAPI);
+      console.log('window.electronAPI.ollama:', window.electronAPI?.ollama);
+
+      if (!window.electronAPI?.ollama) {
+        setError('API Ollama non disponible. Redémarrez l\'application.');
+        return;
+      }
+
       const isAvailable = await window.electronAPI.ollama.isAvailable();
+      console.log('isAvailable:', isAvailable);
+
       if (!isAvailable) {
         setError('Ollama n\'est pas accessible. Assurez-vous qu\'il est démarré.');
         return;
       }
 
       const modelsList = await window.electronAPI.ollama.listModels();
+      console.log('modelsList:', modelsList);
       setModels(modelsList);
 
       // Si aucun modèle n'est sélectionné et qu'il y en a, sélectionner le premier
