@@ -128,25 +128,23 @@ export function registerOllamaHandlers(): void {
       let chunkCount = 0;
       console.log('[IPC Handler] ⏳ Début du chatStream...');
 
-      await client.chatStream(request, (chunk) => {
-        // Vérifier si le stream a été stoppé
-        if (abortController.signal.aborted) {
-          console.log('[IPC Handler] 🛑 Stream stoppé par l\'utilisateur');
-          throw new Error('Stream arrêté par l\'utilisateur');
-        }
+      await client.chatStream(
+        request,
+        (chunk) => {
+          chunkCount++;
+          console.log('[IPC Handler] 📦 Chunk #' + chunkCount + ' reçu du client');
+          console.log('[IPC Handler] Chunk data:', JSON.stringify(chunk).substring(0, 150));
 
-        chunkCount++;
-        console.log('[IPC Handler] 📦 Chunk #' + chunkCount + ' reçu du client');
-        console.log('[IPC Handler] Chunk data:', JSON.stringify(chunk).substring(0, 150));
-
-        // Envoyer chaque chunk au renderer
-        console.log('[IPC Handler] 📤 Envoi event ollama:streamChunk #' + chunkCount);
-        event.sender.send('ollama:streamChunk', {
-          streamId,
-          chunk,
-        });
-        console.log('[IPC Handler] ✅ Event ollama:streamChunk #' + chunkCount + ' envoyé');
-      });
+          // Envoyer chaque chunk au renderer
+          console.log('[IPC Handler] 📤 Envoi event ollama:streamChunk #' + chunkCount);
+          event.sender.send('ollama:streamChunk', {
+            streamId,
+            chunk,
+          });
+          console.log('[IPC Handler] ✅ Event ollama:streamChunk #' + chunkCount + ' envoyé');
+        },
+        abortController.signal
+      );
 
       console.log('[IPC Handler] ✅ chatStream terminé, total chunks:', chunkCount);
 
@@ -157,16 +155,24 @@ export function registerOllamaHandlers(): void {
       console.log('[IPC Handler] 🎉 Handler ollama:chatStream terminé avec succès');
       return { success: true, streamId };
     } catch (error: any) {
-      console.error('[IPC Handler] ❌ Erreur dans chatStream:', error);
+      const isUserStopped = error.message?.includes('Stream arrêté par l\'utilisateur') ||
+                            error.message?.includes('aborted');
 
-      // Envoyer l'événement streamEnd même en cas d'erreur
-      event.sender.send('ollama:streamEnd', { streamId, stopped: true });
-
-      event.sender.send('ollama:streamError', {
-        streamId,
-        error: error.message,
-      });
-      throw new Error(`Erreur chat stream: ${error.message}`);
+      if (isUserStopped) {
+        console.log('[IPC Handler] 🛑 Stream arrêté par l\'utilisateur (catch)');
+        // Envoyer streamEnd avec le flag stopped
+        event.sender.send('ollama:streamEnd', { streamId, stopped: true });
+        return { success: true, streamId, stopped: true };
+      } else {
+        // Vraie erreur
+        console.error('[IPC Handler] ❌ Erreur dans chatStream:', error);
+        event.sender.send('ollama:streamEnd', { streamId, stopped: false });
+        event.sender.send('ollama:streamError', {
+          streamId,
+          error: error.message,
+        });
+        throw new Error(`Erreur chat stream: ${error.message}`);
+      }
     } finally {
       // Nettoyer le stream de la map
       activeStreams.delete(streamId);

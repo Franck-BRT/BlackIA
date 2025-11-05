@@ -114,7 +114,7 @@ export class OllamaClient {
     }
 
     if (onProgress) {
-      await this.processStream<OllamaPullProgress>(response, onProgress);
+      await this.processStream<OllamaPullProgress>(response, onProgress, undefined);
     }
   }
 
@@ -159,15 +159,18 @@ export class OllamaClient {
    */
   async chatStream(
     request: OllamaChatRequest,
-    onChunk: StreamCallback
+    onChunk: StreamCallback,
+    abortSignal?: AbortSignal
   ): Promise<void> {
     console.log('[OllamaClient.chatStream] 🚀 Début du chatStream');
     console.log('[OllamaClient.chatStream] Request:', JSON.stringify(request, null, 2));
     console.log('[OllamaClient.chatStream] onChunk type:', typeof onChunk);
+    console.log('[OllamaClient.chatStream] abortSignal fourni:', !!abortSignal);
 
     const response = await this.fetch('/api/chat', {
       method: 'POST',
       body: JSON.stringify({ ...request, stream: true }),
+      abortSignal,
     });
 
     console.log('[OllamaClient.chatStream] Response reçue, status:', response.status);
@@ -181,7 +184,7 @@ export class OllamaClient {
     }
 
     console.log('[OllamaClient.chatStream] ⏳ Début du processStream...');
-    await this.processStream<OllamaChatStreamChunk>(response, onChunk);
+    await this.processStream<OllamaChatStreamChunk>(response, onChunk, abortSignal);
     console.log('[OllamaClient.chatStream] ✅ processStream terminé');
   }
 
@@ -225,7 +228,7 @@ export class OllamaClient {
       );
     }
 
-    await this.processStream<OllamaGenerateResponse>(response, onChunk);
+    await this.processStream<OllamaGenerateResponse>(response, onChunk, undefined);
   }
 
   /**
@@ -258,6 +261,7 @@ export class OllamaClient {
       method: string;
       body?: string;
       timeout?: number;
+      abortSignal?: AbortSignal;
     }
   ): Promise<Response> {
     const url = `${this.baseUrl}${endpoint}`;
@@ -267,8 +271,23 @@ export class OllamaClient {
     console.log('[OllamaClient.fetch] typeof fetch:', typeof fetch);
     console.log('[OllamaClient.fetch] fetch exists:', typeof fetch !== 'undefined');
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    // Créer un controller pour le timeout
+    const timeoutController = new AbortController();
+    const timeoutId = setTimeout(() => timeoutController.abort(), timeout);
+
+    // Combiner le signal de timeout avec le signal externe si fourni
+    let finalSignal: AbortSignal = timeoutController.signal;
+
+    if (options.abortSignal) {
+      // Si un signal externe est fourni, on écoute les deux
+      const abortHandler = () => timeoutController.abort();
+      options.abortSignal.addEventListener('abort', abortHandler);
+
+      // Si le signal externe est déjà aborté, abort immédiatement
+      if (options.abortSignal.aborted) {
+        timeoutController.abort();
+      }
+    }
 
     try {
       const response = await fetch(url, {
@@ -277,7 +296,7 @@ export class OllamaClient {
           'Content-Type': 'application/json',
         },
         body: options.body,
-        signal: controller.signal,
+        signal: finalSignal,
       });
 
       clearTimeout(timeoutId);
@@ -313,7 +332,8 @@ export class OllamaClient {
    */
   private async processStream<T>(
     response: Response,
-    onChunk: (chunk: T) => void
+    onChunk: (chunk: T) => void,
+    abortSignal?: AbortSignal
   ): Promise<void> {
     console.log('[OllamaClient.processStream] 🎬 Début du processStream');
 
@@ -330,6 +350,13 @@ export class OllamaClient {
 
     try {
       while (true) {
+        // Vérifier si le stream a été aborté
+        if (abortSignal?.aborted) {
+          console.log('[OllamaClient.processStream] 🛑 Signal abort détecté, arrêt du stream');
+          reader.cancel('Stream stoppé par l\'utilisateur');
+          throw new Error('Stream arrêté par l\'utilisateur');
+        }
+
         const { done, value } = await reader.read();
 
         if (done) {
