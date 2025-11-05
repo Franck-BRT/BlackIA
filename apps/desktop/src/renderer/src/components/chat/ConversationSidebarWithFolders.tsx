@@ -220,7 +220,7 @@ export function ConversationSidebar({
       {contextMenu && (
         <div
           ref={contextMenuRef}
-          className="fixed z-50 w-56 glass-card rounded-xl overflow-hidden shadow-xl border border-white/10"
+          className="fixed z-[9999] w-56 glass-card rounded-xl overflow-hidden shadow-xl border border-white/10"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <div className="p-2">

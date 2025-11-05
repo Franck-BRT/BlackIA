@@ -41,7 +41,7 @@ export function ChatSettings({ isOpen, onClose, settings, onSave }: ChatSettings
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="glass-card rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto m-4">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/10">

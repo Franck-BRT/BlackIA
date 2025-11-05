@@ -80,10 +80,10 @@ export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorPro
       {isOpen && (
         <>
           <div
-            className="fixed inset-0 z-10"
+            className="fixed inset-0 z-[9998]"
             onClick={() => setIsOpen(false)}
           />
-          <div className="absolute top-full left-0 mt-2 w-80 glass-card rounded-xl p-2 z-20 max-h-96 overflow-y-auto">
+          <div className="absolute top-full left-0 mt-2 w-80 glass-card rounded-xl p-2 z-[9999] max-h-96 overflow-y-auto">
             {error ? (
               <div className="flex items-center gap-2 p-3 text-red-400 text-sm">
                 <AlertCircle className="w-4 h-4" />

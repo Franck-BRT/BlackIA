@@ -86,7 +86,7 @@ export function ExportMenu({ messages, conversationTitle = 'Conversation' }: Exp
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-56 glass-card rounded-xl overflow-hidden shadow-xl border border-white/10 z-50">
+        <div className="absolute right-0 top-full mt-2 w-56 glass-card rounded-xl overflow-hidden shadow-xl border border-white/10 z-[9999]">
           <div className="p-2 space-y-1">
             <button
               onClick={exportMarkdown}
