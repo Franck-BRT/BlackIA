@@ -83,23 +83,28 @@ export function ChatPage() {
       // Vérifier que c'est bien notre stream
       if (data.streamId === currentStreamIdRef.current) {
         console.log('[ChatPage] ✅ Cleanup du stream');
-        setIsGenerating(false);
-        currentStreamIdRef.current = null;
 
-        // Si le stream a été stoppé et qu'il reste du contenu partiel
-        if (data.stopped && streamingMessage) {
-          console.log('[ChatPage] 🛑 Stream stoppé avec contenu partiel, sauvegarde...');
+        // Si le stream a été stoppé, sauvegarder le contenu partiel
+        if (data.stopped) {
+          console.log('[ChatPage] 🛑 Stream stoppé, vérification du contenu partiel...');
           setStreamingMessage((currentContent) => {
-            if (currentContent) {
+            console.log('[ChatPage] 📝 Contenu partiel à sauvegarder:', currentContent?.substring(0, 100));
+            if (currentContent && currentContent.trim()) {
               const partialMessage: OllamaMessage = {
                 role: 'assistant',
                 content: currentContent + ' [interrompu]',
               };
+              console.log('[ChatPage] 💾 Sauvegarde du message partiel');
               setMessages((prev) => [...prev, partialMessage]);
+            } else {
+              console.log('[ChatPage] ⚠️ Pas de contenu partiel à sauvegarder');
             }
             return '';
           });
         }
+
+        setIsGenerating(false);
+        currentStreamIdRef.current = null;
       }
     });
 
