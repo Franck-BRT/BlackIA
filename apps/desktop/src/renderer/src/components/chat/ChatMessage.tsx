@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { User, Bot, RefreshCw, Copy, Check, Edit2, X } from 'lucide-react';
 import type { OllamaMessage } from '@blackia/ollama';
+import { MarkdownRenderer } from './MarkdownRenderer';
+import './markdown-styles.css';
 
 interface ChatMessageProps {
   message: OllamaMessage;
@@ -125,13 +127,11 @@ export function ChatMessage({
                 </div>
               </div>
             ) : (
-              <div className="prose prose-invert max-w-none">
-                <div className="whitespace-pre-wrap break-words">
-                  {message.content}
-                  {isStreaming && (
-                    <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse" />
-                  )}
-                </div>
+              <div className="break-words">
+                <MarkdownRenderer content={message.content} />
+                {isStreaming && (
+                  <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse" />
+                )}
               </div>
             )}
           </div>

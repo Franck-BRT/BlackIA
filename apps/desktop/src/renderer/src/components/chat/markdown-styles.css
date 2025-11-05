@@ -1,0 +1,156 @@
+/* Markdown Styles */
+
+.markdown-content {
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* Headers */
+.markdown-h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.3em;
+}
+
+.markdown-h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin-top: 0.8em;
+  margin-bottom: 0.4em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.2em;
+}
+
+.markdown-h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin-top: 0.6em;
+  margin-bottom: 0.3em;
+}
+
+.markdown-h4 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin-top: 0.5em;
+  margin-bottom: 0.25em;
+}
+
+.markdown-h5,
+.markdown-h6 {
+  font-size: 1em;
+  font-weight: 600;
+  margin-top: 0.4em;
+  margin-bottom: 0.2em;
+}
+
+/* Code */
+.markdown-code-block {
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1em;
+  margin: 1em 0;
+  overflow-x: auto;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
+.markdown-code-block code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+}
+
+.markdown-inline-code {
+  background-color: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+  padding: 0.2em 0.4em;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.9em;
+  color: rgb(147, 197, 253);
+}
+
+/* Text formatting */
+.markdown-bold {
+  font-weight: 700;
+}
+
+.markdown-italic {
+  font-style: italic;
+}
+
+/* Links */
+.markdown-link {
+  color: rgb(96, 165, 250);
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.markdown-link:hover {
+  color: rgb(147, 197, 253);
+}
+
+/* Lists */
+.markdown-list,
+.markdown-ordered-list {
+  margin: 0.5em 0;
+  padding-left: 2em;
+}
+
+.markdown-list {
+  list-style-type: disc;
+}
+
+.markdown-ordered-list {
+  list-style-type: decimal;
+}
+
+.markdown-list-item,
+.markdown-ordered-list-item {
+  margin: 0.25em 0;
+}
+
+/* Blockquotes */
+.markdown-blockquote {
+  border-left: 4px solid rgba(96, 165, 250, 0.5);
+  padding-left: 1em;
+  margin: 1em 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-style: italic;
+}
+
+/* Horizontal rule */
+.markdown-hr {
+  border: none;
+  border-top: 2px solid rgba(255, 255, 255, 0.1);
+  margin: 2em 0;
+}
+
+/* Tables (if needed later) */
+.markdown-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+
+.markdown-table th,
+.markdown-table td {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.5em;
+  text-align: left;
+}
+
+.markdown-table th {
+  background-color: rgba(59, 130, 246, 0.2);
+  font-weight: 600;
+}
+
+.markdown-table tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.02);
+}
