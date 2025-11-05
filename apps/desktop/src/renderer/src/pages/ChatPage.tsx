@@ -26,6 +26,14 @@ export function ChatPage() {
   useEffect(() => {
     console.log('[ChatPage] 🎧 Enregistrement des listeners de streaming');
 
+    // Listener pour le début du streaming - SET LE STREAMID IMMÉDIATEMENT
+    window.electronAPI.ollama.onStreamStart((data: { streamId: string }) => {
+      console.log('[ChatPage] 🚀 Stream start reçu, streamId:', data.streamId);
+      currentStreamIdRef.current = data.streamId;
+      setStreamingMessage('');
+      setIsGenerating(true);
+    });
+
     // Listener pour les chunks de streaming
     window.electronAPI.ollama.onStreamChunk((data: { streamId: string; chunk: OllamaChatStreamChunk }) => {
       console.log('[ChatPage] 📥 Chunk reçu:', {
@@ -82,6 +90,7 @@ export function ChatPage() {
     // Cleanup
     return () => {
       console.log('[ChatPage] 🧹 Nettoyage des listeners');
+      window.electronAPI.ollama.removeAllListeners('ollama:streamStart');
       window.electronAPI.ollama.removeAllListeners('ollama:streamChunk');
       window.electronAPI.ollama.removeAllListeners('ollama:streamError');
     };
@@ -100,14 +109,13 @@ export function ChatPage() {
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setIsGenerating(true);
-    setStreamingMessage('');
 
     try {
       console.log('[ChatPage] 📤 Envoi du message au backend');
 
       // Envoyer la requête de chat avec streaming
-      const response = await window.electronAPI.ollama.chatStream({
+      // Le streamId sera défini par le listener onStreamStart
+      await window.electronAPI.ollama.chatStream({
         model: selectedModel,
         messages: [...messages, userMessage],
         stream: true,
@@ -117,8 +125,7 @@ export function ChatPage() {
         },
       });
 
-      console.log('[ChatPage] ✅ Réponse reçue, streamId:', response.streamId);
-      currentStreamIdRef.current = response.streamId;
+      console.log('[ChatPage] ✅ Handler chatStream terminé');
     } catch (error: any) {
       console.error('Erreur lors de l\'envoi du message:', error);
       setIsGenerating(false);
