@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2, FolderOpen } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { FolderModal } from './FolderModal';
@@ -216,8 +217,8 @@ export function ConversationSidebar({
         </div>
       )}
 
-      {/* Context Menu */}
-      {contextMenu && (
+      {/* Context Menu - Rendered via Portal */}
+      {contextMenu && createPortal(
         <div
           ref={contextMenuRef}
           className="fixed z-[9999] w-56 glass-card bg-gray-900/95 rounded-xl overflow-hidden shadow-xl border border-white/10"
@@ -249,7 +250,8 @@ export function ConversationSidebar({
               </button>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Folder Modal */}
