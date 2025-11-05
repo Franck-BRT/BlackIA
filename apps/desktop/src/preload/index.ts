@@ -46,6 +46,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('ollama:chat', request),
     chatStream: (request: OllamaChatRequest) =>
       ipcRenderer.invoke('ollama:chatStream', request),
+    stopStream: (streamId: string) =>
+      ipcRenderer.invoke('ollama:stopStream', streamId),
 
     // Generate
     generate: (request: OllamaGenerateRequest) =>
@@ -104,6 +106,7 @@ export interface ElectronAPI {
     // Chat
     chat: (request: OllamaChatRequest) => Promise<OllamaChatResponse>;
     chatStream: (request: OllamaChatRequest) => Promise<{ success: boolean; streamId: string }>;
+    stopStream: (streamId: string) => Promise<{ success: boolean; stopped?: boolean; reason?: string }>;
 
     // Generate
     generate: (request: OllamaGenerateRequest) => Promise<OllamaGenerateResponse>;

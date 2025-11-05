@@ -72,6 +72,37 @@ export function ChatPage() {
       }
     });
 
+    // Listener pour la fin du stream
+    window.electronAPI.ollama.onStreamEnd((data: { streamId: string; stopped?: boolean }) => {
+      console.log('[ChatPage] 🏁 Stream terminé:', {
+        streamId: data.streamId,
+        stopped: data.stopped,
+        currentStreamId: currentStreamIdRef.current,
+      });
+
+      // Vérifier que c'est bien notre stream
+      if (data.streamId === currentStreamIdRef.current) {
+        console.log('[ChatPage] ✅ Cleanup du stream');
+        setIsGenerating(false);
+        currentStreamIdRef.current = null;
+
+        // Si le stream a été stoppé et qu'il reste du contenu partiel
+        if (data.stopped && streamingMessage) {
+          console.log('[ChatPage] 🛑 Stream stoppé avec contenu partiel, sauvegarde...');
+          setStreamingMessage((currentContent) => {
+            if (currentContent) {
+              const partialMessage: OllamaMessage = {
+                role: 'assistant',
+                content: currentContent + ' [interrompu]',
+              };
+              setMessages((prev) => [...prev, partialMessage]);
+            }
+            return '';
+          });
+        }
+      }
+    });
+
     // Listener pour les erreurs
     window.electronAPI.ollama.onStreamError((data: { error: string }) => {
       console.error('[ChatPage] ❌ Erreur de streaming:', data.error);
@@ -92,6 +123,7 @@ export function ChatPage() {
       console.log('[ChatPage] 🧹 Nettoyage des listeners');
       window.electronAPI.ollama.removeAllListeners('ollama:streamStart');
       window.electronAPI.ollama.removeAllListeners('ollama:streamChunk');
+      window.electronAPI.ollama.removeAllListeners('ollama:streamEnd');
       window.electronAPI.ollama.removeAllListeners('ollama:streamError');
     };
   }, []); // Pas de dépendances pour n'enregistrer qu'une seule fois
@@ -138,19 +170,34 @@ export function ChatPage() {
     }
   };
 
-  const handleStop = () => {
-    // TODO: Implémenter l'arrêt du streaming
-    setIsGenerating(false);
-    currentStreamIdRef.current = null;
+  const handleStop = async () => {
+    const streamId = currentStreamIdRef.current;
+    if (!streamId) {
+      console.log('[ChatPage] ⚠️ Aucun stream actif à stopper');
+      return;
+    }
 
-    if (streamingMessage) {
-      // Sauvegarder le message partiel
-      const partialMessage: OllamaMessage = {
-        role: 'assistant',
-        content: streamingMessage + ' [interrompu]',
-      };
-      setMessages((prev) => [...prev, partialMessage]);
-      setStreamingMessage('');
+    try {
+      console.log('[ChatPage] 🛑 Demande d\'arrêt du stream:', streamId);
+      const result = await window.electronAPI.ollama.stopStream(streamId);
+      console.log('[ChatPage] ✅ Réponse stopStream:', result);
+
+      // Le cleanup sera fait par le listener onStreamEnd
+    } catch (error: any) {
+      console.error('[ChatPage] ❌ Erreur lors du stop:', error);
+
+      // Cleanup local en cas d'erreur
+      setIsGenerating(false);
+      currentStreamIdRef.current = null;
+
+      if (streamingMessage) {
+        const partialMessage: OllamaMessage = {
+          role: 'assistant',
+          content: streamingMessage + ' [interrompu]',
+        };
+        setMessages((prev) => [...prev, partialMessage]);
+        setStreamingMessage('');
+      }
     }
   };
 

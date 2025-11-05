@@ -3,6 +3,9 @@ import { OllamaClient } from '@blackia/ollama';
 
 let ollamaClient: OllamaClient | null = null;
 
+// Map pour garder trace des streams actifs et pouvoir les stopper
+const activeStreams = new Map<string, AbortController>();
+
 /**
  * Initialise le client Ollama
  */
@@ -105,13 +108,18 @@ export function registerOllamaHandlers(): void {
     console.log('[IPC Handler] 🚀 ollama:chatStream appelé');
     console.log('[IPC Handler] Request:', JSON.stringify(request, null, 2));
 
+    // Créer un ID unique pour ce stream
+    const streamId = `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    console.log('[IPC Handler] StreamId créé:', streamId);
+
     try {
       const client = getOllamaClient();
       console.log('[IPC Handler] Client Ollama récupéré');
 
-      // Créer un ID unique pour ce stream
-      const streamId = `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      console.log('[IPC Handler] StreamId créé:', streamId);
+      // Créer un AbortController pour ce stream
+      const abortController = new AbortController();
+      activeStreams.set(streamId, abortController);
+      console.log('[IPC Handler] AbortController enregistré pour streamId:', streamId);
 
       // Envoyer l'ID du stream au renderer
       console.log('[IPC Handler] 📤 Envoi event ollama:streamStart');
@@ -121,6 +129,12 @@ export function registerOllamaHandlers(): void {
       console.log('[IPC Handler] ⏳ Début du chatStream...');
 
       await client.chatStream(request, (chunk) => {
+        // Vérifier si le stream a été stoppé
+        if (abortController.signal.aborted) {
+          console.log('[IPC Handler] 🛑 Stream stoppé par l\'utilisateur');
+          throw new Error('Stream arrêté par l\'utilisateur');
+        }
+
         chunkCount++;
         console.log('[IPC Handler] 📦 Chunk #' + chunkCount + ' reçu du client');
         console.log('[IPC Handler] Chunk data:', JSON.stringify(chunk).substring(0, 150));
@@ -144,10 +158,35 @@ export function registerOllamaHandlers(): void {
       return { success: true, streamId };
     } catch (error: any) {
       console.error('[IPC Handler] ❌ Erreur dans chatStream:', error);
+
+      // Envoyer l'événement streamEnd même en cas d'erreur
+      event.sender.send('ollama:streamEnd', { streamId, stopped: true });
+
       event.sender.send('ollama:streamError', {
+        streamId,
         error: error.message,
       });
       throw new Error(`Erreur chat stream: ${error.message}`);
+    } finally {
+      // Nettoyer le stream de la map
+      activeStreams.delete(streamId);
+      console.log('[IPC Handler] 🧹 Stream retiré de la map active');
+    }
+  });
+
+  // Stopper un stream en cours
+  ipcMain.handle('ollama:stopStream', async (_event, streamId: string) => {
+    console.log('[IPC Handler] 🛑 Demande d\'arrêt du stream:', streamId);
+
+    const abortController = activeStreams.get(streamId);
+    if (abortController) {
+      console.log('[IPC Handler] ✅ AbortController trouvé, appel de abort()');
+      abortController.abort();
+      activeStreams.delete(streamId);
+      return { success: true, stopped: true };
+    } else {
+      console.log('[IPC Handler] ⚠️ Stream non trouvé ou déjà terminé:', streamId);
+      return { success: false, reason: 'Stream non trouvé ou déjà terminé' };
     }
   });
 
