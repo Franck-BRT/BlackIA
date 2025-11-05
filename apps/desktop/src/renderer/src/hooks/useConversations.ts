@@ -8,6 +8,14 @@ export interface Conversation {
   model: string;
   createdAt: number;
   updatedAt: number;
+  folderId?: string | null; // Dossier optionnel
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  color?: string;
+  createdAt: number;
 }
 
 export interface ConversationGroup {
@@ -16,6 +24,7 @@ export interface ConversationGroup {
 }
 
 const STORAGE_KEY = 'conversations';
+const FOLDERS_STORAGE_KEY = 'folders';
 const MAX_CONVERSATIONS = 50; // Limiter le nombre de conversations stockées
 
 /**
@@ -175,6 +184,19 @@ export function useConversations() {
     return conversations.find((c) => c.id === currentConversationId) || null;
   }, [currentConversationId, conversations]);
 
+  // Déplacer une conversation vers un dossier
+  const moveToFolder = useCallback((conversationId: string, folderId: string | null) => {
+    setConversations((prev) => {
+      const updated = prev.map((conv) =>
+        conv.id === conversationId ? { ...conv, folderId } : conv
+      );
+      saveToStorage(updated);
+      return updated;
+    });
+
+    console.log('[useConversations] Conversation déplacée:', conversationId, '→', folderId);
+  }, [saveToStorage]);
+
   // Générer un titre automatique basé sur le premier message
   const generateTitle = useCallback((messages: OllamaMessage[]): string => {
     if (messages.length === 0) return 'Nouvelle conversation';
@@ -197,5 +219,6 @@ export function useConversations() {
     loadConversation,
     getCurrentConversation,
     generateTitle,
+    moveToFolder,
   };
 }

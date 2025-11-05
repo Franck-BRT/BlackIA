@@ -4,9 +4,10 @@ import { ChatMessage } from '../components/chat/ChatMessage';
 import { ChatInput } from '../components/chat/ChatInput';
 import { ModelSelector } from '../components/chat/ModelSelector';
 import { ChatSettings, ChatSettingsData, DEFAULT_CHAT_SETTINGS } from '../components/chat/ChatSettings';
-import { ConversationSidebar } from '../components/chat/ConversationSidebar';
+import { ConversationSidebar } from '../components/chat/ConversationSidebarWithFolders';
 import { ExportMenu } from '../components/chat/ExportMenu';
 import { useConversations } from '../hooks/useConversations';
+import { useFolders } from '../hooks/useFolders';
 import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
 
 export function ChatPage() {
@@ -40,7 +41,16 @@ export function ChatPage() {
     loadConversation,
     getCurrentConversation,
     generateTitle,
+    moveToFolder,
   } = useConversations();
+
+  // Hook pour gérer les dossiers
+  const {
+    folders,
+    createFolder,
+    renameFolder,
+    deleteFolder,
+  } = useFolders();
 
   // Auto-scroll vers le bas
   const scrollToBottom = () => {
@@ -330,10 +340,15 @@ export function ChatPage() {
         <div className="w-80 flex-shrink-0">
           <ConversationSidebar
             conversations={conversations}
+            folders={folders}
             currentConversationId={currentConversationId}
             onSelectConversation={handleSelectConversation}
             onNewConversation={handleNewConversation}
             onDeleteConversation={deleteConversation}
+            onCreateFolder={createFolder}
+            onRenameFolder={renameFolder}
+            onDeleteFolder={deleteFolder}
+            onMoveToFolder={moveToFolder}
           />
         </div>
       )}
