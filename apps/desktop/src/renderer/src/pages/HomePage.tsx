@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageSquare, Workflow, FileText, User, FolderCode, Zap } from 'lucide-react';
+import { MessageSquare, Workflow, FileText, User, FolderOpen, Zap } from 'lucide-react';
 
 export function HomePage() {
   const [version, setVersion] = useState('');
@@ -44,7 +44,7 @@ export function HomePage() {
       color: 'from-orange-500 to-red-500',
     },
     {
-      icon: FolderCode,
+      icon: FolderOpen,
       title: 'Projets',
       description: 'Gestion de projets assistée par IA',
       path: '/projects',
