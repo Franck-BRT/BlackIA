@@ -43,12 +43,15 @@ export class OllamaClient {
    */
   async isAvailable(): Promise<boolean> {
     try {
+      console.log('[OllamaClient] Vérification disponibilité sur:', this.baseUrl);
       const response = await this.fetch('/api/version', {
         method: 'GET',
         timeout: 5000,
       });
+      console.log('[OllamaClient] Réponse reçue, status:', response.status, 'ok:', response.ok);
       return response.ok;
-    } catch {
+    } catch (error) {
+      console.error('[OllamaClient] Erreur isAvailable:', error);
       return false;
     }
   }
@@ -251,6 +254,10 @@ export class OllamaClient {
     const url = `${this.baseUrl}${endpoint}`;
     const timeout = options.timeout || this.timeout;
 
+    console.log('[OllamaClient.fetch] URL:', url);
+    console.log('[OllamaClient.fetch] typeof fetch:', typeof fetch);
+    console.log('[OllamaClient.fetch] fetch exists:', typeof fetch !== 'undefined');
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -265,9 +272,14 @@ export class OllamaClient {
       });
 
       clearTimeout(timeoutId);
+      console.log('[OllamaClient.fetch] Succès! Status:', response.status);
       return response;
     } catch (error: any) {
       clearTimeout(timeoutId);
+      console.error('[OllamaClient.fetch] Erreur:', error);
+      console.error('[OllamaClient.fetch] Error name:', error.name);
+      console.error('[OllamaClient.fetch] Error code:', error.code);
+      console.error('[OllamaClient.fetch] Error message:', error.message);
 
       if (error.name === 'AbortError') {
         throw new OllamaTimeoutError(
