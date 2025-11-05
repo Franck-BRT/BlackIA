@@ -53,3 +53,5 @@ temp/
 *.sqlite-shm
 *.sqlite-wal
 *.db
+packages/ollama/dist
+packages/ollama/tsconfig.tsbuildinfo

@@ -1,21 +1,215 @@
-import React from 'react';
-import { MessageSquare } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Trash2, Settings } from 'lucide-react';
+import { ChatMessage } from '../components/chat/ChatMessage';
+import { ChatInput } from '../components/chat/ChatInput';
+import { ModelSelector } from '../components/chat/ModelSelector';
+import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
 
 export function ChatPage() {
+  const [messages, setMessages] = useState<OllamaMessage[]>([]);
+  const [selectedModel, setSelectedModel] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
+  const [streamingMessage, setStreamingMessage] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll vers le bas
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, streamingMessage]);
+
+  // Setup des listeners pour le streaming
+  useEffect(() => {
+    // Listener pour les chunks de streaming
+    window.electronAPI.ollama.onStreamChunk((data: { streamId: string; chunk: OllamaChatStreamChunk }) => {
+      if (data.streamId === currentStreamId) {
+        setStreamingMessage((prev) => prev + data.chunk.message.content);
+
+        // Si le stream est terminé
+        if (data.chunk.done) {
+          const finalMessage: OllamaMessage = {
+            role: 'assistant',
+            content: streamingMessage + data.chunk.message.content,
+          };
+          setMessages((prev) => [...prev, finalMessage]);
+          setStreamingMessage('');
+          setIsGenerating(false);
+          setCurrentStreamId(null);
+        }
+      }
+    });
+
+    // Listener pour les erreurs
+    window.electronAPI.ollama.onStreamError((data: { error: string }) => {
+      console.error('Erreur de streaming:', data.error);
+      setIsGenerating(false);
+      setCurrentStreamId(null);
+      setStreamingMessage('');
+
+      // Ajouter un message d'erreur
+      const errorMessage: OllamaMessage = {
+        role: 'system',
+        content: `❌ Erreur: ${data.error}`,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    });
+
+    // Cleanup
+    return () => {
+      window.electronAPI.ollama.removeAllListeners('ollama:streamChunk');
+      window.electronAPI.ollama.removeAllListeners('ollama:streamError');
+    };
+  }, [currentStreamId, streamingMessage]);
+
+  const handleSendMessage = async (content: string) => {
+    if (!selectedModel) {
+      alert('Veuillez sélectionner un modèle');
+      return;
+    }
+
+    // Ajouter le message de l'utilisateur
+    const userMessage: OllamaMessage = {
+      role: 'user',
+      content,
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsGenerating(true);
+    setStreamingMessage('');
+
+    try {
+      // Envoyer la requête de chat avec streaming
+      const response = await window.electronAPI.ollama.chatStream({
+        model: selectedModel,
+        messages: [...messages, userMessage],
+        stream: true,
+        options: {
+          temperature: 0.7,
+          num_ctx: 4096,
+        },
+      });
+
+      setCurrentStreamId(response.streamId);
+    } catch (error: any) {
+      console.error('Erreur lors de l\'envoi du message:', error);
+      setIsGenerating(false);
+
+      const errorMessage: OllamaMessage = {
+        role: 'system',
+        content: `❌ Erreur: ${error.message || 'Erreur inconnue'}`,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
+  };
+
+  const handleStop = () => {
+    // TODO: Implémenter l'arrêt du streaming
+    setIsGenerating(false);
+    setCurrentStreamId(null);
+
+    if (streamingMessage) {
+      // Sauvegarder le message partiel
+      const partialMessage: OllamaMessage = {
+        role: 'assistant',
+        content: streamingMessage + ' [interrompu]',
+      };
+      setMessages((prev) => [...prev, partialMessage]);
+      setStreamingMessage('');
+    }
+  };
+
+  const handleClearChat = () => {
+    if (confirm('Voulez-vous vraiment effacer toute la conversation ?')) {
+      setMessages([]);
+      setStreamingMessage('');
+      setIsGenerating(false);
+      setCurrentStreamId(null);
+    }
+  };
+
   return (
-    <div className="h-full overflow-auto p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="glass-card rounded-2xl p-12 text-center">
-          <div className="w-20 h-20 rounded-2xl glass-lg flex items-center justify-center mx-auto mb-6">
-            <MessageSquare className="w-10 h-10 text-blue-400" />
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 glass-card border-b border-white/10">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xl font-bold">Chat</h1>
+          <ModelSelector selectedModel={selectedModel} onModelChange={setSelectedModel} />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleClearChat}
+            className="p-2 rounded-xl glass-hover hover:bg-red-500/20 transition-colors"
+            title="Effacer la conversation"
+          >
+            <Trash2 className="w-5 h-5 text-red-400" />
+          </button>
+          <button
+            className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+            title="Paramètres"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {messages.length === 0 && !streamingMessage ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center max-w-md">
+              <div className="text-6xl mb-4">💬</div>
+              <h2 className="text-2xl font-bold mb-2">Commencez une conversation</h2>
+              <p className="text-muted-foreground mb-6">
+                Posez une question ou démarrez une discussion avec l'IA
+              </p>
+              {!selectedModel && (
+                <div className="glass-card px-4 py-2 rounded-xl text-sm text-yellow-400 inline-block">
+                  ⚠️ Sélectionnez d'abord un modèle
+                </div>
+              )}
+            </div>
           </div>
-          <h1 className="text-3xl font-bold mb-4">Module Chat</h1>
-          <p className="text-muted-foreground mb-8">
-            Interface de chat conversationnel avec IA
-          </p>
-          <div className="inline-block px-6 py-3 glass-lg rounded-xl text-sm">
-            🚧 En cours de développement
+        ) : (
+          <div className="max-w-4xl mx-auto">
+            {messages.map((message, index) => (
+              <ChatMessage key={index} message={message} />
+            ))}
+
+            {/* Message en cours de streaming */}
+            {streamingMessage && (
+              <ChatMessage
+                message={{
+                  role: 'assistant',
+                  content: streamingMessage,
+                }}
+                isStreaming={true}
+              />
+            )}
+
+            <div ref={messagesEndRef} />
           </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="p-4">
+        <div className="max-w-4xl mx-auto">
+          <ChatInput
+            onSend={handleSendMessage}
+            onStop={handleStop}
+            disabled={!selectedModel}
+            isGenerating={isGenerating}
+            placeholder={
+              selectedModel
+                ? 'Tapez votre message...'
+                : 'Sélectionnez d\'abord un modèle...'
+            }
+          />
         </div>
       </div>
     </div>
