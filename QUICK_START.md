@@ -6,7 +6,7 @@
 
 ---
 
-## Installation en 3 Commandes
+## Installation en 4 Commandes
 
 ```bash
 # 1. Installer les dépendances (2-3 min)
