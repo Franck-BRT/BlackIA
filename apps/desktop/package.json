@@ -2,7 +2,7 @@
   "name": "@blackia/desktop",
   "version": "0.1.0",
   "description": "BlackIA Desktop Application",
-  "main": "dist/main/main/index.js",
+  "main": "dist/main/index.js",
   "author": "Black Room Technologies",
   "license": "MIT",
   "private": true,
