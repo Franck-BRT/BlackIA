@@ -298,12 +298,19 @@ export class OllamaClient {
       throw new OllamaStreamError('Pas de corps de réponse pour le stream');
     }
 
-    const reader = response.body;
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
     let buffer = '';
 
     try {
-      for await (const chunk of reader) {
-        buffer += chunk.toString();
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
 
@@ -332,6 +339,8 @@ export class OllamaClient {
       throw new OllamaStreamError(
         `Erreur lors du traitement du stream: ${error.message}`
       );
+    } finally {
+      reader.releaseLock();
     }
   }
 
