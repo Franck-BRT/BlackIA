@@ -39,22 +39,41 @@ Actuellement implémenté :
 - ⏳ Workflow Engine
 - ⏳ Et plus...
 
-## Installation
+## 🚀 Démarrage Rapide
+
+### Installation (3 commandes)
 
 ```bash
-# Prérequis : Node.js 20+, pnpm 8+
+# 1. Cloner et naviguer
 git clone https://github.com/Franck-BRT/BlackIA.git
 cd BlackIA
+
+# 2. Installer les dépendances
 pnpm install
 
-# Lancer en mode développement
+# 3. Vérifier l'installation
+pnpm verify
+
+# 4. Lancer l'application
 pnpm desktop:dev
 ```
 
-## Documentation
+**Prérequis :** Node.js 20+, pnpm 8+, macOS (Apple Silicon recommandé)
 
-- 📖 [Cahier des Charges](CAHIER_DES_CHARGES.md) - Vision produit et spécifications fonctionnelles
-- 🏗️ [Décisions Techniques](DECISIONS_TECHNIQUES.md) - Choix technologiques et architecture détaillée
+### Guides de Démarrage
+
+- ⚡ **[QUICK_START.md](QUICK_START.md)** - Installation rapide en 3 étapes
+- 🎯 **[FIRST_RUN.md](FIRST_RUN.md)** - Guide détaillé du premier lancement et troubleshooting
+
+## 📚 Documentation
+
+### Pour les Utilisateurs
+- 📖 [Cahier des Charges](CAHIER_DES_CHARGES.md) - Vision produit et spécifications
+- ⚡ [Quick Start](QUICK_START.md) - Démarrage rapide
+- 🎯 [First Run](FIRST_RUN.md) - Premier lancement détaillé
+
+### Pour les Développeurs
+- 🏗️ [Décisions Techniques](DECISIONS_TECHNIQUES.md) - Architecture détaillée
 - 💻 [Guide de Développement](DEVELOPMENT.md) - Setup, scripts, conventions
 
 ## Contribuer

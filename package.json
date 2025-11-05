@@ -18,7 +18,8 @@
     "type-check": "turbo run type-check",
     "clean": "turbo run clean && rm -rf node_modules",
     "desktop:dev": "pnpm --filter @blackia/desktop dev",
-    "desktop:build": "pnpm --filter @blackia/desktop build"
+    "desktop:build": "pnpm --filter @blackia/desktop build",
+    "verify": "bash scripts/verify-setup.sh"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",
