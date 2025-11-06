@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2, FolderOpen, Search, Tag, X as XIcon } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2, FolderOpen, Search, Tag, X as XIcon, Star } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { RenameConversationModal } from './RenameConversationModal';
 import { TagSelector } from './TagSelector';
@@ -27,6 +27,7 @@ interface ConversationSidebarProps {
   onCreateTag: (name: string, color: string, icon?: string) => void;
   onOpenTagModal: () => void;
   onToggleConversationTag: (conversationId: string, tagId: string) => void;
+  onToggleFavorite: (conversationId: string) => void;
 }
 
 export function ConversationSidebar({
@@ -47,6 +48,7 @@ export function ConversationSidebar({
   onCreateTag,
   onOpenTagModal,
   onToggleConversationTag,
+  onToggleFavorite,
 }: ConversationSidebarProps) {
   const [contextMenu, setContextMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
   const [renamingConversation, setRenamingConversation] = useState<Conversation | null>(null);
@@ -103,12 +105,31 @@ export function ConversationSidebar({
     return filtered;
   }, [conversations, searchQuery, selectedTagFilter]);
 
-  // Séparer les conversations avec dossier et sans dossier
+  // Séparer les conversations favorites
+  const { favoriteConversations, nonFavoriteConversations } = useMemo(() => {
+    const favorites: Conversation[] = [];
+    const nonFavorites: Conversation[] = [];
+
+    filteredConversations.forEach((conv) => {
+      if (conv.isFavorite) {
+        favorites.push(conv);
+      } else {
+        nonFavorites.push(conv);
+      }
+    });
+
+    return {
+      favoriteConversations: favorites,
+      nonFavoriteConversations: nonFavorites,
+    };
+  }, [filteredConversations]);
+
+  // Séparer les conversations avec dossier et sans dossier (parmi les non-favorites)
   const { folderConversations, unorganizedConversations } = useMemo(() => {
     const withFolder: Conversation[] = [];
     const without: Conversation[] = [];
 
-    filteredConversations.forEach((conv) => {
+    nonFavoriteConversations.forEach((conv) => {
       if (conv.folderId) {
         withFolder.push(conv);
       } else {
@@ -120,7 +141,7 @@ export function ConversationSidebar({
       folderConversations: withFolder,
       unorganizedConversations: without,
     };
-  }, [filteredConversations]);
+  }, [nonFavoriteConversations]);
 
   // Grouper les conversations sans dossier par date
   const unorganizedGroups = useMemo(() => {
@@ -208,6 +229,20 @@ export function ConversationSidebar({
           title="Renommer"
         >
           <Edit2 className="w-4 h-4" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(conv.id);
+          }}
+          className={`p-1.5 rounded-lg transition-all ${
+            conv.isFavorite
+              ? 'bg-yellow-500/20 text-yellow-400'
+              : 'hover:bg-yellow-500/20 text-gray-400 hover:text-yellow-400'
+          }`}
+          title={conv.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+        >
+          <Star className={`w-4 h-4 ${conv.isFavorite ? 'fill-yellow-400' : ''}`} />
         </button>
         <button
           onClick={(e) => {
@@ -335,6 +370,23 @@ export function ConversationSidebar({
           </div>
         ) : (
           <div className="p-2 space-y-1">
+            {/* Section Favoris */}
+            {favoriteConversations.length > 0 && (
+              <CollapsibleSection
+                label={
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                    <span>Favoris</span>
+                  </div>
+                }
+                count={favoriteConversations.length}
+                defaultOpen={true}
+                storageKey="sidebar-favorites"
+              >
+                {favoriteConversations.map((conv) => renderConversation(conv))}
+              </CollapsibleSection>
+            )}
+
             {/* Dossiers personnalisés */}
             {folders.map((folder) => {
               const folderConvs = getConversationsInFolder(folder.id);

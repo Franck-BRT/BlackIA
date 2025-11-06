@@ -10,6 +10,7 @@ export interface Conversation {
   updatedAt: number;
   folderId?: string | null; // Dossier optionnel
   tagIds?: string[]; // Tags optionnels
+  isFavorite?: boolean; // Favori
 }
 
 export interface Folder {
@@ -272,6 +273,22 @@ export function useConversations() {
     console.log('[useConversations] Tags définis:', tagIds, '→', conversationId);
   }, [saveToStorage]);
 
+  // Basculer le statut favori d'une conversation
+  const toggleFavorite = useCallback((conversationId: string) => {
+    setConversations((prev) => {
+      const updated = prev.map((conv) => {
+        if (conv.id === conversationId) {
+          return { ...conv, isFavorite: !conv.isFavorite };
+        }
+        return conv;
+      });
+      saveToStorage(updated);
+      return updated;
+    });
+
+    console.log('[useConversations] Favori basculé:', conversationId);
+  }, [saveToStorage]);
+
   return {
     conversations,
     currentConversationId,
@@ -287,5 +304,6 @@ export function useConversations() {
     addTagToConversation,
     removeTagFromConversation,
     setConversationTags,
+    toggleFavorite,
   };
 }

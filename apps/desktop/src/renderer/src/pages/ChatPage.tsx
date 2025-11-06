@@ -57,6 +57,7 @@ export function ChatPage() {
     renameConversation,
     addTagToConversation,
     removeTagFromConversation,
+    toggleFavorite,
   } = useConversations();
 
   // Hook pour gérer les dossiers
@@ -635,6 +636,7 @@ export function ChatPage() {
                 addTagToConversation(conversationId, tagId);
               }
             }}
+            onToggleFavorite={toggleFavorite}
             onOpenChatSearch={(initialQuery) => {
               setIsChatSearchOpen(true);
               if (initialQuery) {
