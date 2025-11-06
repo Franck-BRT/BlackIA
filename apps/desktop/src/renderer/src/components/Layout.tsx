@@ -12,6 +12,15 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 animated-gradient">
+      {/* Drag region for window movement (macOS style) */}
+      <div
+        className="absolute top-0 left-0 right-0 h-12 z-50"
+        style={{
+          WebkitAppRegion: 'drag',
+          userSelect: 'none'
+        } as React.CSSProperties}
+      />
+
       {/* Decorative background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
@@ -22,7 +31,10 @@ export function Layout({ children }: LayoutProps) {
       <Sidebar />
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto relative z-10">
+      <main
+        className="flex-1 overflow-auto relative z-10"
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      >
         <div className="h-full">
           {children}
         </div>
