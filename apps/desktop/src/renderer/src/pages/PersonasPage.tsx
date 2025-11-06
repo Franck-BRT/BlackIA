@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Search, Star, Filter } from 'lucide-react';
+import { Plus, Search, Star, Filter, FileDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { usePersonas } from '../hooks/usePersonas';
 import { PersonaList } from '../components/personas/PersonaList';
 import { PersonaModal } from '../components/personas/PersonaModal';
+import { PersonaImportExport } from '../components/personas/PersonaImportExport';
 import type { Persona, PersonaFormData, CreatePersonaData } from '../types/persona';
 
 export function PersonasPage() {
@@ -24,6 +25,9 @@ export function PersonasPage() {
   // État pour le modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
+
+  // État pour import/export
+  const [showImportExport, setShowImportExport] = useState(false);
 
   // Extraire les catégories uniques
   const categories = useMemo(() => {
@@ -142,6 +146,21 @@ export function PersonasPage() {
     await toggleFavorite(persona.id);
   };
 
+  // Importer des personas depuis un fichier JSON
+  const handleImport = async (importedPersonas: Persona[]) => {
+    for (const persona of importedPersonas) {
+      // Retirer les champs générés automatiquement
+      const { id, createdAt, updatedAt, usageCount, ...personaData } = persona;
+
+      // Créer la nouvelle persona
+      await createPersona({
+        ...personaData,
+        isDefault: false,
+        isFavorite: false,
+      } as CreatePersonaData);
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -179,14 +198,37 @@ export function PersonasPage() {
               </p>
             </div>
 
-            <button
-              onClick={handleCreate}
-              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl font-semibold flex items-center gap-2 hover:scale-105 transition-transform"
-            >
-              <Plus className="w-5 h-5" />
-              Nouvelle Persona
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowImportExport(!showImportExport)}
+                className="px-6 py-3 glass-card rounded-xl font-semibold flex items-center gap-2 hover:glass-lg transition-all"
+              >
+                <FileDown className="w-5 h-5" />
+                Import/Export
+                {showImportExport ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+
+              <button
+                onClick={handleCreate}
+                className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl font-semibold flex items-center gap-2 hover:scale-105 transition-transform"
+              >
+                <Plus className="w-5 h-5" />
+                Nouvelle Persona
+              </button>
+            </div>
           </div>
+
+          {/* Section Import/Export */}
+          {showImportExport && (
+            <div className="mt-6 p-6 glass-card rounded-xl">
+              <h3 className="text-lg font-semibold mb-4">Import / Export de Personas</h3>
+              <PersonaImportExport personas={personas} onImport={handleImport} />
+            </div>
+          )}
 
           {/* Barre de recherche et filtres */}
           <div className="flex flex-col sm:flex-row gap-4">
