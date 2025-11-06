@@ -4,7 +4,6 @@ import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2,
 import { CollapsibleSection } from './CollapsibleSection';
 import { FolderModal } from './FolderModal';
 import { RenameConversationModal } from './RenameConversationModal';
-import { TagModal } from './TagModal';
 import { TagSelector } from './TagSelector';
 import { SearchBar } from './SearchBar';
 import { groupConversationsByDate } from '../../hooks/useConversations';
@@ -26,6 +25,7 @@ interface ConversationSidebarProps {
   onRenameConversation: (conversationId: string, newTitle: string) => void;
   onOpenChatSearch?: (initialQuery?: string) => void;
   onCreateTag: (name: string, color: string, icon?: string) => void;
+  onOpenTagModal: () => void;
   onToggleConversationTag: (conversationId: string, tagId: string) => void;
 }
 
@@ -44,6 +44,7 @@ export function ConversationSidebar({
   onRenameConversation,
   onOpenChatSearch,
   onCreateTag,
+  onOpenTagModal,
   onToggleConversationTag,
 }: ConversationSidebarProps) {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
@@ -51,7 +52,6 @@ export function ConversationSidebar({
   const [contextMenu, setContextMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
   const [renamingConversation, setRenamingConversation] = useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [tagSelectorMenu, setTagSelectorMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -480,21 +480,12 @@ export function ConversationSidebar({
             }}
             onCreateTag={() => {
               setTagSelectorMenu(null);
-              setIsTagModalOpen(true);
+              onOpenTagModal();
             }}
           />
         </div>,
         document.body
       )}
-
-      {/* Tag Modal */}
-      <TagModal
-        isOpen={isTagModalOpen}
-        onClose={() => setIsTagModalOpen(false)}
-        onSave={(name, color, icon) => {
-          onCreateTag(name, color, icon);
-        }}
-      />
     </div>
   );
 }

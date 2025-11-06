@@ -7,6 +7,7 @@ import { ChatSettings, ChatSettingsData, DEFAULT_CHAT_SETTINGS } from '../compon
 import { ConversationSidebar } from '../components/chat/ConversationSidebarWithFolders';
 import { ExportMenu } from '../components/chat/ExportMenu';
 import { ChatSearchBar } from '../components/chat/ChatSearchBar';
+import { TagModal } from '../components/chat/TagModal';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
@@ -23,6 +24,7 @@ export function ChatPage() {
   const [isChatSearchOpen, setIsChatSearchOpen] = useState(false);
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
     // Charger les settings depuis localStorage au démarrage
     try {
@@ -614,6 +616,9 @@ export function ChatPage() {
             onCreateTag={(name, color, icon) => {
               createTag(name, color, icon);
             }}
+            onOpenTagModal={() => {
+              setIsTagModalOpen(true);
+            }}
             onToggleConversationTag={(conversationId, tagId) => {
               const conversation = conversations.find(c => c.id === conversationId);
               if (conversation?.tagIds?.includes(tagId)) {
@@ -788,6 +793,16 @@ export function ChatPage() {
           setChatSettings(newSettings);
           // Persister dans localStorage
           localStorage.setItem('chatSettings', JSON.stringify(newSettings));
+        }}
+      />
+
+      {/* Tag Modal */}
+      <TagModal
+        isOpen={isTagModalOpen}
+        onClose={() => setIsTagModalOpen(false)}
+        onSave={(name, color, icon) => {
+          createTag(name, color, icon);
+          setIsTagModalOpen(false);
         }}
       />
     </div>
