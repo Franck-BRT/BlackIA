@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
+import { highlightCode } from '../../utils/syntaxHighlighter';
 
 interface MarkdownRendererProps {
   content: string;
   searchQuery?: string;
   searchStartIndex?: number; // Index de début pour ce message dans la recherche globale
   activeGlobalIndex?: number; // Index global du résultat actif
+  syntaxTheme?: string; // Thème de coloration syntaxique
+  showLineNumbers?: boolean; // Afficher la numérotation des lignes
 }
 
 interface CodeBlock {
@@ -15,7 +18,7 @@ interface CodeBlock {
 }
 
 // Composant pour afficher un bloc de code avec bouton copier
-function CodeBlockWithCopy({ language, code, rawCode }: CodeBlock) {
+function CodeBlockWithCopy({ language, code, rawCode, syntaxTheme = 'vscode-dark', showLineNumbers = false }: CodeBlock & { syntaxTheme?: string; showLineNumbers?: boolean }) {
   const [isCopied, setIsCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -27,6 +30,12 @@ function CodeBlockWithCopy({ language, code, rawCode }: CodeBlock) {
       console.error('Erreur lors de la copie:', error);
     }
   };
+
+  // Appliquer la coloration syntaxique
+  const highlightedCode = highlightCode(rawCode, language);
+
+  // Diviser en lignes pour la numérotation
+  const lines = highlightedCode.split('\n');
 
   return (
     <div className="markdown-code-block-container">
@@ -50,8 +59,25 @@ function CodeBlockWithCopy({ language, code, rawCode }: CodeBlock) {
           )}
         </button>
       </div>
-      <pre className="markdown-code-block">
-        <code className={`language-${language}`} dangerouslySetInnerHTML={{ __html: code }} />
+      <pre className={`markdown-code-block syntax-theme-${syntaxTheme}`}>
+        {showLineNumbers ? (
+          <code className={`language-${language} code-with-line-numbers`}>
+            <span className="line-numbers">
+              {lines.map((_, index) => (
+                <span key={index} className="line-numbers-line">
+                  {index + 1}
+                </span>
+              ))}
+            </span>
+            <span className="code-lines">
+              {lines.map((line, index) => (
+                <span key={index} className="code-lines-line" dangerouslySetInnerHTML={{ __html: line }} />
+              ))}
+            </span>
+          </code>
+        ) : (
+          <code className={`language-${language}`} dangerouslySetInnerHTML={{ __html: highlightedCode }} />
+        )}
       </pre>
     </div>
   );
@@ -61,7 +87,9 @@ export function MarkdownRenderer({
   content,
   searchQuery,
   searchStartIndex = 0,
-  activeGlobalIndex = -1
+  activeGlobalIndex = -1,
+  syntaxTheme = 'vscode-dark',
+  showLineNumbers = false,
 }: MarkdownRendererProps) {
   const parseMarkdown = (text: string): { html: string; codeBlocks: CodeBlock[] } => {
     let html = text;
@@ -268,6 +296,8 @@ export function MarkdownRenderer({
         language={codeBlocks[index].language}
         code={codeBlocks[index].code}
         rawCode={codeBlocks[index].rawCode}
+        syntaxTheme={syntaxTheme}
+        showLineNumbers={showLineNumbers}
       />
     );
 

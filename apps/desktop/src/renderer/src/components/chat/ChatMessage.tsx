@@ -15,6 +15,8 @@ interface ChatMessageProps {
   searchQuery?: string;
   searchStartIndex?: number;
   activeGlobalIndex?: number;
+  syntaxTheme?: string;
+  showLineNumbers?: boolean;
 }
 
 export function ChatMessage({
@@ -28,6 +30,8 @@ export function ChatMessage({
   searchQuery,
   searchStartIndex,
   activeGlobalIndex,
+  syntaxTheme,
+  showLineNumbers,
 }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
@@ -139,6 +143,8 @@ export function ChatMessage({
                   searchQuery={searchQuery}
                   searchStartIndex={searchStartIndex}
                   activeGlobalIndex={activeGlobalIndex}
+                  syntaxTheme={syntaxTheme}
+                  showLineNumbers={showLineNumbers}
                 />
                 {isStreaming && (
                   <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse" />

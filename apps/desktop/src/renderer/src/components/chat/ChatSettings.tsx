@@ -6,6 +6,8 @@ export interface ChatSettingsData {
   maxTokens: number;
   topP: number;
   systemPrompt: string;
+  syntaxTheme: string;
+  showLineNumbers: boolean;
 }
 
 interface ChatSettingsProps {
@@ -20,6 +22,8 @@ export const DEFAULT_CHAT_SETTINGS: ChatSettingsData = {
   maxTokens: 4096,
   topP: 0.9,
   systemPrompt: '',
+  syntaxTheme: 'vscode-dark',
+  showLineNumbers: false,
 };
 
 export function ChatSettings({ isOpen, onClose, settings, onSave }: ChatSettingsProps) {
@@ -158,6 +162,52 @@ export function ChatSettings({ isOpen, onClose, settings, onSave }: ChatSettings
             <p className="text-sm text-muted-foreground mt-2">
               Définit le comportement de l'IA. Laissez vide pour le comportement par défaut.
             </p>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-white/10 pt-6">
+            <h3 className="text-lg font-semibold mb-4">Coloration Syntaxique</h3>
+
+            {/* Syntax Theme */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium mb-2">Thème de Code</label>
+              <select
+                value={localSettings.syntaxTheme}
+                onChange={(e) =>
+                  setLocalSettings({ ...localSettings, syntaxTheme: e.target.value })
+                }
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl outline-none focus:border-blue-500/50 transition-colors cursor-pointer"
+              >
+                <option value="vscode-dark">VS Code Dark (Défaut)</option>
+                <option value="github-light">GitHub Light</option>
+                <option value="monokai">Monokai</option>
+                <option value="dracula">Dracula</option>
+                <option value="nord">Nord</option>
+              </select>
+              <p className="text-sm text-muted-foreground mt-2">
+                Choisissez le thème de coloration pour les blocs de code.
+              </p>
+            </div>
+
+            {/* Show Line Numbers */}
+            <div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={localSettings.showLineNumbers}
+                  onChange={(e) =>
+                    setLocalSettings({ ...localSettings, showLineNumbers: e.target.checked })
+                  }
+                  className="w-5 h-5 rounded border-white/20 bg-white/5 text-blue-500 focus:ring-blue-500/50 cursor-pointer"
+                />
+                <div>
+                  <span className="text-sm font-medium">Afficher les numéros de ligne</span>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Ajoute des numéros de ligne dans les blocs de code pour faciliter la référence.
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
         </div>
 

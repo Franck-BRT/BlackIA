@@ -1,0 +1,382 @@
+/**
+ * Thèmes de coloration syntaxique
+ */
+
+/* Theme: VS Code Dark (par défaut) */
+.syntax-theme-vscode-dark .token.comment {
+  color: #6a9955;
+  font-style: italic;
+}
+
+.syntax-theme-vscode-dark .token.string {
+  color: #ce9178;
+}
+
+.syntax-theme-vscode-dark .token.keyword {
+  color: #569cd6;
+}
+
+.syntax-theme-vscode-dark .token.function {
+  color: #dcdcaa;
+}
+
+.syntax-theme-vscode-dark .token.number {
+  color: #b5cea8;
+}
+
+.syntax-theme-vscode-dark .token.operator {
+  color: #d4d4d4;
+}
+
+.syntax-theme-vscode-dark .token.variable {
+  color: #9cdcfe;
+}
+
+.syntax-theme-vscode-dark .token.decorator {
+  color: #4ec9b0;
+}
+
+.syntax-theme-vscode-dark .token.preprocessor {
+  color: #c586c0;
+}
+
+.syntax-theme-vscode-dark .token.tag {
+  color: #569cd6;
+}
+
+.syntax-theme-vscode-dark .token.attr-name {
+  color: #9cdcfe;
+}
+
+.syntax-theme-vscode-dark .token.attr-value {
+  color: #ce9178;
+}
+
+.syntax-theme-vscode-dark .token.selector {
+  color: #d7ba7d;
+}
+
+.syntax-theme-vscode-dark .token.property {
+  color: #9cdcfe;
+}
+
+.syntax-theme-vscode-dark .token.color {
+  color: #b5cea8;
+}
+
+.syntax-theme-vscode-dark .token.symbol {
+  color: #4ec9b0;
+}
+
+.syntax-theme-vscode-dark .token.doctype {
+  color: #569cd6;
+}
+
+/* Theme: GitHub Light */
+.syntax-theme-github-light .token.comment {
+  color: #6a737d;
+  font-style: italic;
+}
+
+.syntax-theme-github-light .token.string {
+  color: #032f62;
+}
+
+.syntax-theme-github-light .token.keyword {
+  color: #d73a49;
+}
+
+.syntax-theme-github-light .token.function {
+  color: #6f42c1;
+}
+
+.syntax-theme-github-light .token.number {
+  color: #005cc5;
+}
+
+.syntax-theme-github-light .token.operator {
+  color: #24292e;
+}
+
+.syntax-theme-github-light .token.variable {
+  color: #e36209;
+}
+
+.syntax-theme-github-light .token.decorator {
+  color: #6f42c1;
+}
+
+.syntax-theme-github-light .token.preprocessor {
+  color: #d73a49;
+}
+
+.syntax-theme-github-light .token.tag {
+  color: #22863a;
+}
+
+.syntax-theme-github-light .token.attr-name {
+  color: #6f42c1;
+}
+
+.syntax-theme-github-light .token.attr-value {
+  color: #032f62;
+}
+
+.syntax-theme-github-light .token.selector {
+  color: #6f42c1;
+}
+
+.syntax-theme-github-light .token.property {
+  color: #005cc5;
+}
+
+.syntax-theme-github-light .token.color {
+  color: #005cc5;
+}
+
+.syntax-theme-github-light .token.symbol {
+  color: #6f42c1;
+}
+
+.syntax-theme-github-light .token.doctype {
+  color: #d73a49;
+}
+
+/* Theme: Monokai */
+.syntax-theme-monokai .token.comment {
+  color: #75715e;
+  font-style: italic;
+}
+
+.syntax-theme-monokai .token.string {
+  color: #e6db74;
+}
+
+.syntax-theme-monokai .token.keyword {
+  color: #f92672;
+}
+
+.syntax-theme-monokai .token.function {
+  color: #a6e22e;
+}
+
+.syntax-theme-monokai .token.number {
+  color: #ae81ff;
+}
+
+.syntax-theme-monokai .token.operator {
+  color: #f8f8f2;
+}
+
+.syntax-theme-monokai .token.variable {
+  color: #66d9ef;
+}
+
+.syntax-theme-monokai .token.decorator {
+  color: #66d9ef;
+}
+
+.syntax-theme-monokai .token.preprocessor {
+  color: #f92672;
+}
+
+.syntax-theme-monokai .token.tag {
+  color: #f92672;
+}
+
+.syntax-theme-monokai .token.attr-name {
+  color: #a6e22e;
+}
+
+.syntax-theme-monokai .token.attr-value {
+  color: #e6db74;
+}
+
+.syntax-theme-monokai .token.selector {
+  color: #a6e22e;
+}
+
+.syntax-theme-monokai .token.property {
+  color: #66d9ef;
+}
+
+.syntax-theme-monokai .token.color {
+  color: #ae81ff;
+}
+
+.syntax-theme-monokai .token.symbol {
+  color: #66d9ef;
+}
+
+.syntax-theme-monokai .token.doctype {
+  color: #f92672;
+}
+
+/* Theme: Dracula */
+.syntax-theme-dracula .token.comment {
+  color: #6272a4;
+  font-style: italic;
+}
+
+.syntax-theme-dracula .token.string {
+  color: #f1fa8c;
+}
+
+.syntax-theme-dracula .token.keyword {
+  color: #ff79c6;
+}
+
+.syntax-theme-dracula .token.function {
+  color: #50fa7b;
+}
+
+.syntax-theme-dracula .token.number {
+  color: #bd93f9;
+}
+
+.syntax-theme-dracula .token.operator {
+  color: #f8f8f2;
+}
+
+.syntax-theme-dracula .token.variable {
+  color: #8be9fd;
+}
+
+.syntax-theme-dracula .token.decorator {
+  color: #8be9fd;
+}
+
+.syntax-theme-dracula .token.preprocessor {
+  color: #ff79c6;
+}
+
+.syntax-theme-dracula .token.tag {
+  color: #ff79c6;
+}
+
+.syntax-theme-dracula .token.attr-name {
+  color: #50fa7b;
+}
+
+.syntax-theme-dracula .token.attr-value {
+  color: #f1fa8c;
+}
+
+.syntax-theme-dracula .token.selector {
+  color: #50fa7b;
+}
+
+.syntax-theme-dracula .token.property {
+  color: #8be9fd;
+}
+
+.syntax-theme-dracula .token.color {
+  color: #bd93f9;
+}
+
+.syntax-theme-dracula .token.symbol {
+  color: #8be9fd;
+}
+
+.syntax-theme-dracula .token.doctype {
+  color: #ff79c6;
+}
+
+/* Theme: Nord */
+.syntax-theme-nord .token.comment {
+  color: #616e88;
+  font-style: italic;
+}
+
+.syntax-theme-nord .token.string {
+  color: #a3be8c;
+}
+
+.syntax-theme-nord .token.keyword {
+  color: #81a1c1;
+}
+
+.syntax-theme-nord .token.function {
+  color: #88c0d0;
+}
+
+.syntax-theme-nord .token.number {
+  color: #b48ead;
+}
+
+.syntax-theme-nord .token.operator {
+  color: #d8dee9;
+}
+
+.syntax-theme-nord .token.variable {
+  color: #8fbcbb;
+}
+
+.syntax-theme-nord .token.decorator {
+  color: #8fbcbb;
+}
+
+.syntax-theme-nord .token.preprocessor {
+  color: #81a1c1;
+}
+
+.syntax-theme-nord .token.tag {
+  color: #81a1c1;
+}
+
+.syntax-theme-nord .token.attr-name {
+  color: #8fbcbb;
+}
+
+.syntax-theme-nord .token.attr-value {
+  color: #a3be8c;
+}
+
+.syntax-theme-nord .token.selector {
+  color: #88c0d0;
+}
+
+.syntax-theme-nord .token.property {
+  color: #8fbcbb;
+}
+
+.syntax-theme-nord .token.color {
+  color: #b48ead;
+}
+
+.syntax-theme-nord .token.symbol {
+  color: #8fbcbb;
+}
+
+.syntax-theme-nord .token.doctype {
+  color: #81a1c1;
+}
+
+/* Numérotation de lignes */
+.code-with-line-numbers {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+}
+
+.line-numbers {
+  user-select: none;
+  text-align: right;
+  padding-right: 0.5rem;
+  color: #858585;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.line-numbers-line {
+  display: block;
+  line-height: 1.5;
+}
+
+.code-lines {
+  overflow-x: auto;
+}
+
+.code-lines-line {
+  display: block;
+  line-height: 1.5;
+}

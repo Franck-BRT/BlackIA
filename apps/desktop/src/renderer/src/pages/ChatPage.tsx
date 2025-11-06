@@ -755,6 +755,8 @@ export function ChatPage() {
                   searchQuery={chatSearchQuery}
                   searchStartIndex={messageOccurrence?.startIndex}
                   activeGlobalIndex={currentSearchIndex}
+                  syntaxTheme={chatSettings.syntaxTheme}
+                  showLineNumbers={chatSettings.showLineNumbers}
                 />
               );
             })}
@@ -767,6 +769,8 @@ export function ChatPage() {
                   content: streamingMessage,
                 }}
                 isStreaming={true}
+                syntaxTheme={chatSettings.syntaxTheme}
+                showLineNumbers={chatSettings.showLineNumbers}
               />
             )}
 
