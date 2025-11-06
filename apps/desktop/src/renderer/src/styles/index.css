@@ -137,3 +137,70 @@
   );
   background-size: 1000px 100%;
 }
+
+/* ===== Appearance Settings CSS ===== */
+
+/* Glass effect variations based on user settings */
+.glass-subtle .glass,
+.glass-subtle .glass-card,
+.glass-subtle .glass-lg {
+  backdrop-filter: blur(4px);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.glass-medium .glass,
+.glass-medium .glass-card,
+.glass-medium .glass-lg {
+  backdrop-filter: blur(12px);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.glass-intense .glass,
+.glass-intense .glass-card,
+.glass-intense .glass-lg {
+  backdrop-filter: blur(40px);
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Density variations - Using CSS custom properties */
+.density-compact {
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.25rem;
+  --spacing-xl: 1.5rem;
+}
+
+.density-comfortable {
+  --spacing-xs: 0.75rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 2.5rem;
+}
+
+.density-spacious {
+  --spacing-xs: 1rem;
+  --spacing-sm: 1.25rem;
+  --spacing-md: 2rem;
+  --spacing-lg: 2.5rem;
+  --spacing-xl: 3rem;
+}
+
+/* Note: Pour utiliser la densité dans les composants, utilisez var(--spacing-md) etc. */
+
+/* Animation controls */
+.no-animations * {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+}
+
+/* Reduced motion for accessibility */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

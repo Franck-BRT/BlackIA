@@ -4,6 +4,7 @@ import type {
   AppModule,
   SettingsSection,
   GeneralSettings,
+  AppearanceSettings,
   KeyboardShortcut,
   InterfaceSettings,
 } from '@blackia/shared/types';
@@ -15,6 +16,15 @@ const defaultSettings: AppSettings = {
     language: 'fr',
     autoSave: true,
     notifications: true,
+  },
+  appearance: {
+    fontSize: 'medium',
+    density: 'comfortable',
+    glassEffect: 'medium',
+    animations: true,
+    accentColor: 'purple',
+    borderRadius: 'medium',
+    reducedMotion: false,
   },
   keyboardShortcuts: [
     {
@@ -43,50 +53,98 @@ const defaultSettings: AppSettings = {
     sectionVisibilityByModule: {
       home: {
         general: true,
-        keyboardShortcuts: true,
+        chat: true,
+        workflows: true,
+        prompts: true,
+        personas: true,
+        appearance: true,
         interface: true,
+        notifications: true,
+        keyboardShortcuts: true,
         about: true,
       },
       chat: {
         general: true,
-        keyboardShortcuts: true,
+        chat: true,
+        workflows: true,
+        prompts: true,
+        personas: true,
+        appearance: true,
         interface: true,
+        notifications: true,
+        keyboardShortcuts: true,
         about: true,
       },
       workflows: {
         general: true,
-        keyboardShortcuts: true,
+        chat: true,
+        workflows: true,
+        prompts: true,
+        personas: true,
+        appearance: true,
         interface: true,
+        notifications: true,
+        keyboardShortcuts: true,
         about: true,
       },
       prompts: {
         general: true,
-        keyboardShortcuts: true,
+        chat: true,
+        workflows: true,
+        prompts: true,
+        personas: true,
+        appearance: true,
         interface: true,
+        notifications: true,
+        keyboardShortcuts: true,
         about: true,
       },
       personas: {
         general: true,
-        keyboardShortcuts: true,
+        chat: true,
+        workflows: true,
+        prompts: true,
+        personas: true,
+        appearance: true,
         interface: true,
+        notifications: true,
+        keyboardShortcuts: true,
         about: true,
       },
       projects: {
         general: true,
-        keyboardShortcuts: true,
+        chat: true,
+        workflows: true,
+        prompts: true,
+        personas: true,
+        appearance: true,
         interface: true,
+        notifications: true,
+        keyboardShortcuts: true,
         about: true,
       },
       logs: {
         general: true,
-        keyboardShortcuts: true,
+        chat: true,
+        workflows: true,
+        prompts: true,
+        personas: true,
+        appearance: true,
         interface: true,
+        notifications: true,
+        keyboardShortcuts: true,
         about: true,
       },
       settings: {
         general: true,
-        keyboardShortcuts: true,
+        chat: true,
+        workflows: true,
+        prompts: true,
+        personas: true,
+        appearance: true,
         interface: true,
+        notifications: true,
+        keyboardShortcuts: true,
         about: true,
       },
     },
@@ -96,6 +154,7 @@ const defaultSettings: AppSettings = {
 interface SettingsContextType {
   settings: AppSettings;
   updateGeneralSettings: (settings: Partial<GeneralSettings>) => void;
+  updateAppearanceSettings: (settings: Partial<AppearanceSettings>) => void;
   updateKeyboardShortcuts: (shortcuts: KeyboardShortcut[]) => void;
   updateInterfaceSettings: (settings: Partial<InterfaceSettings>) => void;
   updateSectionVisibility: (
@@ -111,13 +170,53 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 const STORAGE_KEY = 'blackia-settings';
 
+// Helper pour faire un merge profond des paramètres
+function deepMergeSettings(defaults: AppSettings, stored: Partial<AppSettings>): AppSettings {
+  const result = { ...defaults };
+
+  // Merge general
+  if (stored.general) {
+    result.general = { ...defaults.general, ...stored.general };
+  }
+
+  // Merge appearance
+  if (stored.appearance) {
+    result.appearance = { ...defaults.appearance, ...stored.appearance };
+  }
+
+  // Merge keyboardShortcuts
+  if (stored.keyboardShortcuts) {
+    result.keyboardShortcuts = stored.keyboardShortcuts;
+  }
+
+  // Merge interface avec un merge profond de sectionVisibilityByModule
+  if (stored.interface?.sectionVisibilityByModule) {
+    result.interface = {
+      sectionVisibilityByModule: { ...defaults.interface.sectionVisibilityByModule },
+    };
+
+    // Pour chaque module, merger les sections
+    Object.keys(stored.interface.sectionVisibilityByModule).forEach((moduleKey) => {
+      const module = moduleKey as AppModule;
+      result.interface.sectionVisibilityByModule[module] = {
+        ...defaults.interface.sectionVisibilityByModule[module],
+        ...stored.interface.sectionVisibilityByModule[module],
+      };
+    });
+  }
+
+  return result;
+}
+
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(() => {
     // Load from localStorage on init
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        return { ...defaultSettings, ...JSON.parse(stored) };
+        const parsedStored = JSON.parse(stored);
+        // Deep merge pour préserver les nouvelles sections ajoutées dans defaultSettings
+        return deepMergeSettings(defaultSettings, parsedStored);
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
@@ -138,6 +237,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings((prev) => ({
       ...prev,
       general: { ...prev.general, ...newSettings },
+    }));
+  };
+
+  const updateAppearanceSettings = (newSettings: Partial<AppearanceSettings>) => {
+    setSettings((prev) => ({
+      ...prev,
+      appearance: { ...prev.appearance, ...newSettings },
     }));
   };
 
@@ -189,6 +295,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       value={{
         settings,
         updateGeneralSettings,
+        updateAppearanceSettings,
         updateKeyboardShortcuts,
         updateInterfaceSettings,
         updateSectionVisibility,

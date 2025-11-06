@@ -35,13 +35,26 @@ const modules: ModuleConfig[] = [
 
 const settingsSections: SectionConfig[] = [
   { id: 'general', label: 'Général' },
-  { id: 'keyboardShortcuts', label: 'Raccourcis clavier' },
+  { id: 'chat', label: 'Chat' },
+  { id: 'workflows', label: 'Workflows' },
+  { id: 'prompts', label: 'Prompts' },
+  { id: 'personas', label: 'Personas' },
+  { id: 'appearance', label: 'Apparence' },
   { id: 'interface', label: 'Interface' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'keyboardShortcuts', label: 'Raccourcis clavier' },
   { id: 'about', label: 'À propos' },
 ];
 
 export function InterfaceSection() {
-  const { getSectionVisibility, updateSectionVisibility } = useSettings();
+  const { getSectionVisibility, updateSectionVisibility, resetSettings } = useSettings();
+
+  const handleResetInterface = () => {
+    if (confirm('Réinitialiser tous les paramètres ? Cette action rechargera l\'application.')) {
+      resetSettings();
+      window.location.reload();
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -53,11 +66,21 @@ export function InterfaceSection() {
       </div>
 
       <div className="p-4 glass-card rounded-lg bg-accent/50 mb-6">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground mb-3">
           💡 Configurez quelles sections de paramètres sont visibles lorsque vous
           ouvrez les paramètres depuis chaque module. Les changements prennent effet
           immédiatement.
         </p>
+        <p className="text-xs text-blue-400 mb-3">
+          🧪 <span className="font-semibold">Pour tester :</span> Utilisez les boutons 'Paramètres' dans chaque module
+          (HomePage, ChatPage), ou ajoutez <code className="px-1 py-0.5 bg-black/30 rounded">?from=chat</code> dans l'URL.
+        </p>
+        <button
+          onClick={handleResetInterface}
+          className="text-xs px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded transition-colors"
+        >
+          🔄 Réinitialiser tous les paramètres
+        </button>
       </div>
 
       <div className="space-y-6">

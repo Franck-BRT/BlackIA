@@ -131,8 +131,14 @@ export type AppModule =
 // Settings sections
 export type SettingsSection =
   | 'general'
-  | 'keyboardShortcuts'
+  | 'chat'
+  | 'workflows'
+  | 'prompts'
+  | 'personas'
+  | 'appearance'
   | 'interface'
+  | 'notifications'
+  | 'keyboardShortcuts'
   | 'about';
 
 // Interface settings - visibility management
@@ -154,6 +160,17 @@ export interface GeneralSettings {
   notifications: boolean;
 }
 
+// Appearance settings
+export interface AppearanceSettings {
+  fontSize: 'small' | 'medium' | 'large';
+  density: 'compact' | 'comfortable' | 'spacious';
+  glassEffect: 'subtle' | 'medium' | 'intense';
+  animations: boolean;
+  accentColor: 'purple' | 'blue' | 'pink' | 'green' | 'orange';
+  borderRadius: 'sharp' | 'medium' | 'round';
+  reducedMotion: boolean;
+}
+
 // Keyboard shortcut
 export interface KeyboardShortcut {
   id: string;
@@ -166,6 +183,7 @@ export interface KeyboardShortcut {
 // Complete settings structure
 export interface AppSettings {
   general: GeneralSettings;
+  appearance: AppearanceSettings;
   keyboardShortcuts: KeyboardShortcut[];
   interface: InterfaceSettings;
 }

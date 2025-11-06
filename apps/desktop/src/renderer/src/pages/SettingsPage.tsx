@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Settings,
   MessageSquare,
@@ -10,22 +11,18 @@ import {
   Bell,
   Palette,
   Keyboard,
+  Eye,
+  Info,
 } from 'lucide-react';
 import { ChatSettings } from '../components/settings/ChatSettings';
 import { KeyboardShortcutsSettings } from '../components/settings/KeyboardShortcutsSettings';
+import { AppearanceSettings } from '../components/settings/AppearanceSettings';
+import { InterfaceSection } from '../components/settings/InterfaceSection';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
-
-type SettingsSection =
-  | 'general'
-  | 'chat'
-  | 'workflows'
-  | 'prompts'
-  | 'personas'
-  | 'appearance'
-  | 'notifications'
-  | 'keyboard';
+import { useSettings } from '../contexts/SettingsContext';
+import type { AppModule, SettingsSection } from '@blackia/shared/types';
 
 interface NavItem {
   icon: React.ElementType;
@@ -40,12 +37,19 @@ const navItems: NavItem[] = [
   { icon: FileText, label: 'Prompts', section: 'prompts' },
   { icon: User, label: 'Personas', section: 'personas' },
   { icon: Palette, label: 'Apparence', section: 'appearance' },
+  { icon: Eye, label: 'Interface', section: 'interface' },
   { icon: Bell, label: 'Notifications', section: 'notifications' },
-  { icon: Keyboard, label: 'Raccourcis clavier', section: 'keyboard' },
+  { icon: Keyboard, label: 'Raccourcis clavier', section: 'keyboardShortcuts' },
+  { icon: Info, label: 'À propos', section: 'about' },
 ];
 
 export function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
+  const [searchParams] = useSearchParams();
+  const { getSectionVisibility } = useSettings();
+
+  // Détecter depuis quel module on vient
+  const fromModule = searchParams.get('from') as AppModule | null;
 
   // Hooks pour la section Chat
   const { conversations } = useConversations();
@@ -56,6 +60,19 @@ export function SettingsPage() {
     deleteFolder,
   } = useFolders();
   const { tags, updateTag, deleteTag } = useTags();
+
+  // Filtrer les sections visibles en fonction du module
+  const visibleNavItems = useMemo(() => {
+    // Si pas de module spécifié, afficher toutes les sections
+    if (!fromModule) {
+      return navItems;
+    }
+
+    // Filtrer selon les paramètres de visibilité
+    return navItems.filter((item) => {
+      return getSectionVisibility(fromModule, item.section);
+    });
+  }, [fromModule, getSectionVisibility]);
 
   return (
     <div className="h-full flex overflow-hidden">
@@ -68,12 +85,22 @@ export function SettingsPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold">Paramètres</h1>
-              <p className="text-xs text-muted-foreground">Configuration</p>
+              <p className="text-xs text-muted-foreground">
+                {fromModule ? `Depuis ${fromModule}` : 'Configuration'}
+              </p>
             </div>
           </div>
 
+          {fromModule && (
+            <div className="mb-4 p-3 glass-card rounded-lg text-xs">
+              <p className="text-blue-400">
+                ℹ️ Sections filtrées pour le module <span className="font-semibold">{fromModule}</span>
+              </p>
+            </div>
+          )}
+
           <nav className="space-y-1">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <button
                 key={item.section}
                 onClick={() => setActiveSection(item.section)}
@@ -110,9 +137,11 @@ export function SettingsPage() {
           {activeSection === 'workflows' && <PlaceholderSection title="Workflows" />}
           {activeSection === 'prompts' && <PlaceholderSection title="Prompts" />}
           {activeSection === 'personas' && <PlaceholderSection title="Personas" />}
-          {activeSection === 'appearance' && <PlaceholderSection title="Apparence" />}
+          {activeSection === 'appearance' && <AppearanceSettings />}
+          {activeSection === 'interface' && <InterfaceSection />}
           {activeSection === 'notifications' && <PlaceholderSection title="Notifications" />}
-          {activeSection === 'keyboard' && <KeyboardShortcutsSettings />}
+          {activeSection === 'keyboardShortcuts' && <KeyboardShortcutsSettings />}
+          {activeSection === 'about' && <PlaceholderSection title="À propos" />}
         </div>
       </main>
     </div>
