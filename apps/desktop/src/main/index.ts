@@ -2,6 +2,9 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
 import { registerOllamaHandlers } from './ollama-handlers';
+import { initDatabase, runMigrations } from './database/client';
+import { seedDefaultPersonas } from './database/seed';
+import { registerPersonaHandlers } from './handlers/persona-handlers';
 
 // __dirname and __filename are available in CommonJS mode
 
@@ -44,9 +47,24 @@ function createWindow() {
 }
 
 // App lifecycle
-app.whenReady().then(() => {
-  // Enregistrer les handlers IPC Ollama
-  registerOllamaHandlers();
+app.whenReady().then(async () => {
+  try {
+    // Initialiser la base de données
+    console.log('[App] Initializing database...');
+    initDatabase();
+    runMigrations();
+
+    // Seed des personas par défaut
+    await seedDefaultPersonas();
+
+    // Enregistrer les handlers IPC
+    registerOllamaHandlers();
+    registerPersonaHandlers();
+
+    console.log('[App] Database and handlers initialized successfully');
+  } catch (error) {
+    console.error('[App] Failed to initialize database:', error);
+  }
 
   createWindow();
 

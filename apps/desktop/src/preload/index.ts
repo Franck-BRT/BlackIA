@@ -42,6 +42,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('file:exportPDF', options),
   },
 
+  // Personas API
+  personas: {
+    getAll: () => ipcRenderer.invoke('personas:getAll'),
+    getById: (id: string) => ipcRenderer.invoke('personas:getById', id),
+    create: (data: any) => ipcRenderer.invoke('personas:create', data),
+    update: (id: string, data: any) => ipcRenderer.invoke('personas:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('personas:delete', id),
+    search: (query: string) => ipcRenderer.invoke('personas:search', query),
+    filterByCategory: (category: string) => ipcRenderer.invoke('personas:filterByCategory', category),
+    getFavorites: () => ipcRenderer.invoke('personas:getFavorites'),
+    toggleFavorite: (id: string) => ipcRenderer.invoke('personas:toggleFavorite', id),
+    incrementUsage: (id: string) => ipcRenderer.invoke('personas:incrementUsage', id),
+    duplicate: (id: string) => ipcRenderer.invoke('personas:duplicate', id),
+    getCategories: () => ipcRenderer.invoke('personas:getCategories'),
+  },
+
   // Ollama API
   ollama: {
     // Vérification et configuration
@@ -126,6 +142,21 @@ export interface ElectronAPI {
       title: string;
       content: string;
     }) => Promise<{ success: boolean; filePath?: string; error?: string; canceled?: boolean }>;
+  };
+
+  personas: {
+    getAll: () => Promise<any>;
+    getById: (id: string) => Promise<any>;
+    create: (data: any) => Promise<any>;
+    update: (id: string, data: any) => Promise<any>;
+    delete: (id: string) => Promise<any>;
+    search: (query: string) => Promise<any>;
+    filterByCategory: (category: string) => Promise<any>;
+    getFavorites: () => Promise<any>;
+    toggleFavorite: (id: string) => Promise<any>;
+    incrementUsage: (id: string) => Promise<any>;
+    duplicate: (id: string) => Promise<any>;
+    getCategories: () => Promise<any>;
   };
 
   ollama: {
