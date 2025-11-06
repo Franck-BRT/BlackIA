@@ -170,13 +170,53 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 const STORAGE_KEY = 'blackia-settings';
 
+// Helper pour faire un merge profond des paramètres
+function deepMergeSettings(defaults: AppSettings, stored: Partial<AppSettings>): AppSettings {
+  const result = { ...defaults };
+
+  // Merge general
+  if (stored.general) {
+    result.general = { ...defaults.general, ...stored.general };
+  }
+
+  // Merge appearance
+  if (stored.appearance) {
+    result.appearance = { ...defaults.appearance, ...stored.appearance };
+  }
+
+  // Merge keyboardShortcuts
+  if (stored.keyboardShortcuts) {
+    result.keyboardShortcuts = stored.keyboardShortcuts;
+  }
+
+  // Merge interface avec un merge profond de sectionVisibilityByModule
+  if (stored.interface?.sectionVisibilityByModule) {
+    result.interface = {
+      sectionVisibilityByModule: { ...defaults.interface.sectionVisibilityByModule },
+    };
+
+    // Pour chaque module, merger les sections
+    Object.keys(stored.interface.sectionVisibilityByModule).forEach((moduleKey) => {
+      const module = moduleKey as AppModule;
+      result.interface.sectionVisibilityByModule[module] = {
+        ...defaults.interface.sectionVisibilityByModule[module],
+        ...stored.interface.sectionVisibilityByModule[module],
+      };
+    });
+  }
+
+  return result;
+}
+
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(() => {
     // Load from localStorage on init
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        return { ...defaultSettings, ...JSON.parse(stored) };
+        const parsedStored = JSON.parse(stored);
+        // Deep merge pour préserver les nouvelles sections ajoutées dans defaultSettings
+        return deepMergeSettings(defaultSettings, parsedStored);
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
