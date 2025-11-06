@@ -1,16 +1,20 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2, FolderOpen, Search } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2, FolderOpen, Search, Tag, X as XIcon } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { FolderModal } from './FolderModal';
 import { RenameConversationModal } from './RenameConversationModal';
+import { TagModal } from './TagModal';
+import { TagSelector } from './TagSelector';
 import { SearchBar } from './SearchBar';
 import { groupConversationsByDate } from '../../hooks/useConversations';
 import type { Conversation, Folder } from '../../hooks/useConversations';
+import type { Tag as TagType } from '../../hooks/useTags';
 
 interface ConversationSidebarProps {
   conversations: Conversation[];
   folders: Folder[];
+  tags: TagType[];
   currentConversationId: string | null;
   onSelectConversation: (id: string) => void;
   onNewConversation: () => void;
@@ -21,11 +25,14 @@ interface ConversationSidebarProps {
   onMoveToFolder: (conversationId: string, folderId: string | null) => void;
   onRenameConversation: (conversationId: string, newTitle: string) => void;
   onOpenChatSearch?: (initialQuery?: string) => void;
+  onCreateTag: (name: string, color: string, icon?: string) => void;
+  onToggleConversationTag: (conversationId: string, tagId: string) => void;
 }
 
 export function ConversationSidebar({
   conversations,
   folders,
+  tags,
   currentConversationId,
   onSelectConversation,
   onNewConversation,
@@ -36,13 +43,19 @@ export function ConversationSidebar({
   onMoveToFolder,
   onRenameConversation,
   onOpenChatSearch,
+  onCreateTag,
+  onToggleConversationTag,
 }: ConversationSidebarProps) {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [contextMenu, setContextMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
   const [renamingConversation, setRenamingConversation] = useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [tagSelectorMenu, setTagSelectorMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  const tagSelectorRef = useRef<HTMLDivElement>(null);
 
   // Fermer le menu contextuel si on clique à l'extérieur
   useEffect(() => {
@@ -50,33 +63,46 @@ export function ConversationSidebar({
       if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
         setContextMenu(null);
       }
+      if (tagSelectorRef.current && !tagSelectorRef.current.contains(event.target as Node)) {
+        setTagSelectorMenu(null);
+      }
     };
 
-    if (contextMenu) {
+    if (contextMenu || tagSelectorMenu) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [contextMenu]);
+  }, [contextMenu, tagSelectorMenu]);
 
-  // Filtrer les conversations selon la recherche
+  // Filtrer les conversations selon la recherche et les tags
   const filteredConversations = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return conversations;
+    let filtered = conversations;
+
+    // Filtrer par recherche
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((conv) => {
+        // Rechercher dans le titre
+        if (conv.title.toLowerCase().includes(query)) {
+          return true;
+        }
+
+        // Rechercher dans le contenu des messages
+        return conv.messages.some((msg) =>
+          msg.content.toLowerCase().includes(query)
+        );
+      });
     }
 
-    const query = searchQuery.toLowerCase();
-    return conversations.filter((conv) => {
-      // Rechercher dans le titre
-      if (conv.title.toLowerCase().includes(query)) {
-        return true;
-      }
-
-      // Rechercher dans le contenu des messages
-      return conv.messages.some((msg) =>
-        msg.content.toLowerCase().includes(query)
+    // Filtrer par tag
+    if (selectedTagFilter) {
+      filtered = filtered.filter((conv) =>
+        conv.tagIds?.includes(selectedTagFilter)
       );
-    });
-  }, [conversations, searchQuery]);
+    }
+
+    return filtered;
+  }, [conversations, searchQuery, selectedTagFilter]);
 
   // Séparer les conversations avec dossier et sans dossier
   const { folderConversations, unorganizedConversations } = useMemo(() => {
@@ -148,6 +174,26 @@ export function ConversationSidebar({
               <span className="text-xs text-muted-foreground">•</span>
               <span className="text-xs text-muted-foreground">{conv.messages.length} msg</span>
             </div>
+            {/* Tags */}
+            {conv.tagIds && conv.tagIds.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {conv.tagIds.map((tagId) => {
+                  const tag = tags.find(t => t.id === tagId);
+                  if (!tag) return null;
+                  return (
+                    <div
+                      key={tagId}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs"
+                      style={{ backgroundColor: tag.color + '30', color: tag.color }}
+                      title={tag.name}
+                    >
+                      <span>{tag.icon || '🏷️'}</span>
+                      <span className="font-medium">{tag.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -163,6 +209,17 @@ export function ConversationSidebar({
           title="Renommer"
         >
           <Edit2 className="w-4 h-4" />
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = e.currentTarget.getBoundingClientRect();
+            setTagSelectorMenu({ conversationId: conv.id, x: rect.left, y: rect.bottom + 5 });
+          }}
+          className="p-1.5 rounded-lg hover:bg-purple-500/20 transition-all text-purple-400"
+          title="Gérer les tags"
+        >
+          <Tag className="w-4 h-4" />
         </button>
         <button
           onClick={(e) => {
@@ -227,6 +284,35 @@ export function ConversationSidebar({
         onSearchChange={setSearchQuery}
         resultsCount={searchQuery ? filteredConversations.length : undefined}
       />
+
+      {/* Tag Filter */}
+      {selectedTagFilter && (
+        <div className="px-4 py-2 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Filtre:</span>
+            {(() => {
+              const tag = tags.find(t => t.id === selectedTagFilter);
+              if (!tag) return null;
+              return (
+                <div
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs"
+                  style={{ backgroundColor: tag.color + '30', color: tag.color }}
+                >
+                  <span>{tag.icon || '🏷️'}</span>
+                  <span className="font-medium">{tag.name}</span>
+                  <button
+                    onClick={() => setSelectedTagFilter(null)}
+                    className="ml-1 hover:bg-white/10 rounded p-0.5 transition-colors"
+                    title="Retirer le filtre"
+                  >
+                    <XIcon className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
 
       {/* Conversations List */}
       <div className="flex-1 overflow-y-auto">
@@ -375,6 +461,39 @@ export function ConversationSidebar({
           setRenamingConversation(null);
         }}
         currentTitle={renamingConversation?.title || ''}
+      />
+
+      {/* Tag Selector Menu - Rendered via Portal */}
+      {tagSelectorMenu && createPortal(
+        <div
+          ref={tagSelectorRef}
+          className="fixed z-[9999] glass-card bg-gray-900/95 rounded-xl overflow-hidden shadow-xl border border-white/10"
+          style={{ left: tagSelectorMenu.x, top: tagSelectorMenu.y }}
+        >
+          <TagSelector
+            availableTags={tags}
+            selectedTagIds={
+              conversations.find(c => c.id === tagSelectorMenu.conversationId)?.tagIds || []
+            }
+            onToggleTag={(tagId) => {
+              onToggleConversationTag(tagSelectorMenu.conversationId, tagId);
+            }}
+            onCreateTag={() => {
+              setTagSelectorMenu(null);
+              setIsTagModalOpen(true);
+            }}
+          />
+        </div>,
+        document.body
+      )}
+
+      {/* Tag Modal */}
+      <TagModal
+        isOpen={isTagModalOpen}
+        onClose={() => setIsTagModalOpen(false)}
+        onSave={(name, color, icon) => {
+          onCreateTag(name, color, icon);
+        }}
       />
     </div>
   );

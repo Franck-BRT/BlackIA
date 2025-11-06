@@ -9,6 +9,7 @@ import { ExportMenu } from '../components/chat/ExportMenu';
 import { ChatSearchBar } from '../components/chat/ChatSearchBar';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
+import { useTags } from '../hooks/useTags';
 import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
 
 export function ChatPage() {
@@ -48,6 +49,8 @@ export function ChatPage() {
     generateTitle,
     moveToFolder,
     renameConversation,
+    addTagToConversation,
+    removeTagFromConversation,
   } = useConversations();
 
   // Hook pour gérer les dossiers
@@ -57,6 +60,12 @@ export function ChatPage() {
     renameFolder,
     deleteFolder,
   } = useFolders();
+
+  // Hook pour gérer les tags
+  const {
+    tags,
+    createTag,
+  } = useTags();
 
   // Calculer les résultats de recherche dans le chat
   const searchResults = useMemo(() => {
@@ -592,6 +601,7 @@ export function ChatPage() {
           <ConversationSidebar
             conversations={conversations}
             folders={folders}
+            tags={tags}
             currentConversationId={currentConversationId}
             onSelectConversation={handleSelectConversation}
             onNewConversation={handleNewConversation}
@@ -601,6 +611,17 @@ export function ChatPage() {
             onDeleteFolder={handleDeleteFolder}
             onMoveToFolder={moveToFolder}
             onRenameConversation={renameConversation}
+            onCreateTag={(name, color, icon) => {
+              createTag(name, color, icon);
+            }}
+            onToggleConversationTag={(conversationId, tagId) => {
+              const conversation = conversations.find(c => c.id === conversationId);
+              if (conversation?.tagIds?.includes(tagId)) {
+                removeTagFromConversation(conversationId, tagId);
+              } else {
+                addTagToConversation(conversationId, tagId);
+              }
+            }}
             onOpenChatSearch={(initialQuery) => {
               setIsChatSearchOpen(true);
               if (initialQuery) {
