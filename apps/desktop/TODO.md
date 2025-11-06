@@ -3,20 +3,20 @@
 ## Paramètres de l'application
 
 ### Gestion des dossiers
-- [ ] Interface de gestion des dossiers dans les paramètres
-  - [ ] Liste de tous les dossiers existants
-  - [ ] Possibilité de renommer un dossier
-  - [ ] Possibilité de changer la couleur d'un dossier
-  - [ ] **Possibilité de supprimer un dossier** (les conversations restent)
-  - [ ] Statistiques par dossier (nombre de conversations)
+- [x] Interface de gestion des dossiers dans les paramètres
+  - [x] Liste de tous les dossiers existants
+  - [x] Possibilité de renommer un dossier
+  - [x] Possibilité de changer la couleur d'un dossier
+  - [x] **Possibilité de supprimer un dossier** (les conversations restent)
+  - [x] Statistiques par dossier (nombre de conversations)
 
 ### Gestion des tags
-- [ ] Interface de gestion des tags dans les paramètres
-  - [ ] Liste de tous les tags existants
-  - [ ] Possibilité de modifier un tag (nom, couleur, icône)
-  - [ ] **Possibilité de supprimer un tag** (retiré de toutes les conversations)
-  - [ ] Statistiques par tag (nombre de conversations)
-  - [ ] Fusion de tags (fusionner plusieurs tags en un seul)
+- [x] Interface de gestion des tags dans les paramètres
+  - [x] Liste de tous les tags existants
+  - [x] Possibilité de modifier un tag (nom, couleur, icône)
+  - [x] **Possibilité de supprimer un tag** (retiré de toutes les conversations)
+  - [x] Statistiques par tag (nombre de conversations)
+  - [ ] Fusion de tags (fusionner plusieurs tags en un seul) (optionnel)
 
 ## Autres fonctionnalités optionnelles
 
