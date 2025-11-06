@@ -2,13 +2,16 @@ import React, { useState, useMemo } from 'react';
 import { Plus, Search, Star, Filter } from 'lucide-react';
 import { usePersonas } from '../hooks/usePersonas';
 import { PersonaList } from '../components/personas/PersonaList';
-import type { Persona } from '../types/persona';
+import { PersonaModal } from '../components/personas/PersonaModal';
+import type { Persona, PersonaFormData, CreatePersonaData } from '../types/persona';
 
 export function PersonasPage() {
   const {
     personas,
     loading,
     error,
+    createPersona,
+    updatePersona,
     deletePersona,
     duplicatePersona,
     toggleFavorite,
@@ -17,6 +20,10 @@ export function PersonasPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  // État pour le modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
 
   // Extraire les catégories uniques
   const categories = useMemo(() => {
@@ -78,6 +85,44 @@ export function PersonasPage() {
     return personas.filter((p) => p.isFavorite);
   }, [personas]);
 
+  // Ouvrir le modal pour créer une nouvelle persona
+  const handleCreate = () => {
+    setEditingPersona(null);
+    setIsModalOpen(true);
+  };
+
+  // Ouvrir le modal pour éditer une persona
+  const handleEdit = (persona: Persona) => {
+    setEditingPersona(persona);
+    setIsModalOpen(true);
+  };
+
+  // Fermer le modal
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingPersona(null);
+  };
+
+  // Soumettre le formulaire (création ou édition)
+  const handleSubmit = async (data: PersonaFormData) => {
+    if (editingPersona) {
+      // Édition
+      await updatePersona(editingPersona.id, {
+        ...data,
+        tags: JSON.stringify(data.tags),
+      });
+    } else {
+      // Création
+      const createData: CreatePersonaData = {
+        ...data,
+        tags: JSON.stringify(data.tags),
+        isDefault: false,
+        isFavorite: false,
+      };
+      await createPersona(createData);
+    }
+  };
+
   const handleDelete = async (persona: Persona) => {
     if (persona.isDefault) {
       alert('Vous ne pouvez pas supprimer une persona par défaut');
@@ -134,7 +179,10 @@ export function PersonasPage() {
               </p>
             </div>
 
-            <button className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl font-semibold flex items-center gap-2 hover:scale-105 transition-transform">
+            <button
+              onClick={handleCreate}
+              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl font-semibold flex items-center gap-2 hover:scale-105 transition-transform"
+            >
               <Plus className="w-5 h-5" />
               Nouvelle Persona
             </button>
@@ -204,6 +252,7 @@ export function PersonasPage() {
             </h2>
             <PersonaList
               personas={favoritePersonas}
+              onEdit={handleEdit}
               onDelete={handleDelete}
               onDuplicate={handleDuplicate}
               onToggleFavorite={handleToggleFavorite}
@@ -221,6 +270,7 @@ export function PersonasPage() {
                 </h2>
                 <PersonaList
                   personas={categoryPersonas}
+                  onEdit={handleEdit}
                   onDelete={handleDelete}
                   onDuplicate={handleDuplicate}
                   onToggleFavorite={handleToggleFavorite}
@@ -241,6 +291,16 @@ export function PersonasPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de création/édition */}
+      <PersonaModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSubmit={handleSubmit}
+        persona={editingPersona}
+        title={editingPersona ? 'Éditer la Persona' : 'Nouvelle Persona'}
+        submitLabel={editingPersona ? 'Sauvegarder' : 'Créer'}
+      />
     </div>
   );
 }
