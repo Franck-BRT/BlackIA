@@ -53,10 +53,15 @@ export function InterfaceSection() {
       </div>
 
       <div className="p-4 glass-card rounded-lg bg-accent/50 mb-6">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground mb-3">
           💡 Configurez quelles sections de paramètres sont visibles lorsque vous
           ouvrez les paramètres depuis chaque module. Les changements prennent effet
           immédiatement.
+        </p>
+        <p className="text-xs text-blue-400">
+          🧪 <span className="font-semibold">Pour tester :</span> Modifiez l'URL en ajoutant{' '}
+          <code className="px-1 py-0.5 bg-black/30 rounded">?from=chat</code> ou{' '}
+          <code className="px-1 py-0.5 bg-black/30 rounded">?from=home</code> pour voir le filtrage en action.
         </p>
       </div>
 
