@@ -47,7 +47,14 @@ const settingsSections: SectionConfig[] = [
 ];
 
 export function InterfaceSection() {
-  const { getSectionVisibility, updateSectionVisibility } = useSettings();
+  const { getSectionVisibility, updateSectionVisibility, resetSettings } = useSettings();
+
+  const handleResetInterface = () => {
+    if (confirm('Réinitialiser tous les paramètres ? Cette action rechargera l\'application.')) {
+      resetSettings();
+      window.location.reload();
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -64,11 +71,16 @@ export function InterfaceSection() {
           ouvrez les paramètres depuis chaque module. Les changements prennent effet
           immédiatement.
         </p>
-        <p className="text-xs text-blue-400">
-          🧪 <span className="font-semibold">Pour tester :</span> Modifiez l'URL en ajoutant{' '}
-          <code className="px-1 py-0.5 bg-black/30 rounded">?from=chat</code> ou{' '}
-          <code className="px-1 py-0.5 bg-black/30 rounded">?from=home</code> pour voir le filtrage en action.
+        <p className="text-xs text-blue-400 mb-3">
+          🧪 <span className="font-semibold">Pour tester :</span> Utilisez les boutons 'Paramètres' dans chaque module
+          (HomePage, ChatPage), ou ajoutez <code className="px-1 py-0.5 bg-black/30 rounded">?from=chat</code> dans l'URL.
         </p>
+        <button
+          onClick={handleResetInterface}
+          className="text-xs px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded transition-colors"
+        >
+          🔄 Réinitialiser tous les paramètres
+        </button>
       </div>
 
       <div className="space-y-6">
