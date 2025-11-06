@@ -21,9 +21,9 @@
 ## Autres fonctionnalités optionnelles
 
 ### Système de favoris
-- [ ] Marquer des conversations comme favorites
-- [ ] Section "Favoris" dans la sidebar
-- [ ] Filtre pour afficher uniquement les favoris
+- [x] Marquer des conversations comme favorites
+- [x] Section "Favoris" dans la sidebar
+- [x] Filtre pour afficher uniquement les favoris
 
 ### Support d'images
 - [ ] Envoi d'images dans les messages
@@ -31,14 +31,14 @@
 - [ ] Support des modèles vision (llama-vision, etc.)
 
 ### Coloration syntaxique avancée
-- [ ] Plus de langages supportés
-- [ ] Thèmes de couleurs personnalisables
-- [ ] Numérotation des lignes optionnelle
+- [x] Plus de langages supportés (15+ langages)
+- [x] Thèmes de couleurs personnalisables (5 thèmes)
+- [x] Numérotation des lignes optionnelle
 
 ### Raccourcis clavier globaux
-- [ ] Configuration des raccourcis personnalisés
-- [ ] Raccourcis pour actions fréquentes
-- [ ] Aide contextuelle des raccourcis (Ctrl+?)
+- [x] Configuration des raccourcis personnalisés
+- [x] Raccourcis pour actions fréquentes
+- [x] Aide contextuelle des raccourcis (Ctrl+?)
 
 ### Fonctionnalités avancées
 - [ ] Statistiques d'utilisation
