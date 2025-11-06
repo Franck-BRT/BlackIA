@@ -8,10 +8,12 @@ import { ConversationSidebar } from '../components/chat/ConversationSidebarWithF
 import { ExportMenu } from '../components/chat/ExportMenu';
 import { ChatSearchBar } from '../components/chat/ChatSearchBar';
 import { TagModal } from '../components/chat/TagModal';
+import { FolderModal } from '../components/chat/FolderModal';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
 import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
+import type { Folder } from '../hooks/useConversations';
 
 export function ChatPage() {
   const [messages, setMessages] = useState<OllamaMessage[]>([]);
@@ -25,6 +27,8 @@ export function ChatPage() {
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
     // Charger les settings depuis localStorage au démarrage
     try {
@@ -613,6 +617,10 @@ export function ChatPage() {
             onDeleteFolder={handleDeleteFolder}
             onMoveToFolder={moveToFolder}
             onRenameConversation={renameConversation}
+            onOpenFolderModal={(folder) => {
+              setEditingFolder(folder || null);
+              setIsFolderModalOpen(true);
+            }}
             onCreateTag={(name, color, icon) => {
               createTag(name, color, icon);
             }}
@@ -804,6 +812,28 @@ export function ChatPage() {
           createTag(name, color, icon);
           setIsTagModalOpen(false);
         }}
+      />
+
+      {/* Folder Modal */}
+      <FolderModal
+        isOpen={isFolderModalOpen}
+        onClose={() => {
+          setIsFolderModalOpen(false);
+          setEditingFolder(null);
+        }}
+        onSave={(name, color) => {
+          if (editingFolder) {
+            renameFolder(editingFolder.id, name);
+            // Note: pour changer la couleur, il faudrait ajouter une méthode updateFolderColor
+          } else {
+            createFolder(name, color);
+          }
+          setIsFolderModalOpen(false);
+          setEditingFolder(null);
+        }}
+        initialName={editingFolder?.name}
+        initialColor={editingFolder?.color}
+        title={editingFolder ? 'Modifier le dossier' : 'Nouveau dossier'}
       />
     </div>
   );

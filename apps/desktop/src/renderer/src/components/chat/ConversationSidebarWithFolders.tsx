@@ -2,7 +2,6 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2, FolderOpen, Search, Tag, X as XIcon } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
-import { FolderModal } from './FolderModal';
 import { RenameConversationModal } from './RenameConversationModal';
 import { TagSelector } from './TagSelector';
 import { SearchBar } from './SearchBar';
@@ -24,6 +23,7 @@ interface ConversationSidebarProps {
   onMoveToFolder: (conversationId: string, folderId: string | null) => void;
   onRenameConversation: (conversationId: string, newTitle: string) => void;
   onOpenChatSearch?: (initialQuery?: string) => void;
+  onOpenFolderModal: (folder?: Folder) => void;
   onCreateTag: (name: string, color: string, icon?: string) => void;
   onOpenTagModal: () => void;
   onToggleConversationTag: (conversationId: string, tagId: string) => void;
@@ -43,12 +43,11 @@ export function ConversationSidebar({
   onMoveToFolder,
   onRenameConversation,
   onOpenChatSearch,
+  onOpenFolderModal,
   onCreateTag,
   onOpenTagModal,
   onToggleConversationTag,
 }: ConversationSidebarProps) {
-  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
-  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [contextMenu, setContextMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
   const [renamingConversation, setRenamingConversation] = useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -260,7 +259,7 @@ export function ConversationSidebar({
           <span className="font-medium">Nouvelle conversation</span>
         </button>
         <button
-          onClick={() => setIsFolderModalOpen(true)}
+          onClick={() => onOpenFolderModal()}
           className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl glass-hover hover:bg-white/10 transition-colors text-sm"
         >
           <FolderIcon className="w-4 h-4" />
@@ -354,8 +353,7 @@ export function ConversationSidebar({
                   defaultOpen={true}
                   storageKey={`sidebar-folder-${folder.id}`}
                   onEdit={() => {
-                    setEditingFolder(folder);
-                    setIsFolderModalOpen(true);
+                    onOpenFolderModal(folder);
                   }}
                   onDelete={() => {
                     if (confirm(`Supprimer le dossier "${folder.name}" ?\nLes conversations ne seront pas supprimées.`)) {
@@ -428,27 +426,6 @@ export function ConversationSidebar({
         </div>,
         document.body
       )}
-
-      {/* Folder Modal */}
-      <FolderModal
-        isOpen={isFolderModalOpen}
-        onClose={() => {
-          setIsFolderModalOpen(false);
-          setEditingFolder(null);
-        }}
-        onSave={(name, color) => {
-          if (editingFolder) {
-            onRenameFolder(editingFolder.id, name);
-            // Note: pour changer la couleur, il faudrait ajouter une méthode
-          } else {
-            onCreateFolder(name, color);
-          }
-          setEditingFolder(null);
-        }}
-        initialName={editingFolder?.name}
-        initialColor={editingFolder?.color}
-        title={editingFolder ? 'Modifier le dossier' : 'Nouveau dossier'}
-      />
 
       {/* Rename Conversation Modal */}
       <RenameConversationModal
