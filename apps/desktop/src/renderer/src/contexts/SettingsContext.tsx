@@ -4,6 +4,7 @@ import type {
   AppModule,
   SettingsSection,
   GeneralSettings,
+  AppearanceSettings,
   KeyboardShortcut,
   InterfaceSettings,
 } from '@blackia/shared/types';
@@ -15,6 +16,15 @@ const defaultSettings: AppSettings = {
     language: 'fr',
     autoSave: true,
     notifications: true,
+  },
+  appearance: {
+    fontSize: 'medium',
+    density: 'comfortable',
+    glassEffect: 'medium',
+    animations: true,
+    accentColor: 'purple',
+    borderRadius: 'medium',
+    reducedMotion: false,
   },
   keyboardShortcuts: [
     {
@@ -96,6 +106,7 @@ const defaultSettings: AppSettings = {
 interface SettingsContextType {
   settings: AppSettings;
   updateGeneralSettings: (settings: Partial<GeneralSettings>) => void;
+  updateAppearanceSettings: (settings: Partial<AppearanceSettings>) => void;
   updateKeyboardShortcuts: (shortcuts: KeyboardShortcut[]) => void;
   updateInterfaceSettings: (settings: Partial<InterfaceSettings>) => void;
   updateSectionVisibility: (
@@ -138,6 +149,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings((prev) => ({
       ...prev,
       general: { ...prev.general, ...newSettings },
+    }));
+  };
+
+  const updateAppearanceSettings = (newSettings: Partial<AppearanceSettings>) => {
+    setSettings((prev) => ({
+      ...prev,
+      appearance: { ...prev.appearance, ...newSettings },
     }));
   };
 
@@ -189,6 +207,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       value={{
         settings,
         updateGeneralSettings,
+        updateAppearanceSettings,
         updateKeyboardShortcuts,
         updateInterfaceSettings,
         updateSectionVisibility,

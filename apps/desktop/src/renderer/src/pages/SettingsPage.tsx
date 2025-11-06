@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ChatSettings } from '../components/settings/ChatSettings';
 import { KeyboardShortcutsSettings } from '../components/settings/KeyboardShortcutsSettings';
+import { AppearanceSettings } from '../components/settings/AppearanceSettings';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
@@ -110,7 +111,7 @@ export function SettingsPage() {
           {activeSection === 'workflows' && <PlaceholderSection title="Workflows" />}
           {activeSection === 'prompts' && <PlaceholderSection title="Prompts" />}
           {activeSection === 'personas' && <PlaceholderSection title="Personas" />}
-          {activeSection === 'appearance' && <PlaceholderSection title="Apparence" />}
+          {activeSection === 'appearance' && <AppearanceSettings />}
           {activeSection === 'notifications' && <PlaceholderSection title="Notifications" />}
           {activeSection === 'keyboard' && <KeyboardShortcutsSettings />}
         </div>
