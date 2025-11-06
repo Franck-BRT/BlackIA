@@ -116,3 +116,56 @@ export interface AIResponse {
   };
   finishReason?: string;
 }
+
+// Application modules
+export type AppModule =
+  | 'home'
+  | 'chat'
+  | 'workflows'
+  | 'prompts'
+  | 'personas'
+  | 'projects'
+  | 'logs'
+  | 'settings';
+
+// Settings sections
+export type SettingsSection =
+  | 'general'
+  | 'keyboardShortcuts'
+  | 'interface'
+  | 'about';
+
+// Interface settings - visibility management
+export interface SectionVisibility {
+  [sectionName: string]: boolean;
+}
+
+export interface InterfaceSettings {
+  sectionVisibilityByModule: {
+    [moduleName in AppModule]?: SectionVisibility;
+  };
+}
+
+// General settings
+export interface GeneralSettings {
+  theme: 'light' | 'dark' | 'system';
+  language: string;
+  autoSave: boolean;
+  notifications: boolean;
+}
+
+// Keyboard shortcut
+export interface KeyboardShortcut {
+  id: string;
+  action: string;
+  keys: string[];
+  description: string;
+  enabled: boolean;
+}
+
+// Complete settings structure
+export interface AppSettings {
+  general: GeneralSettings;
+  keyboardShortcuts: KeyboardShortcut[];
+  interface: InterfaceSettings;
+}
