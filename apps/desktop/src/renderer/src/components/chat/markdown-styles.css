@@ -1,0 +1,288 @@
+/* Markdown Styles */
+
+.markdown-content {
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* Headers */
+.markdown-h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.3em;
+}
+
+.markdown-h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin-top: 0.8em;
+  margin-bottom: 0.4em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.2em;
+}
+
+.markdown-h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin-top: 0.6em;
+  margin-bottom: 0.3em;
+}
+
+.markdown-h4 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin-top: 0.5em;
+  margin-bottom: 0.25em;
+}
+
+.markdown-h5,
+.markdown-h6 {
+  font-size: 1em;
+  font-weight: 600;
+  margin-top: 0.4em;
+  margin-bottom: 0.2em;
+}
+
+/* Code */
+.markdown-code-block-container {
+  margin: 1em 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.markdown-code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5em 1em;
+  background-color: rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.markdown-code-language {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.markdown-code-copy-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  background-color: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+  padding: 0.4em 0.8em;
+  color: rgb(147, 197, 253);
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.markdown-code-copy-button:hover {
+  background-color: rgba(59, 130, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.5);
+  transform: translateY(-1px);
+}
+
+.markdown-code-copy-button:active {
+  transform: translateY(0);
+}
+
+.markdown-code-copy-button span {
+  font-weight: 500;
+}
+
+.markdown-code-block {
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 1em;
+  margin: 0;
+  overflow-x: auto;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
+.markdown-code-block code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  color: inherit;
+}
+
+.markdown-inline-code {
+  background-color: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 4px;
+  padding: 0.2em 0.4em;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 0.9em;
+  color: rgb(147, 197, 253);
+}
+
+/* Text formatting */
+.markdown-bold {
+  font-weight: 700;
+}
+
+.markdown-italic {
+  font-style: italic;
+}
+
+.markdown-bold-italic {
+  font-weight: 700;
+  font-style: italic;
+}
+
+.markdown-strikethrough {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.markdown-highlight {
+  background-color: rgba(234, 179, 8, 0.3);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
+/* Links */
+.markdown-link {
+  color: rgb(96, 165, 250);
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.markdown-link:hover {
+  color: rgb(147, 197, 253);
+}
+
+/* Lists */
+.markdown-list,
+.markdown-ordered-list {
+  margin: 0.5em 0;
+  padding-left: 2em;
+}
+
+.markdown-list {
+  list-style-type: disc;
+}
+
+.markdown-ordered-list {
+  list-style-type: decimal;
+}
+
+.markdown-list-item,
+.markdown-ordered-list-item {
+  margin: 0.25em 0;
+}
+
+.markdown-checkbox-item {
+  margin: 0.25em 0;
+  list-style-type: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.markdown-checkbox-item input[type='checkbox'] {
+  margin: 0;
+  cursor: default;
+}
+
+/* Blockquotes */
+.markdown-blockquote {
+  border-left: 4px solid rgba(96, 165, 250, 0.5);
+  padding-left: 1em;
+  margin: 1em 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-style: italic;
+}
+
+/* Horizontal rule */
+.markdown-hr {
+  border: none;
+  border-top: 2px solid rgba(255, 255, 255, 0.1);
+  margin: 2em 0;
+}
+
+/* Tables */
+.markdown-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.markdown-table thead {
+  background-color: rgba(59, 130, 246, 0.2);
+}
+
+.markdown-table-header {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.75em 1em;
+  text-align: left;
+  font-weight: 600;
+  color: rgb(147, 197, 253);
+}
+
+.markdown-table-cell {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.75em 1em;
+  text-align: left;
+}
+
+.markdown-table-row:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.markdown-table-row:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Images */
+.markdown-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1em 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Search Highlights */
+.search-highlight {
+  background-color: rgba(234, 179, 8, 0.4);
+  color: rgb(253, 224, 71);
+  padding: 0.1em 0.2em;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.search-highlight-active {
+  background-color: rgba(249, 115, 22, 0.6);
+  color: rgb(254, 215, 170);
+  padding: 0.1em 0.2em;
+  border-radius: 3px;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.4);
+  animation: pulse-highlight 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-highlight {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.6);
+  }
+}

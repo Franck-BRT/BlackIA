@@ -10,6 +10,12 @@
     "pnpm": ">=8.0.0"
   },
   "scripts": {
+    "start": "bash scripts/dev.sh",
+    "start:fresh": "bash scripts/dev.sh --fresh",
+    "start:quick": "bash scripts/dev.sh --no-build",
+    "start:help": "bash scripts/dev.sh --help",
+    "build:packages": "bash scripts/dev.sh --build",
+    "clean:build": "bash scripts/dev.sh --clean",
     "dev": "turbo run dev --parallel",
     "build": "turbo run build",
     "test": "turbo run test",
