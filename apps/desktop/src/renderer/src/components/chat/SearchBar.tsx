@@ -16,8 +16,8 @@ export function SearchBar({ searchQuery, onSearchChange, resultsCount }: SearchB
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Rechercher dans les conversations..."
-          className="w-full pl-10 pr-10 py-2 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-blue-500/50 transition-colors text-sm"
+          placeholder="Rechercher dans les conversations... (Ctrl+K)"
+          className="sidebar-search-input w-full pl-10 pr-10 py-2 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-blue-500/50 transition-colors text-sm"
         />
         {searchQuery && (
           <button

@@ -9,9 +9,11 @@ import { ExportMenu } from '../components/chat/ExportMenu';
 import { ChatSearchBar } from '../components/chat/ChatSearchBar';
 import { TagModal } from '../components/chat/TagModal';
 import { FolderModal } from '../components/chat/FolderModal';
+import { KeyboardShortcutsModal } from '../components/chat/KeyboardShortcutsModal';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
+import { useKeyboardShortcuts, KeyboardShortcut } from '../hooks/useKeyboardShortcuts';
 import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
 import type { Folder } from '../hooks/useConversations';
 
@@ -29,6 +31,7 @@ export function ChatPage() {
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
     // Charger les settings depuis localStorage au démarrage
     try {
@@ -73,6 +76,104 @@ export function ChatPage() {
     tags,
     createTag,
   } = useTags();
+
+  // Définir les raccourcis clavier
+  const keyboardShortcuts: KeyboardShortcut[] = useMemo(() => [
+    // Navigation
+    {
+      key: 'b',
+      ctrl: true,
+      description: 'Afficher/Masquer la sidebar',
+      action: () => setIsSidebarOpen(!isSidebarOpen),
+      category: 'Navigation',
+    },
+    {
+      key: 'f',
+      ctrl: true,
+      description: 'Rechercher dans la conversation',
+      action: () => setIsChatSearchOpen(true),
+      category: 'Recherche',
+    },
+    {
+      key: 'k',
+      ctrl: true,
+      description: 'Rechercher dans les conversations',
+      action: () => {
+        // Focus sur la barre de recherche de la sidebar si elle existe
+        const searchInput = document.querySelector('.sidebar-search-input') as HTMLInputElement;
+        if (searchInput) {
+          searchInput.focus();
+        }
+      },
+      category: 'Recherche',
+    },
+    // Actions
+    {
+      key: 'n',
+      ctrl: true,
+      description: 'Nouvelle conversation',
+      action: handleNewConversation,
+      category: 'Actions',
+    },
+    {
+      key: 's',
+      ctrl: true,
+      description: 'Sauvegarder (déjà automatique)',
+      action: () => {
+        // La sauvegarde est automatique, on affiche juste une notification visuelle
+        console.log('💾 Conversation sauvegardée automatiquement');
+      },
+      category: 'Actions',
+    },
+    {
+      key: ',',
+      ctrl: true,
+      description: 'Ouvrir les paramètres',
+      action: () => setIsSettingsOpen(true),
+      category: 'Actions',
+    },
+    // Chat
+    {
+      key: 'l',
+      ctrl: true,
+      description: 'Effacer la conversation',
+      action: handleClearChat,
+      category: 'Chat',
+    },
+    {
+      key: 'r',
+      ctrl: true,
+      shift: true,
+      description: 'Régénérer la dernière réponse',
+      action: () => {
+        if (!isGenerating) {
+          handleRegenerate();
+        }
+      },
+      category: 'Chat',
+    },
+    // Aide
+    {
+      key: '?',
+      ctrl: true,
+      description: 'Afficher les raccourcis clavier',
+      action: () => setIsShortcutsModalOpen(true),
+      category: 'Aide',
+    },
+    {
+      key: '/',
+      ctrl: true,
+      description: 'Afficher les raccourcis clavier',
+      action: () => setIsShortcutsModalOpen(true),
+      category: 'Aide',
+    },
+  ], [isSidebarOpen, isGenerating]);
+
+  // Activer les raccourcis clavier
+  useKeyboardShortcuts({
+    shortcuts: keyboardShortcuts,
+    enabled: !isSettingsOpen && !isTagModalOpen && !isFolderModalOpen && !isShortcutsModalOpen,
+  });
 
   // Calculer les résultats de recherche dans le chat
   const searchResults = useMemo(() => {
@@ -840,6 +941,13 @@ export function ChatPage() {
         initialName={editingFolder?.name}
         initialColor={editingFolder?.color}
         title={editingFolder ? 'Modifier le dossier' : 'Nouveau dossier'}
+      />
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsModalOpen}
+        onClose={() => setIsShortcutsModalOpen(false)}
+        shortcuts={keyboardShortcuts}
       />
     </div>
   );
