@@ -161,7 +161,9 @@ ipcMain.handle('file:exportPDF', async (_event, options: {
     // Générer le PDF
     const pdfData = await pdfWindow.webContents.printToPDF({
       printBackground: true,
-      marginsType: 1, // No margins
+      margins: {
+        marginType: 'none'
+      }
     });
 
     // Sauvegarder le PDF

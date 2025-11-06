@@ -1,0 +1,99 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradients modernes -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0A0E27;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a1f3a;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="mainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667EEA;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#764BA2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F093FB;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4FACFE;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#00F2FE;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Glow effects -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="softGlow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Fond avec coins arrondis -->
+  <rect width="1024" height="1024" rx="220" fill="url(#bgGrad)"/>
+
+  <!-- Cercles décoratifs en arrière-plan -->
+  <circle cx="200" cy="200" r="150" fill="url(#mainGrad)" opacity="0.06" filter="url(#glow)"/>
+  <circle cx="824" cy="824" r="180" fill="url(#accentGrad)" opacity="0.06" filter="url(#glow)"/>
+  <circle cx="824" cy="200" r="120" fill="url(#mainGrad)" opacity="0.04"/>
+  <circle cx="200" cy="824" r="120" fill="url(#accentGrad)" opacity="0.04"/>
+
+  <!-- Forme principale : "B" stylisé moderne en 3D -->
+  <g transform="translate(512, 512)">
+
+    <!-- Shadow/Depth layer -->
+    <g transform="translate(8, 8)" opacity="0.3">
+      <path d="M -140,-200 L -140,200 L 60,200 C 140,200 180,160 180,100 C 180,50 150,20 100,10 C 140,0 160,-40 160,-90 C 160,-160 120,-200 40,-200 Z
+               M -60,-140 L 20,-140 C 60,-140 80,-120 80,-90 C 80,-60 60,-40 20,-40 L -60,-40 Z
+               M -60,20 L 40,20 C 90,20 110,45 110,90 C 110,135 90,160 40,160 L -60,160 Z"
+            fill="#000000"/>
+    </g>
+
+    <!-- Main "B" shape -->
+    <path d="M -140,-200 L -140,200 L 60,200 C 140,200 180,160 180,100 C 180,50 150,20 100,10 C 140,0 160,-40 160,-90 C 160,-160 120,-200 40,-200 Z
+           M -60,-140 L 20,-140 C 60,-140 80,-120 80,-90 C 80,-60 60,-40 20,-40 L -60,-40 Z
+           M -60,20 L 40,20 C 90,20 110,45 110,90 C 110,135 90,160 40,160 L -60,160 Z"
+          fill="url(#mainGrad)" filter="url(#softGlow)"/>
+
+    <!-- Highlight accent -->
+    <path d="M -100,-180 L -100,-160 C -100,-160 -90,-165 -70,-165 L -70,-185 Z"
+          fill="url(#accentGrad)" opacity="0.6"/>
+
+    <!-- Accent dots (IA particles) -->
+    <circle cx="200" cy="-80" r="12" fill="url(#accentGrad)" opacity="0.8" filter="url(#softGlow)"/>
+    <circle cx="220" cy="20" r="8" fill="url(#accentGrad)" opacity="0.6"/>
+    <circle cx="200" cy="110" r="10" fill="url(#accentGrad)" opacity="0.7" filter="url(#softGlow)"/>
+
+    <circle cx="-200" cy="-120" r="8" fill="url(#accentGrad)" opacity="0.5"/>
+    <circle cx="-220" cy="0" r="10" fill="url(#accentGrad)" opacity="0.6"/>
+    <circle cx="-200" cy="140" r="8" fill="url(#accentGrad)" opacity="0.5"/>
+
+    <!-- Connecting lines (subtle) -->
+    <line x1="-200" y1="-120" x2="-140" y2="-100" stroke="url(#accentGrad)" stroke-width="2" opacity="0.3"/>
+    <line x1="200" y1="110" x2="180" y2="80" stroke="url(#accentGrad)" stroke-width="2" opacity="0.3"/>
+  </g>
+
+  <!-- Texte moderne -->
+  <text x="512" y="780"
+        font-family="'SF Pro Display', 'Helvetica Neue', Arial, sans-serif"
+        font-size="88"
+        font-weight="700"
+        fill="url(#mainGrad)"
+        text-anchor="middle"
+        letter-spacing="2">BlackIA</text>
+
+  <text x="512" y="840"
+        font-family="'SF Pro Display', 'Helvetica Neue', Arial, sans-serif"
+        font-size="36"
+        font-weight="300"
+        fill="url(#accentGrad)"
+        text-anchor="middle"
+        letter-spacing="4"
+        opacity="0.9">AI SUITE</text>
+</svg>

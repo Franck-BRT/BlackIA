@@ -25,7 +25,11 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "desktop:dev": "pnpm --filter @blackia/desktop dev",
     "desktop:build": "pnpm --filter @blackia/desktop build",
-    "verify": "bash scripts/verify-setup.sh"
+    "verify": "bash scripts/verify-setup.sh",
+    "build:dmg": "bash scripts/build-dmg.sh",
+    "build:dmg:clean": "bash scripts/build-dmg.sh --clean",
+    "build:dmg:sign": "bash scripts/build-dmg.sh --sign",
+    "generate:icons": "bash scripts/generate-icons.sh"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",

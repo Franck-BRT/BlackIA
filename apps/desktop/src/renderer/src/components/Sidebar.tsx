@@ -31,7 +31,10 @@ const navItems: NavItem[] = [
 
 export function Sidebar() {
   return (
-    <aside className="w-64 glass-sidebar flex flex-col relative z-20">
+    <aside
+      className="w-64 glass-sidebar flex flex-col relative z-20"
+      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+    >
       {/* Logo */}
       <div className="p-6 border-b border-white/10">
         <div className="flex items-center gap-3">
