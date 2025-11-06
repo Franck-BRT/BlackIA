@@ -6,6 +6,7 @@ import { ModelSelector } from '../components/chat/ModelSelector';
 import { ChatSettings, ChatSettingsData, DEFAULT_CHAT_SETTINGS } from '../components/chat/ChatSettings';
 import { ConversationSidebar } from '../components/chat/ConversationSidebarWithFolders';
 import { ExportMenu } from '../components/chat/ExportMenu';
+import { ImportExportMenu, BackupData } from '../components/chat/ImportExportMenu';
 import { ChatSearchBar } from '../components/chat/ChatSearchBar';
 import { TagModal } from '../components/chat/TagModal';
 import { FolderModal } from '../components/chat/FolderModal';
@@ -61,6 +62,8 @@ export function ChatPage() {
     addTagToConversation,
     removeTagFromConversation,
     toggleFavorite,
+    importConversation,
+    importBackup,
   } = useConversations();
 
   // Hook pour gérer les dossiers
@@ -69,12 +72,14 @@ export function ChatPage() {
     createFolder,
     renameFolder,
     deleteFolder,
+    importFolders,
   } = useFolders();
 
   // Hook pour gérer les tags
   const {
     tags,
     createTag,
+    importTags,
   } = useTags();
 
   // Calculer les résultats de recherche dans le chat
@@ -266,6 +271,29 @@ export function ChatPage() {
     setRegenerationCounts(new Map());
 
     console.log('[ChatPage] ✨ Prêt pour une nouvelle conversation');
+  };
+
+  // Import d'une conversation unique
+  const handleImportConversation = (conversation: any) => {
+    importConversation(conversation);
+  };
+
+  // Import d'un backup complet
+  const handleImportBackup = (data: BackupData, mode: 'merge' | 'replace') => {
+    // Importer les conversations
+    importBackup(data.conversations, mode);
+
+    // Importer les dossiers
+    if (data.folders) {
+      importFolders(data.folders, mode);
+    }
+
+    // Importer les tags
+    if (data.tags) {
+      importTags(data.tags, mode);
+    }
+
+    console.log('[ChatPage] ✅ Backup importé:', mode, data.conversations.length, 'conversations');
   };
 
   // Charger une conversation
@@ -773,6 +801,13 @@ export function ChatPage() {
                   ? conversations.find((c) => c.id === currentConversationId)?.title
                   : 'Conversation'
               }
+            />
+            <ImportExportMenu
+              conversations={conversations}
+              folders={folders}
+              tags={tags}
+              onImportConversation={handleImportConversation}
+              onImportBackup={handleImportBackup}
             />
             <button
               onClick={() => setIsChatSearchOpen(true)}

@@ -94,6 +94,27 @@ export function useFolders() {
     return folders.find((f) => f.id === id) || null;
   }, [folders]);
 
+  // Importer des dossiers (pour les backups)
+  const importFolders = useCallback((foldersToImport: Folder[], mode: 'merge' | 'replace') => {
+    setFolders((prev) => {
+      let updated: Folder[];
+
+      if (mode === 'replace') {
+        updated = foldersToImport;
+        console.log('[useFolders] Dossiers importés (remplacement):', foldersToImport.length);
+      } else {
+        // Fusionner - éviter les duplicates par ID
+        const existingIds = new Set(prev.map((f) => f.id));
+        const newFolders = foldersToImport.filter((f) => !existingIds.has(f.id));
+        updated = [...prev, ...newFolders];
+        console.log('[useFolders] Dossiers importés (fusion):', newFolders.length, 'nouveaux dossiers');
+      }
+
+      saveToStorage(updated);
+      return updated;
+    });
+  }, [saveToStorage]);
+
   return {
     folders,
     createFolder,
@@ -101,5 +122,6 @@ export function useFolders() {
     changeFolderColor,
     deleteFolder,
     getFolderById,
+    importFolders,
   };
 }

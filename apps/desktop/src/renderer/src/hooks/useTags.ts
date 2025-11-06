@@ -94,6 +94,27 @@ export function useTags() {
     return tags.filter((t) => ids.includes(t.id));
   }, [tags]);
 
+  // Importer des tags (pour les backups)
+  const importTags = useCallback((tagsToImport: Tag[], mode: 'merge' | 'replace') => {
+    setTags((prev) => {
+      let updated: Tag[];
+
+      if (mode === 'replace') {
+        updated = tagsToImport;
+        console.log('[useTags] Tags importés (remplacement):', tagsToImport.length);
+      } else {
+        // Fusionner - éviter les duplicates par ID
+        const existingIds = new Set(prev.map((t) => t.id));
+        const newTags = tagsToImport.filter((t) => !existingIds.has(t.id));
+        updated = [...prev, ...newTags];
+        console.log('[useTags] Tags importés (fusion):', newTags.length, 'nouveaux tags');
+      }
+
+      saveToStorage(updated);
+      return updated;
+    });
+  }, [saveToStorage]);
+
   return {
     tags,
     createTag,
@@ -101,5 +122,6 @@ export function useTags() {
     deleteTag,
     getTagById,
     getTagsByIds,
+    importTags,
   };
 }

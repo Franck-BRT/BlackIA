@@ -289,6 +289,60 @@ export function useConversations() {
     console.log('[useConversations] Favori basculé:', conversationId);
   }, [saveToStorage]);
 
+  // Importer une conversation unique
+  const importConversation = useCallback((conversation: Conversation) => {
+    setConversations((prev) => {
+      // Vérifier si une conversation avec le même ID existe déjà
+      const exists = prev.some((conv) => conv.id === conversation.id);
+
+      if (exists) {
+        // Générer un nouvel ID pour éviter les conflits
+        const newConversation = {
+          ...conversation,
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        const updated = [newConversation, ...prev];
+        saveToStorage(updated);
+        console.log('[useConversations] Conversation importée avec nouvel ID:', newConversation.id);
+        return updated;
+      } else {
+        const updated = [conversation, ...prev];
+        saveToStorage(updated);
+        console.log('[useConversations] Conversation importée:', conversation.id);
+        return updated;
+      }
+    });
+  }, [saveToStorage]);
+
+  // Importer un backup complet
+  const importBackup = useCallback((
+    conversations: Conversation[],
+    mode: 'merge' | 'replace'
+  ) => {
+    setConversations((prev) => {
+      let updated: Conversation[];
+
+      if (mode === 'replace') {
+        // Remplacer toutes les conversations
+        updated = conversations;
+        console.log('[useConversations] Backup importé (remplacement):', conversations.length);
+      } else {
+        // Fusionner avec les conversations existantes
+        const existingIds = new Set(prev.map((conv) => conv.id));
+        const newConversations = conversations.filter((conv) => !existingIds.has(conv.id));
+
+        updated = [...newConversations, ...prev];
+        console.log('[useConversations] Backup importé (fusion):', newConversations.length, 'nouvelles conversations');
+      }
+
+      saveToStorage(updated);
+      return updated;
+    });
+  }, [saveToStorage]);
+
   return {
     conversations,
     currentConversationId,
@@ -305,5 +359,7 @@ export function useConversations() {
     removeTagFromConversation,
     setConversationTags,
     toggleFavorite,
+    importConversation,
+    importBackup,
   };
 }
