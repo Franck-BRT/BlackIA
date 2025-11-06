@@ -71,6 +71,7 @@ export function PersonaModal({
         model: persona.model || undefined,
         temperature: persona.temperature || undefined,
         maxTokens: persona.maxTokens || undefined,
+        fewShots: persona.fewShots ? JSON.parse(persona.fewShots) : [],
         avatar: persona.avatar,
         color: persona.color as any,
         category: persona.category || undefined,

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PersonaAvatarPicker } from './PersonaAvatarPicker';
+import { FewShotManager } from './FewShotManager';
 import type { PersonaFormData, PersonaColor } from '../../types/persona';
 import { PERSONA_CATEGORIES, PERSONA_COLORS, PERSONA_COLOR_CLASSES } from '../../types/persona';
 
@@ -23,6 +24,7 @@ export function PersonaForm({
     model: initialData?.model || '',
     temperature: initialData?.temperature,
     maxTokens: initialData?.maxTokens,
+    fewShots: initialData?.fewShots || [],
     avatar: initialData?.avatar || '🤖',
     color: initialData?.color || 'purple',
     category: initialData?.category || '',
@@ -301,6 +303,12 @@ export function PersonaForm({
           </div>
         )}
       </div>
+
+      {/* Few-Shot Examples */}
+      <FewShotManager
+        examples={formData.fewShots}
+        onChange={(fewShots) => setFormData({ ...formData, fewShots })}
+      />
 
       {/* Boutons d'action */}
       <div className="flex gap-3 pt-4 border-t border-border/20">

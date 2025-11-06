@@ -3,6 +3,16 @@
  * Synchronisés avec le schéma de base de données
  */
 
+/**
+ * Few-Shot Example
+ * Exemple de conversation pour guider le comportement de la persona
+ */
+export interface FewShotExample {
+  id: string;
+  userMessage: string;
+  assistantResponse: string;
+}
+
 export interface Persona {
   id: string;
   name: string;
@@ -13,6 +23,9 @@ export interface Persona {
   model?: string | null;
   temperature?: number | null;
   maxTokens?: number | null;
+
+  // Few-Shot Examples
+  fewShots?: string; // JSON array of FewShotExample
 
   // Apparence
   avatar: string;
@@ -41,6 +54,7 @@ export interface PersonaFormData {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  fewShots: FewShotExample[]; // Array of examples in form
   avatar: string;
   color: PersonaColor;
   category?: string;
@@ -54,6 +68,7 @@ export interface CreatePersonaData {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  fewShots?: string; // JSON string for storage
   avatar: string;
   color: PersonaColor;
   category?: string;
@@ -69,6 +84,7 @@ export interface UpdatePersonaData {
   model?: string | null;
   temperature?: number | null;
   maxTokens?: number | null;
+  fewShots?: string; // JSON string for storage
   avatar?: string;
   color?: PersonaColor;
   category?: string | null;

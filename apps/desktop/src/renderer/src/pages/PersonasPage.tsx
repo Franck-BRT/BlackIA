@@ -114,12 +114,14 @@ export function PersonasPage() {
       await updatePersona(editingPersona.id, {
         ...data,
         tags: JSON.stringify(data.tags),
+        fewShots: data.fewShots.length > 0 ? JSON.stringify(data.fewShots) : undefined,
       });
     } else {
       // Création
       const createData: CreatePersonaData = {
         ...data,
         tags: JSON.stringify(data.tags),
+        fewShots: data.fewShots.length > 0 ? JSON.stringify(data.fewShots) : undefined,
         isDefault: false,
         isFavorite: false,
       };
