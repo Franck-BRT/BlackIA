@@ -601,7 +601,13 @@ export function ChatPage() {
             onDeleteFolder={handleDeleteFolder}
             onMoveToFolder={moveToFolder}
             onRenameConversation={renameConversation}
-            onOpenChatSearch={() => setIsChatSearchOpen(true)}
+            onOpenChatSearch={(initialQuery) => {
+              setIsChatSearchOpen(true);
+              if (initialQuery) {
+                setChatSearchQuery(initialQuery);
+                setCurrentSearchIndex(0);
+              }
+            }}
           />
         </div>
       )}

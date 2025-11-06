@@ -20,7 +20,7 @@ interface ConversationSidebarProps {
   onDeleteFolder: (id: string) => void;
   onMoveToFolder: (conversationId: string, folderId: string | null) => void;
   onRenameConversation: (conversationId: string, newTitle: string) => void;
-  onOpenChatSearch?: () => void;
+  onOpenChatSearch?: (initialQuery?: string) => void;
 }
 
 export function ConversationSidebar({
@@ -211,7 +211,7 @@ export function ConversationSidebar({
         </button>
         {onOpenChatSearch && (
           <button
-            onClick={onOpenChatSearch}
+            onClick={() => onOpenChatSearch(searchQuery)}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl glass-hover hover:bg-white/10 transition-colors text-sm"
             title="Rechercher dans la conversation (Ctrl+F)"
           >
