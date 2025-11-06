@@ -47,12 +47,65 @@
 }
 
 /* Code */
-.markdown-code-block {
-  background-color: rgba(0, 0, 0, 0.3);
+.markdown-code-block-container {
+  margin: 1em 0;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
+  overflow: hidden;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.markdown-code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5em 1em;
+  background-color: rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.markdown-code-language {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.markdown-code-copy-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  background-color: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+  padding: 0.4em 0.8em;
+  color: rgb(147, 197, 253);
+  font-size: 0.85em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.markdown-code-copy-button:hover {
+  background-color: rgba(59, 130, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.5);
+  transform: translateY(-1px);
+}
+
+.markdown-code-copy-button:active {
+  transform: translateY(0);
+}
+
+.markdown-code-copy-button span {
+  font-weight: 500;
+}
+
+.markdown-code-block {
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
   padding: 1em;
-  margin: 1em 0;
+  margin: 0;
   overflow-x: auto;
   font-family: 'Fira Code', 'Courier New', monospace;
   font-size: 0.9em;
@@ -85,6 +138,22 @@
   font-style: italic;
 }
 
+.markdown-bold-italic {
+  font-weight: 700;
+  font-style: italic;
+}
+
+.markdown-strikethrough {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.markdown-highlight {
+  background-color: rgba(234, 179, 8, 0.3);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+
 /* Links */
 .markdown-link {
   color: rgb(96, 165, 250);
@@ -114,6 +183,19 @@
 .markdown-list-item,
 .markdown-ordered-list-item {
   margin: 0.25em 0;
+}
+
+.markdown-checkbox-item {
+  margin: 0.25em 0;
+  list-style-type: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+.markdown-checkbox-item input[type='checkbox'] {
+  margin: 0;
+  cursor: default;
 }
 
 /* Blockquotes */
@@ -166,4 +248,13 @@
 
 .markdown-table-row:hover {
   background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Images */
+.markdown-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1em 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }

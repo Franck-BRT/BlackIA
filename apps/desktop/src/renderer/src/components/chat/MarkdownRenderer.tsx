@@ -1,24 +1,78 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Copy, Check } from 'lucide-react';
 
 interface MarkdownRendererProps {
   content: string;
 }
 
+interface CodeBlock {
+  language: string;
+  code: string;
+  rawCode: string; // Code non échappé pour la copie
+}
+
+// Composant pour afficher un bloc de code avec bouton copier
+function CodeBlockWithCopy({ language, code, rawCode }: CodeBlock) {
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(rawCode);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (error) {
+      console.error('Erreur lors de la copie:', error);
+    }
+  };
+
+  return (
+    <div className="markdown-code-block-container">
+      <div className="markdown-code-block-header">
+        <span className="markdown-code-language">{language}</span>
+        <button
+          onClick={handleCopy}
+          className="markdown-code-copy-button"
+          title="Copier le code"
+        >
+          {isCopied ? (
+            <>
+              <Check size={16} />
+              <span>Copié!</span>
+            </>
+          ) : (
+            <>
+              <Copy size={16} />
+              <span>Copier</span>
+            </>
+          )}
+        </button>
+      </div>
+      <pre className="markdown-code-block">
+        <code className={`language-${language}`} dangerouslySetInnerHTML={{ __html: code }} />
+      </pre>
+    </div>
+  );
+}
+
 export function MarkdownRenderer({ content }: MarkdownRendererProps) {
-  const parseMarkdown = (text: string): string => {
+  const parseMarkdown = (text: string): { html: string; codeBlocks: CodeBlock[] } => {
     let html = text;
 
     // 1. SAUVEGARDER les blocs de code (priorité maximale)
-    const codeBlocks: string[] = [];
+    const codeBlocks: CodeBlock[] = [];
     html = html.replace(/```(\w+)?[\r\n]?([\s\S]*?)```/g, (match, lang, code) => {
       const placeholder = `§§§CODE_BLOCK_${codeBlocks.length}§§§`;
       const language = lang || 'plaintext';
-      const escapedCode = code
-        .trim()
+      const rawCode = code.trim();
+      const escapedCode = rawCode
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-      codeBlocks.push(`<pre class="markdown-code-block"><code class="language-${language}">${escapedCode}</code></pre>`);
+      codeBlocks.push({
+        language,
+        code: escapedCode,
+        rawCode
+      });
       return placeholder;
     });
 
@@ -126,13 +180,9 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
     // URLs automatiques
     html = html.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" class="markdown-link" target="_blank" rel="noopener noreferrer">$1</a>');
 
-    // 11. RESTAURER
+    // 11. RESTAURER (sauf les code blocks qui seront rendus séparément)
     tables.forEach((table, index) => {
       html = html.replace(`§§§TABLE_${index}§§§`, table);
-    });
-
-    codeBlocks.forEach((block, index) => {
-      html = html.replace(`§§§CODE_BLOCK_${index}§§§`, block);
     });
 
     inlineCode.forEach((code, index) => {
@@ -142,13 +192,58 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
     // 12. RETOURS À LA LIGNE (à la fin)
     html = html.replace(/\n/g, '<br />');
 
-    return html;
+    return { html, codeBlocks };
   };
 
-  return (
-    <div
-      className="markdown-content"
-      dangerouslySetInnerHTML={{ __html: parseMarkdown(content) }}
-    />
-  );
+  // Parser le contenu
+  const { html, codeBlocks } = parseMarkdown(content);
+
+  // Diviser le HTML en parties et insérer les composants CodeBlock
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+
+  // Trouver tous les placeholders de code blocks
+  const codeBlockRegex = /§§§CODE_BLOCK_(\d+)§§§/g;
+  let match;
+
+  while ((match = codeBlockRegex.exec(html)) !== null) {
+    const index = parseInt(match[1], 10);
+    const matchStart = match.index;
+
+    // Ajouter le HTML avant ce code block
+    if (matchStart > lastIndex) {
+      const htmlPart = html.substring(lastIndex, matchStart);
+      parts.push(
+        <span
+          key={`html-${lastIndex}`}
+          dangerouslySetInnerHTML={{ __html: htmlPart }}
+        />
+      );
+    }
+
+    // Ajouter le composant CodeBlock
+    parts.push(
+      <CodeBlockWithCopy
+        key={`code-${index}`}
+        language={codeBlocks[index].language}
+        code={codeBlocks[index].code}
+        rawCode={codeBlocks[index].rawCode}
+      />
+    );
+
+    lastIndex = matchStart + match[0].length;
+  }
+
+  // Ajouter le HTML restant
+  if (lastIndex < html.length) {
+    const htmlPart = html.substring(lastIndex);
+    parts.push(
+      <span
+        key={`html-${lastIndex}`}
+        dangerouslySetInnerHTML={{ __html: htmlPart }}
+      />
+    );
+  }
+
+  return <div className="markdown-content">{parts}</div>;
 }
