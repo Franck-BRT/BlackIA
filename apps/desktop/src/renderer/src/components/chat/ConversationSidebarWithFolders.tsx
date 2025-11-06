@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2, FolderOpen, Search, Tag, X as XIcon, Star, Settings } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2, FolderOpen, Search, Tag, X as XIcon, Star } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { RenameConversationModal } from './RenameConversationModal';
 import { TagSelector } from './TagSelector';
@@ -28,7 +28,6 @@ interface ConversationSidebarProps {
   onOpenTagModal: () => void;
   onToggleConversationTag: (conversationId: string, tagId: string) => void;
   onToggleFavorite: (conversationId: string) => void;
-  onOpenAppSettings: () => void;
 }
 
 export function ConversationSidebar({
@@ -50,7 +49,6 @@ export function ConversationSidebar({
   onOpenTagModal,
   onToggleConversationTag,
   onToggleFavorite,
-  onOpenAppSettings,
 }: ConversationSidebarProps) {
   const [contextMenu, setContextMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
   const [renamingConversation, setRenamingConversation] = useState<Conversation | null>(null);
@@ -480,18 +478,6 @@ export function ConversationSidebar({
         </div>,
         document.body
       )}
-
-      {/* Footer - Settings Button */}
-      <div className="border-t border-white/10 p-4">
-        <button
-          onClick={onOpenAppSettings}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl glass-hover hover:bg-white/10 transition-colors text-sm"
-          title="Paramètres de l'application"
-        >
-          <Settings className="w-4 h-4" />
-          <span>Paramètres</span>
-        </button>
-      </div>
 
       {/* Rename Conversation Modal */}
       <RenameConversationModal
