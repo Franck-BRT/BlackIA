@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2, FolderOpen } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2, FolderOpen, Search } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { FolderModal } from './FolderModal';
 import { RenameConversationModal } from './RenameConversationModal';
@@ -20,6 +20,7 @@ interface ConversationSidebarProps {
   onDeleteFolder: (id: string) => void;
   onMoveToFolder: (conversationId: string, folderId: string | null) => void;
   onRenameConversation: (conversationId: string, newTitle: string) => void;
+  onOpenChatSearch?: () => void;
 }
 
 export function ConversationSidebar({
@@ -34,6 +35,7 @@ export function ConversationSidebar({
   onDeleteFolder,
   onMoveToFolder,
   onRenameConversation,
+  onOpenChatSearch,
 }: ConversationSidebarProps) {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
@@ -207,6 +209,16 @@ export function ConversationSidebar({
           <FolderIcon className="w-4 h-4" />
           <span>Nouveau dossier</span>
         </button>
+        {onOpenChatSearch && (
+          <button
+            onClick={onOpenChatSearch}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl glass-hover hover:bg-white/10 transition-colors text-sm"
+            title="Rechercher dans la conversation (Ctrl+F)"
+          >
+            <Search className="w-4 h-4" />
+            <span>Rechercher dans le chat</span>
+          </button>
+        )}
       </div>
 
       {/* Search Bar */}

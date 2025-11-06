@@ -601,6 +601,7 @@ export function ChatPage() {
             onDeleteFolder={handleDeleteFolder}
             onMoveToFolder={moveToFolder}
             onRenameConversation={renameConversation}
+            onOpenChatSearch={() => setIsChatSearchOpen(true)}
           />
         </div>
       )}
