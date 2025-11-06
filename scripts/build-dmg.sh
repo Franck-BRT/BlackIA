@@ -180,7 +180,31 @@ fi
 # Définir l'architecture
 export BUILD_ARCH="$ARCH"
 
-# Build du projet
+# Build des packages workspace d'abord
+log "Build des packages workspace (ollama, shared, ui)..."
+cd "$PROJECT_ROOT"
+
+# Compiler le package ollama si il a un script build
+if [ -d "packages/ollama" ]; then
+    log "Compilation de @blackia/ollama..."
+    pnpm --filter @blackia/ollama build 2>/dev/null || log "Ollama: pas de script build ou déjà compilé"
+fi
+
+# Compiler le package shared si il a un script build
+if [ -d "packages/shared" ]; then
+    log "Compilation de @blackia/shared..."
+    pnpm --filter @blackia/shared build 2>/dev/null || log "Shared: pas de script build (utilise TS direct)"
+fi
+
+# Compiler le package ui si il a un script build
+if [ -d "packages/ui" ]; then
+    log "Compilation de @blackia/ui..."
+    pnpm --filter @blackia/ui build 2>/dev/null || log "UI: pas de script build (utilise TS direct)"
+fi
+
+success "Packages workspace prêts"
+
+# Build du projet desktop
 log "Compilation du code TypeScript (main process)..."
 cd "$DESKTOP_DIR"
 pnpm exec tsc -p tsconfig.main.json

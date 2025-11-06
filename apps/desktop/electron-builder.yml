@@ -40,7 +40,31 @@ files:
     filter:
       - '**/*'
   - '!**/*.map'
-  - '!**/node_modules/**'
+  # Inclure les packages workspace nécessaires
+  - from: ../../packages/ollama/dist
+    to: node_modules/@blackia/ollama/dist
+    filter:
+      - '**/*'
+  - from: ../../packages/ollama
+    to: node_modules/@blackia/ollama
+    filter:
+      - package.json
+  - from: ../../packages/shared/src
+    to: node_modules/@blackia/shared/src
+    filter:
+      - '**/*'
+  - from: ../../packages/shared
+    to: node_modules/@blackia/shared
+    filter:
+      - package.json
+  - from: ../../packages/ui/src
+    to: node_modules/@blackia/ui/src
+    filter:
+      - '**/*'
+  - from: ../../packages/ui
+    to: node_modules/@blackia/ui
+    filter:
+      - package.json
 
 # afterSign désactivé pour les builds de test
 # Décommenter pour notarisation en production
