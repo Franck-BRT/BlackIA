@@ -12,6 +12,7 @@ import { TagModal } from '../components/chat/TagModal';
 import { FolderModal } from '../components/chat/FolderModal';
 import { KeyboardShortcutsModal } from '../components/chat/KeyboardShortcutsModal';
 import { StatisticsModal } from '../components/chat/StatisticsModal';
+import { AppSettingsModal } from '../components/settings/AppSettingsModal';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
@@ -36,6 +37,7 @@ export function ChatPage() {
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [isStatisticsModalOpen, setIsStatisticsModalOpen] = useState(false);
+  const [isAppSettingsModalOpen, setIsAppSettingsModalOpen] = useState(false);
   const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
     // Charger les settings depuis localStorage au démarrage
     try {
@@ -67,6 +69,7 @@ export function ChatPage() {
     toggleFavorite,
     importConversation,
     importBackup,
+    removeTagFromAllConversations,
   } = useConversations();
 
   // Hook pour gérer les dossiers
@@ -74,6 +77,7 @@ export function ChatPage() {
     folders,
     createFolder,
     renameFolder,
+    changeFolderColor,
     deleteFolder,
     importFolders,
   } = useFolders();
@@ -82,6 +86,8 @@ export function ChatPage() {
   const {
     tags,
     createTag,
+    updateTag,
+    deleteTag,
     importTags,
   } = useTags();
 
@@ -300,6 +306,14 @@ export function ChatPage() {
     }
 
     console.log('[ChatPage] ✅ Backup importé:', mode, data.conversations.length, 'conversations');
+  };
+
+  // Suppression de tag avec nettoyage
+  const handleDeleteTag = (tagId: string) => {
+    // Retirer le tag de toutes les conversations
+    removeTagFromAllConversations(tagId);
+    // Supprimer le tag
+    deleteTag(tagId);
   };
 
   // Charger une conversation
@@ -591,7 +605,7 @@ export function ChatPage() {
   // Activer les raccourcis clavier
   useKeyboardShortcuts({
     shortcuts: keyboardShortcuts,
-    enabled: !isSettingsOpen && !isTagModalOpen && !isFolderModalOpen && !isShortcutsModalOpen && !isStatisticsModalOpen,
+    enabled: !isSettingsOpen && !isTagModalOpen && !isFolderModalOpen && !isShortcutsModalOpen && !isStatisticsModalOpen && !isAppSettingsModalOpen,
   });
 
   // Éditer le dernier message utilisateur et régénérer la réponse
@@ -781,6 +795,7 @@ export function ChatPage() {
               }
             }}
             onToggleFavorite={toggleFavorite}
+            onOpenAppSettings={() => setIsAppSettingsModalOpen(true)}
             onOpenChatSearch={(initialQuery) => {
               setIsChatSearchOpen(true);
               if (initialQuery) {
@@ -1017,6 +1032,20 @@ export function ChatPage() {
         isOpen={isStatisticsModalOpen}
         onClose={() => setIsStatisticsModalOpen(false)}
         statistics={statistics}
+      />
+
+      {/* App Settings Modal */}
+      <AppSettingsModal
+        isOpen={isAppSettingsModalOpen}
+        onClose={() => setIsAppSettingsModalOpen(false)}
+        folders={folders}
+        onRenameFolder={renameFolder}
+        onChangeFolderColor={changeFolderColor}
+        onDeleteFolder={deleteFolder}
+        tags={tags}
+        onUpdateTag={updateTag}
+        onDeleteTag={handleDeleteTag}
+        conversations={conversations}
       />
     </div>
   );

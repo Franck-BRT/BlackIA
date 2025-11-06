@@ -343,6 +343,25 @@ export function useConversations() {
     });
   }, [saveToStorage]);
 
+  // Retirer un tag de toutes les conversations (utilisé lors de la suppression d'un tag)
+  const removeTagFromAllConversations = useCallback((tagId: string) => {
+    setConversations((prev) => {
+      const updated = prev.map((conv) => {
+        if (conv.tagIds?.includes(tagId)) {
+          return {
+            ...conv,
+            tagIds: conv.tagIds.filter((id) => id !== tagId),
+          };
+        }
+        return conv;
+      });
+      saveToStorage(updated);
+      return updated;
+    });
+
+    console.log('[useConversations] Tag retiré de toutes les conversations:', tagId);
+  }, [saveToStorage]);
+
   return {
     conversations,
     currentConversationId,
@@ -361,5 +380,6 @@ export function useConversations() {
     toggleFavorite,
     importConversation,
     importBackup,
+    removeTagFromAllConversations,
   };
 }
