@@ -77,104 +77,6 @@ export function ChatPage() {
     createTag,
   } = useTags();
 
-  // Définir les raccourcis clavier
-  const keyboardShortcuts: KeyboardShortcut[] = useMemo(() => [
-    // Navigation
-    {
-      key: 'b',
-      ctrl: true,
-      description: 'Afficher/Masquer la sidebar',
-      action: () => setIsSidebarOpen(!isSidebarOpen),
-      category: 'Navigation',
-    },
-    {
-      key: 'f',
-      ctrl: true,
-      description: 'Rechercher dans la conversation',
-      action: () => setIsChatSearchOpen(true),
-      category: 'Recherche',
-    },
-    {
-      key: 'k',
-      ctrl: true,
-      description: 'Rechercher dans les conversations',
-      action: () => {
-        // Focus sur la barre de recherche de la sidebar si elle existe
-        const searchInput = document.querySelector('.sidebar-search-input') as HTMLInputElement;
-        if (searchInput) {
-          searchInput.focus();
-        }
-      },
-      category: 'Recherche',
-    },
-    // Actions
-    {
-      key: 'n',
-      ctrl: true,
-      description: 'Nouvelle conversation',
-      action: handleNewConversation,
-      category: 'Actions',
-    },
-    {
-      key: 's',
-      ctrl: true,
-      description: 'Sauvegarder (déjà automatique)',
-      action: () => {
-        // La sauvegarde est automatique, on affiche juste une notification visuelle
-        console.log('💾 Conversation sauvegardée automatiquement');
-      },
-      category: 'Actions',
-    },
-    {
-      key: ',',
-      ctrl: true,
-      description: 'Ouvrir les paramètres',
-      action: () => setIsSettingsOpen(true),
-      category: 'Actions',
-    },
-    // Chat
-    {
-      key: 'l',
-      ctrl: true,
-      description: 'Effacer la conversation',
-      action: handleClearChat,
-      category: 'Chat',
-    },
-    {
-      key: 'r',
-      ctrl: true,
-      shift: true,
-      description: 'Régénérer la dernière réponse',
-      action: () => {
-        if (!isGenerating) {
-          handleRegenerate();
-        }
-      },
-      category: 'Chat',
-    },
-    // Aide
-    {
-      key: '?',
-      ctrl: true,
-      description: 'Afficher les raccourcis clavier',
-      action: () => setIsShortcutsModalOpen(true),
-      category: 'Aide',
-    },
-    {
-      key: '/',
-      ctrl: true,
-      description: 'Afficher les raccourcis clavier',
-      action: () => setIsShortcutsModalOpen(true),
-      category: 'Aide',
-    },
-  ], [isSidebarOpen, isGenerating]);
-
-  // Activer les raccourcis clavier
-  useKeyboardShortcuts({
-    shortcuts: keyboardShortcuts,
-    enabled: !isSettingsOpen && !isTagModalOpen && !isFolderModalOpen && !isShortcutsModalOpen,
-  });
-
   // Calculer les résultats de recherche dans le chat
   const searchResults = useMemo(() => {
     if (!chatSearchQuery.trim()) {
@@ -550,6 +452,104 @@ export function ChatPage() {
       setMessages((prev) => [...prev, errorMessage]);
     }
   };
+
+  // Définir les raccourcis clavier (après la définition de toutes les fonctions utilisées)
+  const keyboardShortcuts: KeyboardShortcut[] = useMemo(() => [
+    // Navigation
+    {
+      key: 'b',
+      ctrl: true,
+      description: 'Afficher/Masquer la sidebar',
+      action: () => setIsSidebarOpen(!isSidebarOpen),
+      category: 'Navigation',
+    },
+    {
+      key: 'f',
+      ctrl: true,
+      description: 'Rechercher dans la conversation',
+      action: () => setIsChatSearchOpen(true),
+      category: 'Recherche',
+    },
+    {
+      key: 'k',
+      ctrl: true,
+      description: 'Rechercher dans les conversations',
+      action: () => {
+        // Focus sur la barre de recherche de la sidebar si elle existe
+        const searchInput = document.querySelector('.sidebar-search-input') as HTMLInputElement;
+        if (searchInput) {
+          searchInput.focus();
+        }
+      },
+      category: 'Recherche',
+    },
+    // Actions
+    {
+      key: 'n',
+      ctrl: true,
+      description: 'Nouvelle conversation',
+      action: handleNewConversation,
+      category: 'Actions',
+    },
+    {
+      key: 's',
+      ctrl: true,
+      description: 'Sauvegarder (déjà automatique)',
+      action: () => {
+        // La sauvegarde est automatique, on affiche juste une notification visuelle
+        console.log('💾 Conversation sauvegardée automatiquement');
+      },
+      category: 'Actions',
+    },
+    {
+      key: ',',
+      ctrl: true,
+      description: 'Ouvrir les paramètres',
+      action: () => setIsSettingsOpen(true),
+      category: 'Actions',
+    },
+    // Chat
+    {
+      key: 'l',
+      ctrl: true,
+      description: 'Effacer la conversation',
+      action: handleClearChat,
+      category: 'Chat',
+    },
+    {
+      key: 'r',
+      ctrl: true,
+      shift: true,
+      description: 'Régénérer la dernière réponse',
+      action: () => {
+        if (!isGenerating) {
+          handleRegenerate();
+        }
+      },
+      category: 'Chat',
+    },
+    // Aide
+    {
+      key: '?',
+      ctrl: true,
+      description: 'Afficher les raccourcis clavier',
+      action: () => setIsShortcutsModalOpen(true),
+      category: 'Aide',
+    },
+    {
+      key: '/',
+      ctrl: true,
+      description: 'Afficher les raccourcis clavier',
+      action: () => setIsShortcutsModalOpen(true),
+      category: 'Aide',
+    },
+  ], [isSidebarOpen, isGenerating, handleNewConversation, handleClearChat, handleRegenerate]);
+
+  // Activer les raccourcis clavier
+  useKeyboardShortcuts({
+    shortcuts: keyboardShortcuts,
+    enabled: !isSettingsOpen && !isTagModalOpen && !isFolderModalOpen && !isShortcutsModalOpen,
+  });
 
   // Éditer le dernier message utilisateur et régénérer la réponse
   const handleEditUserMessage = async (newContent: string) => {
