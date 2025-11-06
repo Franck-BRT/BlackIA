@@ -12,7 +12,6 @@ import { TagModal } from '../components/chat/TagModal';
 import { FolderModal } from '../components/chat/FolderModal';
 import { KeyboardShortcutsModal } from '../components/chat/KeyboardShortcutsModal';
 import { StatisticsModal } from '../components/chat/StatisticsModal';
-import { SettingsButton } from '../components/SettingsButton';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
@@ -814,7 +813,6 @@ export function ChatPage() {
             >
               <Settings className="w-5 h-5" />
             </button>
-            <SettingsButton module="chat" variant="icon" />
           </div>
         </div>
 
