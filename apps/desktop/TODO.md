@@ -45,8 +45,11 @@
   - [ ] Nombre de messages par jour/semaine/mois
   - [ ] Modèles les plus utilisés
   - [ ] Tokens consommés
-- [ ] Export PDF des conversations
-- [ ] Import/Export de conversations
+- [x] Export PDF des conversations
+- [x] Import/Export de conversations (avec backup complet)
+  - [x] Export backup complet (conversations + dossiers + tags)
+  - [x] Import conversation unique
+  - [x] Import backup avec mode fusion/remplacement
 - [ ] Synchronisation cloud (optionnel)
 - [ ] Mode sombre/clair/auto
 - [ ] Personnalisation des couleurs de l'interface
