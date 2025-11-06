@@ -137,3 +137,65 @@
   );
   background-size: 1000px 100%;
 }
+
+/* ===== Appearance Settings CSS ===== */
+
+/* Glass effect variations based on user settings */
+.glass-subtle .glass,
+.glass-subtle .glass-card,
+.glass-subtle .glass-lg {
+  @apply backdrop-blur-sm bg-white/3;
+}
+
+.glass-medium .glass,
+.glass-medium .glass-card,
+.glass-medium .glass-lg {
+  @apply backdrop-blur-md bg-white/5;
+}
+
+.glass-intense .glass,
+.glass-intense .glass-card,
+.glass-intense .glass-lg {
+  @apply backdrop-blur-2xl bg-white/12;
+}
+
+/* Density variations */
+.density-compact {
+  --spacing-scale: 0.75;
+}
+
+.density-comfortable {
+  --spacing-scale: 1;
+}
+
+.density-spacious {
+  --spacing-scale: 1.25;
+}
+
+.density-compact .p-4 { @apply p-3; }
+.density-compact .p-6 { @apply p-4; }
+.density-compact .p-8 { @apply p-6; }
+.density-compact .gap-4 { @apply gap-3; }
+.density-compact .gap-6 { @apply gap-4; }
+
+.density-spacious .p-4 { @apply p-5; }
+.density-spacious .p-6 { @apply p-8; }
+.density-spacious .p-8 { @apply p-10; }
+.density-spacious .gap-4 { @apply gap-5; }
+.density-spacious .gap-6 { @apply gap-8; }
+
+/* Animation controls */
+.no-animations * {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+}
+
+/* Reduced motion for accessibility */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

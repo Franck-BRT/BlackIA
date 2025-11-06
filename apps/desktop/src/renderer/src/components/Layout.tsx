@@ -1,11 +1,15 @@
 import React, { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
+import { useApplyAppearance } from '../hooks/useApplyAppearance';
 
 interface LayoutProps {
   children: ReactNode;
 }
 
 export function Layout({ children }: LayoutProps) {
+  // Apply appearance settings to the interface
+  useApplyAppearance();
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 animated-gradient">
       {/* Decorative background elements */}
