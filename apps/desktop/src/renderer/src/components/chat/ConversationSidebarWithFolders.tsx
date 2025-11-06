@@ -4,6 +4,7 @@ import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2,
 import { CollapsibleSection } from './CollapsibleSection';
 import { FolderModal } from './FolderModal';
 import { RenameConversationModal } from './RenameConversationModal';
+import { SearchBar } from './SearchBar';
 import { groupConversationsByDate } from '../../hooks/useConversations';
 import type { Conversation, Folder } from '../../hooks/useConversations';
 
@@ -38,6 +39,7 @@ export function ConversationSidebar({
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [contextMenu, setContextMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
   const [renamingConversation, setRenamingConversation] = useState<Conversation | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // Fermer le menu contextuel si on clique à l'extérieur
@@ -54,12 +56,32 @@ export function ConversationSidebar({
     }
   }, [contextMenu]);
 
+  // Filtrer les conversations selon la recherche
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return conversations;
+    }
+
+    const query = searchQuery.toLowerCase();
+    return conversations.filter((conv) => {
+      // Rechercher dans le titre
+      if (conv.title.toLowerCase().includes(query)) {
+        return true;
+      }
+
+      // Rechercher dans le contenu des messages
+      return conv.messages.some((msg) =>
+        msg.content.toLowerCase().includes(query)
+      );
+    });
+  }, [conversations, searchQuery]);
+
   // Séparer les conversations avec dossier et sans dossier
   const { folderConversations, unorganizedConversations } = useMemo(() => {
     const withFolder: Conversation[] = [];
     const without: Conversation[] = [];
 
-    conversations.forEach((conv) => {
+    filteredConversations.forEach((conv) => {
       if (conv.folderId) {
         withFolder.push(conv);
       } else {
@@ -71,7 +93,7 @@ export function ConversationSidebar({
       folderConversations: withFolder,
       unorganizedConversations: without,
     };
-  }, [conversations]);
+  }, [filteredConversations]);
 
   // Grouper les conversations sans dossier par date
   const unorganizedGroups = useMemo(() => {
@@ -81,6 +103,26 @@ export function ConversationSidebar({
   // Obtenir les conversations d'un dossier
   const getConversationsInFolder = (folderId: string) => {
     return folderConversations.filter((conv) => conv.folderId === folderId);
+  };
+
+  // Fonction pour mettre en surbrillance le texte recherché
+  const highlightText = (text: string, query: string) => {
+    if (!query.trim()) {
+      return text;
+    }
+
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+
+    return parts.map((part, index) =>
+      regex.test(part) ? (
+        <mark key={index} className="bg-yellow-400/30 text-yellow-200 rounded px-0.5">
+          {part}
+        </mark>
+      ) : (
+        part
+      )
+    );
   };
 
   const renderConversation = (conv: Conversation) => (
@@ -96,7 +138,9 @@ export function ConversationSidebar({
         <div className="flex items-start gap-3">
           <MessageSquare className="w-4 h-4 mt-1 flex-shrink-0 text-muted-foreground" />
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-medium truncate">{conv.title}</h3>
+            <h3 className="text-sm font-medium truncate">
+              {searchQuery ? highlightText(conv.title, searchQuery) : conv.title}
+            </h3>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-muted-foreground truncate">{conv.model}</span>
               <span className="text-xs text-muted-foreground">•</span>
@@ -165,6 +209,13 @@ export function ConversationSidebar({
         </button>
       </div>
 
+      {/* Search Bar */}
+      <SearchBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        resultsCount={searchQuery ? filteredConversations.length : undefined}
+      />
+
       {/* Conversations List */}
       <div className="flex-1 overflow-y-auto">
         {conversations.length === 0 ? (
@@ -172,6 +223,18 @@ export function ConversationSidebar({
             <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p className="text-sm">Aucune conversation</p>
             <p className="text-xs mt-1">Commencez une nouvelle conversation</p>
+          </div>
+        ) : filteredConversations.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">Aucun résultat</p>
+            <p className="text-xs mt-1">Aucune conversation ne correspond à votre recherche</p>
+            <button
+              onClick={() => setSearchQuery('')}
+              className="mt-4 px-4 py-2 rounded-lg glass-hover hover:bg-white/10 transition-colors text-sm"
+            >
+              Effacer la recherche
+            </button>
           </div>
         ) : (
           <div className="p-2 space-y-1">
