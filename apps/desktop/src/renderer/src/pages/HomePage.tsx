@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageSquare, Workflow, FileText, User, FolderOpen, Zap } from 'lucide-react';
+import { SettingsButton } from '../components/SettingsButton';
 
 export function HomePage() {
   const [version, setVersion] = useState('');
@@ -63,6 +64,9 @@ export function HomePage() {
     <div className="h-full overflow-auto p-8">
       {/* Header */}
       <div className="max-w-6xl mx-auto">
+        <div className="flex justify-end mb-4">
+          <SettingsButton module="home" variant="button" />
+        </div>
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold mb-4 text-gradient">
             Bienvenue sur BlackIA
