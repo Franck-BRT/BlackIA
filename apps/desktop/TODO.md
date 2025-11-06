@@ -41,10 +41,12 @@
 - [x] Aide contextuelle des raccourcis (Ctrl+?)
 
 ### Fonctionnalités avancées
-- [ ] Statistiques d'utilisation
-  - [ ] Nombre de messages par jour/semaine/mois
-  - [ ] Modèles les plus utilisés
-  - [ ] Tokens consommés
+- [x] Statistiques d'utilisation
+  - [x] Nombre de messages par jour/semaine/mois
+  - [x] Modèles les plus utilisés
+  - [x] Moyennes et ratios (messages/conv, conv/jour)
+  - [x] Activité des 7 derniers jours
+  - [x] Interface visuelle avec graphiques
 - [x] Export PDF des conversations
 - [x] Import/Export de conversations (avec backup complet)
   - [x] Export backup complet (conversations + dossiers + tags)
