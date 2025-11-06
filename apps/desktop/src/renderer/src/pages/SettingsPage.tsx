@@ -70,19 +70,6 @@ export function SettingsPage() {
   } = useFolders();
   const { tags, updateTag, deleteTag } = useTags();
 
-  // Mapper les sections de SettingsPage vers les sections du système de visibilité
-  const sectionMapping: Record<SettingsSection, string> = {
-    general: 'general',
-    chat: 'general', // La section Chat ne fait pas partie de la visibilité, toujours visible
-    workflows: 'general',
-    prompts: 'general',
-    personas: 'general',
-    appearance: 'general', // On peut ajouter 'appearance' au système si besoin
-    interface: 'interface',
-    notifications: 'general',
-    keyboard: 'keyboardShortcuts',
-  };
-
   // Filtrer les sections visibles en fonction du module
   const visibleNavItems = useMemo(() => {
     // Si pas de module spécifié, afficher toutes les sections
@@ -92,15 +79,9 @@ export function SettingsPage() {
 
     // Filtrer selon les paramètres de visibilité
     return navItems.filter((item) => {
-      const mappedSection = sectionMapping[item.section];
-
-      // Les sections spéciales sont toujours visibles
-      if (['chat', 'workflows', 'prompts', 'personas', 'notifications', 'appearance'].includes(item.section)) {
-        return true;
-      }
-
       // Vérifier la visibilité pour ce module
-      return getSectionVisibility(fromModule, mappedSection as any);
+      // Note: on utilise directement item.section car les types sont maintenant alignés
+      return getSectionVisibility(fromModule, item.section as any);
     });
   }, [fromModule, getSectionVisibility]);
 

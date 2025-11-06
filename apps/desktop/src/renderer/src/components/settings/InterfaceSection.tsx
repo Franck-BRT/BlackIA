@@ -35,8 +35,14 @@ const modules: ModuleConfig[] = [
 
 const settingsSections: SectionConfig[] = [
   { id: 'general', label: 'Général' },
-  { id: 'keyboardShortcuts', label: 'Raccourcis clavier' },
+  { id: 'chat', label: 'Chat' },
+  { id: 'workflows', label: 'Workflows' },
+  { id: 'prompts', label: 'Prompts' },
+  { id: 'personas', label: 'Personas' },
+  { id: 'appearance', label: 'Apparence' },
   { id: 'interface', label: 'Interface' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'keyboardShortcuts', label: 'Raccourcis clavier' },
   { id: 'about', label: 'À propos' },
 ];
 

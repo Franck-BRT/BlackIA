@@ -131,8 +131,14 @@ export type AppModule =
 // Settings sections
 export type SettingsSection =
   | 'general'
-  | 'keyboardShortcuts'
+  | 'chat'
+  | 'workflows'
+  | 'prompts'
+  | 'personas'
+  | 'appearance'
   | 'interface'
+  | 'notifications'
+  | 'keyboardShortcuts'
   | 'about';
 
 // Interface settings - visibility management
