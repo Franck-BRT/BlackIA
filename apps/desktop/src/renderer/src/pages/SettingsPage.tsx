@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Settings,
   MessageSquare,
@@ -19,6 +20,8 @@ import { InterfaceSection } from '../components/settings/InterfaceSection';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
+import { useSettings } from '../contexts/SettingsContext';
+import type { AppModule } from '@blackia/shared/types';
 
 type SettingsSection =
   | 'general'
@@ -51,6 +54,11 @@ const navItems: NavItem[] = [
 
 export function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
+  const [searchParams] = useSearchParams();
+  const { getSectionVisibility } = useSettings();
+
+  // Détecter depuis quel module on vient
+  const fromModule = searchParams.get('from') as AppModule | null;
 
   // Hooks pour la section Chat
   const { conversations } = useConversations();
@@ -61,6 +69,40 @@ export function SettingsPage() {
     deleteFolder,
   } = useFolders();
   const { tags, updateTag, deleteTag } = useTags();
+
+  // Mapper les sections de SettingsPage vers les sections du système de visibilité
+  const sectionMapping: Record<SettingsSection, string> = {
+    general: 'general',
+    chat: 'general', // La section Chat ne fait pas partie de la visibilité, toujours visible
+    workflows: 'general',
+    prompts: 'general',
+    personas: 'general',
+    appearance: 'general', // On peut ajouter 'appearance' au système si besoin
+    interface: 'interface',
+    notifications: 'general',
+    keyboard: 'keyboardShortcuts',
+  };
+
+  // Filtrer les sections visibles en fonction du module
+  const visibleNavItems = useMemo(() => {
+    // Si pas de module spécifié, afficher toutes les sections
+    if (!fromModule) {
+      return navItems;
+    }
+
+    // Filtrer selon les paramètres de visibilité
+    return navItems.filter((item) => {
+      const mappedSection = sectionMapping[item.section];
+
+      // Les sections spéciales sont toujours visibles
+      if (['chat', 'workflows', 'prompts', 'personas', 'notifications', 'appearance'].includes(item.section)) {
+        return true;
+      }
+
+      // Vérifier la visibilité pour ce module
+      return getSectionVisibility(fromModule, mappedSection as any);
+    });
+  }, [fromModule, getSectionVisibility]);
 
   return (
     <div className="h-full flex overflow-hidden">
@@ -73,12 +115,22 @@ export function SettingsPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold">Paramètres</h1>
-              <p className="text-xs text-muted-foreground">Configuration</p>
+              <p className="text-xs text-muted-foreground">
+                {fromModule ? `Depuis ${fromModule}` : 'Configuration'}
+              </p>
             </div>
           </div>
 
+          {fromModule && (
+            <div className="mb-4 p-3 glass-card rounded-lg text-xs">
+              <p className="text-blue-400">
+                ℹ️ Sections filtrées pour le module <span className="font-semibold">{fromModule}</span>
+              </p>
+            </div>
+          )}
+
           <nav className="space-y-1">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <button
                 key={item.section}
                 onClick={() => setActiveSection(item.section)}
