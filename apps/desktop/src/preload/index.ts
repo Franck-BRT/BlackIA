@@ -23,6 +23,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPlatform: () => ipcRenderer.invoke('app:getPlatform'),
   getPath: (name: string) => ipcRenderer.invoke('app:getPath', name),
 
+  // File system API
+  file: {
+    saveDialog: (options: {
+      title?: string;
+      defaultPath?: string;
+      filters?: { name: string; extensions: string[] }[];
+    }) => ipcRenderer.invoke('file:saveDialog', options),
+    openDialog: (options: {
+      title?: string;
+      filters?: { name: string; extensions: string[] }[];
+      properties?: ('openFile' | 'multiSelections')[];
+    }) => ipcRenderer.invoke('file:openDialog', options),
+    writeFile: (filePath: string, content: string) =>
+      ipcRenderer.invoke('file:writeFile', filePath, content),
+    readFile: (filePath: string) => ipcRenderer.invoke('file:readFile', filePath),
+    exportPDF: (options: { title: string; content: string }) =>
+      ipcRenderer.invoke('file:exportPDF', options),
+  },
+
   // Ollama API
   ollama: {
     // Vérification et configuration
@@ -89,6 +108,25 @@ export interface ElectronAPI {
   getVersion: () => Promise<string>;
   getPlatform: () => Promise<string>;
   getPath: (name: string) => Promise<string>;
+
+  file: {
+    saveDialog: (options: {
+      title?: string;
+      defaultPath?: string;
+      filters?: { name: string; extensions: string[] }[];
+    }) => Promise<{ canceled: boolean; filePath?: string }>;
+    openDialog: (options: {
+      title?: string;
+      filters?: { name: string; extensions: string[] }[];
+      properties?: ('openFile' | 'multiSelections')[];
+    }) => Promise<{ canceled: boolean; filePaths: string[] }>;
+    writeFile: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>;
+    readFile: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string }>;
+    exportPDF: (options: {
+      title: string;
+      content: string;
+    }) => Promise<{ success: boolean; filePath?: string; error?: string; canceled?: boolean }>;
+  };
 
   ollama: {
     // Vérification et configuration
