@@ -12,14 +12,20 @@ mac:
       arch: [arm64, x64]
     - target: zip
       arch: [arm64]
+  # L'icône sera générée via scripts/generate-icons.sh
+  # Si absente, electron-builder utilisera une icône par défaut
   icon: resources/icon.icns
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: resources/entitlements.mac.plist
   entitlementsInherit: resources/entitlements.mac.plist
+  # Pour build de test sans signature (définir CSC_IDENTITY_AUTO_DISCOVERY=false)
+  identity: null
 
 dmg:
   sign: false
+  title: "${productName} ${version}"
+  background: null
   contents:
     - x: 410
       y: 150
@@ -36,7 +42,9 @@ files:
   - '!**/*.map'
   - '!**/node_modules/**'
 
-afterSign: scripts/notarize.js
+# afterSign désactivé pour les builds de test
+# Décommenter pour notarisation en production
+# afterSign: scripts/notarize.js
 
 publish:
   provider: github

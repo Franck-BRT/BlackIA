@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Permet au runtime hardenisé de fonctionner -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+
+    <!-- Permet l'exécution de code non signé (pour le dev/test) -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+
+    <!-- Permet de désactiver la bibliothèque validation -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+
+    <!-- Accès réseau (pour Ollama, MLX, etc.) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
+
+    <!-- Accès aux fichiers (pour les projets, logs, etc.) -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+
+    <!-- Autoriser le debugging -->
+    <key>com.apple.security.get-task-allow</key>
+    <true/>
+</dict>
+</plist>
