@@ -12,6 +12,7 @@ import {
   Keyboard,
 } from 'lucide-react';
 import { ChatSettings } from '../components/settings/ChatSettings';
+import { KeyboardShortcutsSettings } from '../components/settings/KeyboardShortcutsSettings';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
@@ -111,7 +112,7 @@ export function SettingsPage() {
           {activeSection === 'personas' && <PlaceholderSection title="Personas" />}
           {activeSection === 'appearance' && <PlaceholderSection title="Apparence" />}
           {activeSection === 'notifications' && <PlaceholderSection title="Notifications" />}
-          {activeSection === 'keyboard' && <PlaceholderSection title="Raccourcis clavier" />}
+          {activeSection === 'keyboard' && <KeyboardShortcutsSettings />}
         </div>
       </main>
     </div>

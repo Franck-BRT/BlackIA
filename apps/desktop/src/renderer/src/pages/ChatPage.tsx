@@ -16,6 +16,7 @@ import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
 import { useKeyboardShortcuts, KeyboardShortcut } from '../hooks/useKeyboardShortcuts';
+import { useCustomKeyboardShortcuts } from '../hooks/useCustomKeyboardShortcuts';
 import { useStatistics } from '../hooks/useStatistics';
 import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
 import type { Folder } from '../hooks/useConversations';
@@ -91,6 +92,9 @@ export function ChatPage() {
 
   // Hook pour les statistiques
   const statistics = useStatistics(conversations);
+
+  // Hook pour les raccourcis clavier personnalisés
+  const { shortcuts: customShortcuts } = useCustomKeyboardShortcuts();
 
   // Calculer les résultats de recherche dans le chat
   const searchResults = useMemo(() => {
@@ -499,106 +503,46 @@ export function ChatPage() {
     }
   };
 
-  // Définir les raccourcis clavier (après la définition de toutes les fonctions utilisées)
-  const keyboardShortcuts: KeyboardShortcut[] = useMemo(() => [
-    // Navigation
-    {
-      key: 'b',
-      ctrl: true,
-      description: 'Afficher/Masquer la sidebar',
-      action: () => setIsSidebarOpen(!isSidebarOpen),
-      category: 'Navigation',
-    },
-    {
-      key: 'f',
-      ctrl: true,
-      description: 'Rechercher dans la conversation',
-      action: () => setIsChatSearchOpen(true),
-      category: 'Recherche',
-    },
-    {
-      key: 'k',
-      ctrl: true,
-      description: 'Rechercher dans les conversations',
-      action: () => {
-        // Focus sur la barre de recherche de la sidebar si elle existe
+  // Mapper les raccourcis personnalisés aux actions
+  const keyboardShortcuts: KeyboardShortcut[] = useMemo(() => {
+    // Map d'actions par ID de raccourci
+    const actionMap: Record<string, () => void> = {
+      toggle_sidebar: () => setIsSidebarOpen(!isSidebarOpen),
+      search_in_conversation: () => setIsChatSearchOpen(true),
+      search_conversations: () => {
         const searchInput = document.querySelector('.sidebar-search-input') as HTMLInputElement;
         if (searchInput) {
           searchInput.focus();
         }
       },
-      category: 'Recherche',
-    },
-    // Actions
-    {
-      key: 'n',
-      ctrl: true,
-      description: 'Nouvelle conversation',
-      action: handleNewConversation,
-      category: 'Actions',
-    },
-    {
-      key: 's',
-      ctrl: true,
-      description: 'Sauvegarder (déjà automatique)',
-      action: () => {
-        // La sauvegarde est automatique, on affiche juste une notification visuelle
+      new_conversation: handleNewConversation,
+      save: () => {
         console.log('💾 Conversation sauvegardée automatiquement');
       },
-      category: 'Actions',
-    },
-    {
-      key: ',',
-      ctrl: true,
-      description: 'Ouvrir les paramètres',
-      action: () => setIsSettingsOpen(true),
-      category: 'Actions',
-    },
-    // Chat
-    {
-      key: 'l',
-      ctrl: true,
-      description: 'Effacer la conversation',
-      action: handleClearChat,
-      category: 'Chat',
-    },
-    {
-      key: 'r',
-      ctrl: true,
-      shift: true,
-      description: 'Régénérer la dernière réponse',
-      action: () => {
+      open_settings: () => setIsSettingsOpen(true),
+      clear_chat: handleClearChat,
+      regenerate: () => {
         if (!isGenerating) {
           handleRegenerate();
         }
       },
-      category: 'Chat',
-    },
-    // Statistiques
-    {
-      key: 's',
-      ctrl: true,
-      shift: true,
-      description: 'Afficher les statistiques',
-      action: () => setIsStatisticsModalOpen(true),
-      category: 'Aide',
-    },
-    // Aide
-    {
-      key: '?',
-      ctrl: true,
-      description: 'Afficher les raccourcis clavier',
-      action: () => setIsShortcutsModalOpen(true),
-      category: 'Aide',
-    },
-    {
-      key: '/',
-      ctrl: true,
-      description: 'Afficher les raccourcis clavier',
-      action: () => setIsShortcutsModalOpen(true),
-      category: 'Aide',
-    },
-  ], [isSidebarOpen, isGenerating, handleNewConversation, handleClearChat, handleRegenerate]);
+      show_statistics: () => setIsStatisticsModalOpen(true),
+      show_shortcuts_1: () => setIsShortcutsModalOpen(true),
+      show_shortcuts_2: () => setIsShortcutsModalOpen(true),
+    };
+
+    // Convertir les raccourcis personnalisés en KeyboardShortcut avec actions
+    return customShortcuts.map((shortcut) => ({
+      key: shortcut.key,
+      ctrl: shortcut.ctrl,
+      shift: shortcut.shift,
+      alt: shortcut.alt,
+      meta: shortcut.meta,
+      description: shortcut.description,
+      category: shortcut.category,
+      action: actionMap[shortcut.id] || (() => {}),
+    }));
+  }, [customShortcuts, isSidebarOpen, isGenerating, handleNewConversation, handleClearChat, handleRegenerate]);
 
   // Activer les raccourcis clavier
   useKeyboardShortcuts({
