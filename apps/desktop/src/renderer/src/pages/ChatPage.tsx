@@ -801,6 +801,11 @@ export function ChatPage() {
                   ? conversations.find((c) => c.id === currentConversationId)?.title
                   : 'Conversation'
               }
+              conversation={
+                currentConversationId
+                  ? conversations.find((c) => c.id === currentConversationId)
+                  : undefined
+              }
             />
             <ImportExportMenu
               conversations={conversations}

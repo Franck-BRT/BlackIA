@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, FileText, Code, Copy, Check, FileOutput } from 'lucide-react';
 import type { OllamaMessage } from '@blackia/ollama';
+import type { Conversation } from '../../hooks/useConversations';
 
 interface ExportMenuProps {
   messages: OllamaMessage[];
   conversationTitle?: string;
   // Pour l'export complet (optionnel)
-  onExportAll?: () => void;
+  conversation?: Conversation; // Conversation complète pour export JSON
 }
 
-export function ExportMenu({ messages, conversationTitle = 'Conversation' }: ExportMenuProps) {
+export function ExportMenu({ messages, conversationTitle = 'Conversation', conversation }: ExportMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -41,15 +42,24 @@ export function ExportMenu({ messages, conversationTitle = 'Conversation' }: Exp
 
   // Export en JSON
   const exportJSON = () => {
-    const json = JSON.stringify(
-      {
+    let dataToExport: any;
+
+    if (conversation) {
+      // Exporter la conversation complète
+      dataToExport = conversation;
+    } else {
+      // Créer une conversation basique pour compatibilité
+      dataToExport = {
+        id: `export-${Date.now()}`,
         title: conversationTitle,
-        exportedAt: new Date().toISOString(),
         messages,
-      },
-      null,
-      2
-    );
+        model: 'unknown',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+    }
+
+    const json = JSON.stringify(dataToExport, null, 2);
     downloadFile(
       json,
       `${conversationTitle.replace(/[^a-z0-9]/gi, '_')}.json`,
