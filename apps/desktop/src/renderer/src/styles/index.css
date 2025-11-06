@@ -144,19 +144,22 @@
 .glass-subtle .glass,
 .glass-subtle .glass-card,
 .glass-subtle .glass-lg {
-  @apply backdrop-blur-sm bg-white/3;
+  backdrop-filter: blur(4px);
+  background-color: rgba(255, 255, 255, 0.03);
 }
 
 .glass-medium .glass,
 .glass-medium .glass-card,
 .glass-medium .glass-lg {
-  @apply backdrop-blur-md bg-white/5;
+  backdrop-filter: blur(12px);
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 .glass-intense .glass,
 .glass-intense .glass-card,
 .glass-intense .glass-lg {
-  @apply backdrop-blur-2xl bg-white/12;
+  backdrop-filter: blur(40px);
+  background-color: rgba(255, 255, 255, 0.12);
 }
 
 /* Density variations */
