@@ -2,11 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
 import { registerOllamaHandlers } from './ollama-handlers';
-
-// Temporairement désactivé en attendant l'installation de better-sqlite3
-// import { initDatabase, runMigrations } from './database/client';
-// import { seedDefaultPersonas } from './database/seed';
-// import { registerPersonaHandlers } from './handlers/persona-handlers';
+import { PersonaService } from './services/persona-service';
 
 // __dirname and __filename are available in CommonJS mode
 
@@ -51,17 +47,15 @@ function createWindow() {
 // App lifecycle
 app.whenReady().then(async () => {
   try {
+    // Initialiser le service personas
+    console.log('[App] Initializing PersonaService...');
+    await PersonaService.initialize();
+
     // Enregistrer les handlers IPC
     registerOllamaHandlers();
+    registerPersonaHandlers();
 
-    // TODO: Activer après installation de better-sqlite3 et drizzle-orm
-    // Pour l'instant, on utilise des handlers temporaires (voir ci-dessous)
-    // initDatabase();
-    // runMigrations();
-    // await seedDefaultPersonas();
-    // registerPersonaHandlers();
-
-    console.log('[App] Handlers initialized successfully (SQLite temporairement désactivé)');
+    console.log('[App] All services initialized successfully');
   } catch (error) {
     console.error('[App] Failed to initialize:', error);
   }
@@ -81,7 +75,165 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Basic IPC handlers
+// ============================================================================
+// PERSONA IPC HANDLERS
+// ============================================================================
+
+function registerPersonaHandlers() {
+  // Récupère toutes les personas
+  ipcMain.handle('personas:getAll', async () => {
+    try {
+      const personas = await PersonaService.getAll();
+      return { success: true, data: personas };
+    } catch (error) {
+      console.error('[Personas] Error in getAll:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Récupère une persona par ID
+  ipcMain.handle('personas:getById', async (_event, id: string) => {
+    try {
+      const persona = await PersonaService.getById(id);
+      if (!persona) {
+        return { success: false, error: 'Persona not found' };
+      }
+      return { success: true, data: persona };
+    } catch (error) {
+      console.error('[Personas] Error in getById:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Crée une nouvelle persona
+  ipcMain.handle('personas:create', async (_event, data) => {
+    try {
+      const persona = await PersonaService.create(data);
+      return { success: true, data: persona };
+    } catch (error) {
+      console.error('[Personas] Error in create:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Met à jour une persona
+  ipcMain.handle('personas:update', async (_event, id: string, data) => {
+    try {
+      const persona = await PersonaService.update(id, data);
+      if (!persona) {
+        return { success: false, error: 'Persona not found' };
+      }
+      return { success: true, data: persona };
+    } catch (error) {
+      console.error('[Personas] Error in update:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Supprime une persona
+  ipcMain.handle('personas:delete', async (_event, id: string) => {
+    try {
+      const success = await PersonaService.delete(id);
+      if (!success) {
+        return { success: false, error: 'Persona not found' };
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('[Personas] Error in delete:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Recherche des personas
+  ipcMain.handle('personas:search', async (_event, query: string) => {
+    try {
+      const personas = await PersonaService.search(query);
+      return { success: true, data: personas };
+    } catch (error) {
+      console.error('[Personas] Error in search:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Filtre par catégorie
+  ipcMain.handle('personas:filterByCategory', async (_event, category: string) => {
+    try {
+      const personas = await PersonaService.filterByCategory(category);
+      return { success: true, data: personas };
+    } catch (error) {
+      console.error('[Personas] Error in filterByCategory:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Récupère les favorites
+  ipcMain.handle('personas:getFavorites', async () => {
+    try {
+      const personas = await PersonaService.getFavorites();
+      return { success: true, data: personas };
+    } catch (error) {
+      console.error('[Personas] Error in getFavorites:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Toggle favori
+  ipcMain.handle('personas:toggleFavorite', async (_event, id: string) => {
+    try {
+      const persona = await PersonaService.toggleFavorite(id);
+      if (!persona) {
+        return { success: false, error: 'Persona not found' };
+      }
+      return { success: true, data: persona };
+    } catch (error) {
+      console.error('[Personas] Error in toggleFavorite:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Incrémente le compteur d'utilisation
+  ipcMain.handle('personas:incrementUsage', async (_event, id: string) => {
+    try {
+      await PersonaService.incrementUsage(id);
+      return { success: true };
+    } catch (error) {
+      console.error('[Personas] Error in incrementUsage:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Duplique une persona
+  ipcMain.handle('personas:duplicate', async (_event, id: string) => {
+    try {
+      const persona = await PersonaService.duplicate(id);
+      if (!persona) {
+        return { success: false, error: 'Persona not found' };
+      }
+      return { success: true, data: persona };
+    } catch (error) {
+      console.error('[Personas] Error in duplicate:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Récupère les catégories
+  ipcMain.handle('personas:getCategories', async () => {
+    try {
+      const categories = await PersonaService.getCategories();
+      return { success: true, data: categories };
+    } catch (error) {
+      console.error('[Personas] Error in getCategories:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  console.log('[IPC] Persona handlers registered');
+}
+
+// ============================================================================
+// BASIC IPC HANDLERS
+// ============================================================================
+
 ipcMain.handle('ping', () => 'pong');
 
 ipcMain.handle('app:getVersion', () => app.getVersion());
@@ -92,7 +244,10 @@ ipcMain.handle('app:getPath', (_event, name: string) => {
   return app.getPath(name as any);
 });
 
-// File system handlers
+// ============================================================================
+// FILE SYSTEM HANDLERS
+// ============================================================================
+
 ipcMain.handle('file:saveDialog', async (_event, options: {
   title?: string;
   defaultPath?: string;
@@ -196,105 +351,6 @@ ipcMain.handle('file:exportPDF', async (_event, options: {
     return { success: false, error: error.message };
   }
 });
-
-// ============================================================================
-// HANDLERS TEMPORAIRES PERSONAS (en attendant SQLite)
-// ============================================================================
-
-// Données en mémoire temporaires
-const TEMP_PERSONAS = [
-  {
-    id: 'temp-1',
-    name: '🤖 Assistant Général',
-    description: 'Un assistant IA polyvalent pour tous vos besoins',
-    systemPrompt: 'Tu es un assistant IA serviable, précis et concis.',
-    avatar: '🤖',
-    color: 'purple',
-    category: 'Général',
-    tags: '["assistant","général"]',
-    isDefault: true,
-    isFavorite: false,
-    usageCount: 0,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'temp-2',
-    name: '🐍 Expert Python',
-    description: 'Spécialiste Python pour développement et debugging',
-    systemPrompt: 'Tu es un expert Python avec 10+ ans d\'expérience.',
-    avatar: '🐍',
-    color: 'green',
-    category: 'Développement',
-    tags: '["python","code"]',
-    isDefault: false,
-    isFavorite: true,
-    usageCount: 0,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
-
-// Handler temporaire getAll
-ipcMain.handle('personas:getAll', async () => {
-  console.log('[Personas TEMP] getAll called');
-  return {
-    success: true,
-    data: TEMP_PERSONAS,
-  };
-});
-
-// Autres handlers temporaires (retournent des erreurs pour l'instant)
-ipcMain.handle('personas:getById', async (_event, id: string) => {
-  const persona = TEMP_PERSONAS.find(p => p.id === id);
-  return persona
-    ? { success: true, data: persona }
-    : { success: false, error: 'Persona not found' };
-});
-
-ipcMain.handle('personas:create', async () => {
-  return { success: false, error: 'SQLite not available - install dependencies first' };
-});
-
-ipcMain.handle('personas:update', async () => {
-  return { success: false, error: 'SQLite not available - install dependencies first' };
-});
-
-ipcMain.handle('personas:delete', async () => {
-  return { success: false, error: 'SQLite not available - install dependencies first' };
-});
-
-ipcMain.handle('personas:search', async () => {
-  return { success: true, data: TEMP_PERSONAS };
-});
-
-ipcMain.handle('personas:filterByCategory', async () => {
-  return { success: true, data: TEMP_PERSONAS };
-});
-
-ipcMain.handle('personas:getFavorites', async () => {
-  return { success: true, data: TEMP_PERSONAS.filter(p => p.isFavorite) };
-});
-
-ipcMain.handle('personas:toggleFavorite', async () => {
-  return { success: false, error: 'SQLite not available - install dependencies first' };
-});
-
-ipcMain.handle('personas:incrementUsage', async () => {
-  return { success: true };
-});
-
-ipcMain.handle('personas:duplicate', async () => {
-  return { success: false, error: 'SQLite not available - install dependencies first' };
-});
-
-ipcMain.handle('personas:getCategories', async () => {
-  return { success: true, data: ['Général', 'Développement'] };
-});
-
-console.log('[App] Temporary persona handlers registered');
-
-// ============================================================================
 
 console.log('BlackIA Desktop started');
 console.log('Development mode:', isDev);
