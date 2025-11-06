@@ -9,6 +9,7 @@ export interface Conversation {
   createdAt: number;
   updatedAt: number;
   folderId?: string | null; // Dossier optionnel
+  tagIds?: string[]; // Tags optionnels
 }
 
 export interface Folder {
@@ -222,6 +223,55 @@ export function useConversations() {
     return title.length < firstUserMessage.content.length ? `${title}...` : title;
   }, []);
 
+  // Ajouter un tag à une conversation
+  const addTagToConversation = useCallback((conversationId: string, tagId: string) => {
+    setConversations((prev) => {
+      const updated = prev.map((conv) => {
+        if (conv.id === conversationId) {
+          const currentTags = conv.tagIds || [];
+          if (!currentTags.includes(tagId)) {
+            return { ...conv, tagIds: [...currentTags, tagId] };
+          }
+        }
+        return conv;
+      });
+      saveToStorage(updated);
+      return updated;
+    });
+
+    console.log('[useConversations] Tag ajouté:', tagId, '→', conversationId);
+  }, [saveToStorage]);
+
+  // Retirer un tag d'une conversation
+  const removeTagFromConversation = useCallback((conversationId: string, tagId: string) => {
+    setConversations((prev) => {
+      const updated = prev.map((conv) => {
+        if (conv.id === conversationId) {
+          const currentTags = conv.tagIds || [];
+          return { ...conv, tagIds: currentTags.filter(id => id !== tagId) };
+        }
+        return conv;
+      });
+      saveToStorage(updated);
+      return updated;
+    });
+
+    console.log('[useConversations] Tag retiré:', tagId, '←', conversationId);
+  }, [saveToStorage]);
+
+  // Définir tous les tags d'une conversation
+  const setConversationTags = useCallback((conversationId: string, tagIds: string[]) => {
+    setConversations((prev) => {
+      const updated = prev.map((conv) =>
+        conv.id === conversationId ? { ...conv, tagIds } : conv
+      );
+      saveToStorage(updated);
+      return updated;
+    });
+
+    console.log('[useConversations] Tags définis:', tagIds, '→', conversationId);
+  }, [saveToStorage]);
+
   return {
     conversations,
     currentConversationId,
@@ -234,5 +284,8 @@ export function useConversations() {
     generateTitle,
     moveToFolder,
     renameConversation,
+    addTagToConversation,
+    removeTagFromConversation,
+    setConversationTags,
   };
 }
