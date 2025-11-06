@@ -41,10 +41,12 @@ export function SettingsLayout({ children }: SettingsLayoutProps) {
 
   const currentModule = getCurrentModule();
 
-  // Filter visible sections based on current module
-  const visibleSections = sections.filter((section) =>
-    getSectionVisibility(currentModule, section.id)
-  );
+  // When in settings page, show all sections (no filtering)
+  // Otherwise, filter visible sections based on current module
+  const visibleSections =
+    currentModule === 'settings'
+      ? sections
+      : sections.filter((section) => getSectionVisibility(currentModule, section.id));
 
   return (
     <div className="h-full overflow-auto">
