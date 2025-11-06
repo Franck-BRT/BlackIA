@@ -10,10 +10,12 @@ import {
   Bell,
   Palette,
   Keyboard,
+  Eye,
 } from 'lucide-react';
 import { ChatSettings } from '../components/settings/ChatSettings';
 import { KeyboardShortcutsSettings } from '../components/settings/KeyboardShortcutsSettings';
 import { AppearanceSettings } from '../components/settings/AppearanceSettings';
+import { InterfaceSection } from '../components/settings/InterfaceSection';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
@@ -25,6 +27,7 @@ type SettingsSection =
   | 'prompts'
   | 'personas'
   | 'appearance'
+  | 'interface'
   | 'notifications'
   | 'keyboard';
 
@@ -41,6 +44,7 @@ const navItems: NavItem[] = [
   { icon: FileText, label: 'Prompts', section: 'prompts' },
   { icon: User, label: 'Personas', section: 'personas' },
   { icon: Palette, label: 'Apparence', section: 'appearance' },
+  { icon: Eye, label: 'Interface', section: 'interface' },
   { icon: Bell, label: 'Notifications', section: 'notifications' },
   { icon: Keyboard, label: 'Raccourcis clavier', section: 'keyboard' },
 ];
@@ -112,6 +116,7 @@ export function SettingsPage() {
           {activeSection === 'prompts' && <PlaceholderSection title="Prompts" />}
           {activeSection === 'personas' && <PlaceholderSection title="Personas" />}
           {activeSection === 'appearance' && <AppearanceSettings />}
+          {activeSection === 'interface' && <InterfaceSection />}
           {activeSection === 'notifications' && <PlaceholderSection title="Notifications" />}
           {activeSection === 'keyboard' && <KeyboardShortcutsSettings />}
         </div>
