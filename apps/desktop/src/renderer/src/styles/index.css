@@ -162,30 +162,32 @@
   background-color: rgba(255, 255, 255, 0.12);
 }
 
-/* Density variations */
+/* Density variations - Using CSS custom properties */
 .density-compact {
-  --spacing-scale: 0.75;
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.25rem;
+  --spacing-xl: 1.5rem;
 }
 
 .density-comfortable {
-  --spacing-scale: 1;
+  --spacing-xs: 0.75rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 2.5rem;
 }
 
 .density-spacious {
-  --spacing-scale: 1.25;
+  --spacing-xs: 1rem;
+  --spacing-sm: 1.25rem;
+  --spacing-md: 2rem;
+  --spacing-lg: 2.5rem;
+  --spacing-xl: 3rem;
 }
 
-.density-compact .p-4 { @apply p-3; }
-.density-compact .p-6 { @apply p-4; }
-.density-compact .p-8 { @apply p-6; }
-.density-compact .gap-4 { @apply gap-3; }
-.density-compact .gap-6 { @apply gap-4; }
-
-.density-spacious .p-4 { @apply p-5; }
-.density-spacious .p-6 { @apply p-8; }
-.density-spacious .p-8 { @apply p-10; }
-.density-spacious .gap-4 { @apply gap-5; }
-.density-spacious .gap-6 { @apply gap-8; }
+/* Note: Pour utiliser la densité dans les composants, utilisez var(--spacing-md) etc. */
 
 /* Animation controls */
 .no-animations * {
