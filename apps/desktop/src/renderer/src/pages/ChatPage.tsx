@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Trash2, Settings, Menu, Search } from 'lucide-react';
+import { Trash2, Settings, Menu, Search, BarChart3 } from 'lucide-react';
 import { ChatMessage } from '../components/chat/ChatMessage';
 import { ChatInput } from '../components/chat/ChatInput';
 import { ModelSelector } from '../components/chat/ModelSelector';
@@ -11,10 +11,12 @@ import { ChatSearchBar } from '../components/chat/ChatSearchBar';
 import { TagModal } from '../components/chat/TagModal';
 import { FolderModal } from '../components/chat/FolderModal';
 import { KeyboardShortcutsModal } from '../components/chat/KeyboardShortcutsModal';
+import { StatisticsModal } from '../components/chat/StatisticsModal';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
 import { useKeyboardShortcuts, KeyboardShortcut } from '../hooks/useKeyboardShortcuts';
+import { useStatistics } from '../hooks/useStatistics';
 import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
 import type { Folder } from '../hooks/useConversations';
 
@@ -33,6 +35,7 @@ export function ChatPage() {
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  const [isStatisticsModalOpen, setIsStatisticsModalOpen] = useState(false);
   const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
     // Charger les settings depuis localStorage au démarrage
     try {
@@ -81,6 +84,9 @@ export function ChatPage() {
     createTag,
     importTags,
   } = useTags();
+
+  // Hook pour les statistiques
+  const statistics = useStatistics(conversations);
 
   // Calculer les résultats de recherche dans le chat
   const searchResults = useMemo(() => {
@@ -556,6 +562,15 @@ export function ChatPage() {
       },
       category: 'Chat',
     },
+    // Statistiques
+    {
+      key: 's',
+      ctrl: true,
+      shift: true,
+      description: 'Afficher les statistiques',
+      action: () => setIsStatisticsModalOpen(true),
+      category: 'Aide',
+    },
     // Aide
     {
       key: '?',
@@ -576,7 +591,7 @@ export function ChatPage() {
   // Activer les raccourcis clavier
   useKeyboardShortcuts({
     shortcuts: keyboardShortcuts,
-    enabled: !isSettingsOpen && !isTagModalOpen && !isFolderModalOpen && !isShortcutsModalOpen,
+    enabled: !isSettingsOpen && !isTagModalOpen && !isFolderModalOpen && !isShortcutsModalOpen && !isStatisticsModalOpen,
   });
 
   // Éditer le dernier message utilisateur et régénérer la réponse
@@ -815,6 +830,13 @@ export function ChatPage() {
               onImportBackup={handleImportBackup}
             />
             <button
+              onClick={() => setIsStatisticsModalOpen(true)}
+              className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              title="Statistiques d'utilisation (Ctrl+Shift+S)"
+            >
+              <BarChart3 className="w-5 h-5" />
+            </button>
+            <button
               onClick={() => setIsChatSearchOpen(true)}
               className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
               title="Rechercher dans la conversation (Ctrl+F)"
@@ -988,6 +1010,13 @@ export function ChatPage() {
         isOpen={isShortcutsModalOpen}
         onClose={() => setIsShortcutsModalOpen(false)}
         shortcuts={keyboardShortcuts}
+      />
+
+      {/* Statistics Modal */}
+      <StatisticsModal
+        isOpen={isStatisticsModalOpen}
+        onClose={() => setIsStatisticsModalOpen(false)}
+        statistics={statistics}
       />
     </div>
   );
