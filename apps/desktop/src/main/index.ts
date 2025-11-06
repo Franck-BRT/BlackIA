@@ -2,9 +2,11 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
 import { registerOllamaHandlers } from './ollama-handlers';
-import { initDatabase, runMigrations } from './database/client';
-import { seedDefaultPersonas } from './database/seed';
-import { registerPersonaHandlers } from './handlers/persona-handlers';
+
+// Temporairement désactivé en attendant l'installation de better-sqlite3
+// import { initDatabase, runMigrations } from './database/client';
+// import { seedDefaultPersonas } from './database/seed';
+// import { registerPersonaHandlers } from './handlers/persona-handlers';
 
 // __dirname and __filename are available in CommonJS mode
 
@@ -49,21 +51,19 @@ function createWindow() {
 // App lifecycle
 app.whenReady().then(async () => {
   try {
-    // Initialiser la base de données
-    console.log('[App] Initializing database...');
-    initDatabase();
-    runMigrations();
-
-    // Seed des personas par défaut
-    await seedDefaultPersonas();
-
     // Enregistrer les handlers IPC
     registerOllamaHandlers();
-    registerPersonaHandlers();
 
-    console.log('[App] Database and handlers initialized successfully');
+    // TODO: Activer après installation de better-sqlite3 et drizzle-orm
+    // Pour l'instant, on utilise des handlers temporaires (voir ci-dessous)
+    // initDatabase();
+    // runMigrations();
+    // await seedDefaultPersonas();
+    // registerPersonaHandlers();
+
+    console.log('[App] Handlers initialized successfully (SQLite temporairement désactivé)');
   } catch (error) {
-    console.error('[App] Failed to initialize database:', error);
+    console.error('[App] Failed to initialize:', error);
   }
 
   createWindow();
@@ -196,6 +196,105 @@ ipcMain.handle('file:exportPDF', async (_event, options: {
     return { success: false, error: error.message };
   }
 });
+
+// ============================================================================
+// HANDLERS TEMPORAIRES PERSONAS (en attendant SQLite)
+// ============================================================================
+
+// Données en mémoire temporaires
+const TEMP_PERSONAS = [
+  {
+    id: 'temp-1',
+    name: '🤖 Assistant Général',
+    description: 'Un assistant IA polyvalent pour tous vos besoins',
+    systemPrompt: 'Tu es un assistant IA serviable, précis et concis.',
+    avatar: '🤖',
+    color: 'purple',
+    category: 'Général',
+    tags: '["assistant","général"]',
+    isDefault: true,
+    isFavorite: false,
+    usageCount: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'temp-2',
+    name: '🐍 Expert Python',
+    description: 'Spécialiste Python pour développement et debugging',
+    systemPrompt: 'Tu es un expert Python avec 10+ ans d\'expérience.',
+    avatar: '🐍',
+    color: 'green',
+    category: 'Développement',
+    tags: '["python","code"]',
+    isDefault: false,
+    isFavorite: true,
+    usageCount: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+];
+
+// Handler temporaire getAll
+ipcMain.handle('personas:getAll', async () => {
+  console.log('[Personas TEMP] getAll called');
+  return {
+    success: true,
+    data: TEMP_PERSONAS,
+  };
+});
+
+// Autres handlers temporaires (retournent des erreurs pour l'instant)
+ipcMain.handle('personas:getById', async (_event, id: string) => {
+  const persona = TEMP_PERSONAS.find(p => p.id === id);
+  return persona
+    ? { success: true, data: persona }
+    : { success: false, error: 'Persona not found' };
+});
+
+ipcMain.handle('personas:create', async () => {
+  return { success: false, error: 'SQLite not available - install dependencies first' };
+});
+
+ipcMain.handle('personas:update', async () => {
+  return { success: false, error: 'SQLite not available - install dependencies first' };
+});
+
+ipcMain.handle('personas:delete', async () => {
+  return { success: false, error: 'SQLite not available - install dependencies first' };
+});
+
+ipcMain.handle('personas:search', async () => {
+  return { success: true, data: TEMP_PERSONAS };
+});
+
+ipcMain.handle('personas:filterByCategory', async () => {
+  return { success: true, data: TEMP_PERSONAS };
+});
+
+ipcMain.handle('personas:getFavorites', async () => {
+  return { success: true, data: TEMP_PERSONAS.filter(p => p.isFavorite) };
+});
+
+ipcMain.handle('personas:toggleFavorite', async () => {
+  return { success: false, error: 'SQLite not available - install dependencies first' };
+});
+
+ipcMain.handle('personas:incrementUsage', async () => {
+  return { success: true };
+});
+
+ipcMain.handle('personas:duplicate', async () => {
+  return { success: false, error: 'SQLite not available - install dependencies first' };
+});
+
+ipcMain.handle('personas:getCategories', async () => {
+  return { success: true, data: ['Général', 'Développement'] };
+});
+
+console.log('[App] Temporary persona handlers registered');
+
+// ============================================================================
 
 console.log('BlackIA Desktop started');
 console.log('Development mode:', isDev);
