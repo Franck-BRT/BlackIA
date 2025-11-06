@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Trash2, Settings, Menu } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Trash2, Settings, Menu, Search } from 'lucide-react';
 import { ChatMessage } from '../components/chat/ChatMessage';
 import { ChatInput } from '../components/chat/ChatInput';
 import { ModelSelector } from '../components/chat/ModelSelector';
 import { ChatSettings, ChatSettingsData, DEFAULT_CHAT_SETTINGS } from '../components/chat/ChatSettings';
 import { ConversationSidebar } from '../components/chat/ConversationSidebarWithFolders';
 import { ExportMenu } from '../components/chat/ExportMenu';
+import { ChatSearchBar } from '../components/chat/ChatSearchBar';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
@@ -18,6 +19,9 @@ export function ChatPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [regenerationCounts, setRegenerationCounts] = useState<Map<number, number>>(new Map());
+  const [isChatSearchOpen, setIsChatSearchOpen] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
     // Charger les settings depuis localStorage au démarrage
     try {
@@ -53,6 +57,34 @@ export function ChatPage() {
     renameFolder,
     deleteFolder,
   } = useFolders();
+
+  // Calculer les résultats de recherche dans le chat
+  const searchResults = useMemo(() => {
+    if (!chatSearchQuery.trim()) {
+      return { totalCount: 0, messageOccurrences: [] };
+    }
+
+    const query = chatSearchQuery.toLowerCase();
+    const escapedQuery = chatSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escapedQuery, 'gi');
+
+    let totalCount = 0;
+    const messageOccurrences: Array<{ messageIndex: number; startIndex: number; count: number }> = [];
+
+    messages.forEach((message, messageIndex) => {
+      const matches = message.content.match(regex);
+      if (matches && matches.length > 0) {
+        messageOccurrences.push({
+          messageIndex,
+          startIndex: totalCount,
+          count: matches.length,
+        });
+        totalCount += matches.length;
+      }
+    });
+
+    return { totalCount, messageOccurrences };
+  }, [messages, chatSearchQuery]);
 
   // Auto-scroll vers le bas
   const scrollToBottom = () => {
@@ -486,6 +518,72 @@ export function ChatPage() {
     console.log('[ChatPage] 🗑️ Dossier supprimé:', folderId, 'Conversations déplacées:', conversationsInFolder.length);
   };
 
+  // Gestion de la recherche dans le chat
+  const handleChatSearchChange = (query: string) => {
+    setChatSearchQuery(query);
+    setCurrentSearchIndex(0);
+  };
+
+  const handleSearchNext = () => {
+    if (searchResults.totalCount > 0) {
+      setCurrentSearchIndex((prev) => (prev + 1) % searchResults.totalCount);
+    }
+  };
+
+  const handleSearchPrevious = () => {
+    if (searchResults.totalCount > 0) {
+      setCurrentSearchIndex((prev) => (prev - 1 + searchResults.totalCount) % searchResults.totalCount);
+    }
+  };
+
+  const handleCloseChatSearch = () => {
+    setIsChatSearchOpen(false);
+    setChatSearchQuery('');
+    setCurrentSearchIndex(0);
+  };
+
+  // Raccourcis clavier pour la recherche
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+F ou Cmd+F pour ouvrir la recherche
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setIsChatSearchOpen(true);
+      }
+
+      // Escape pour fermer la recherche
+      if (e.key === 'Escape' && isChatSearchOpen) {
+        handleCloseChatSearch();
+      }
+
+      // Enter pour aller au suivant, Shift+Enter pour aller au précédent
+      if (isChatSearchOpen && e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleSearchPrevious();
+        } else {
+          handleSearchNext();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isChatSearchOpen, searchResults.totalCount]);
+
+  // Auto-scroll vers le résultat actif
+  useEffect(() => {
+    if (isChatSearchOpen && chatSearchQuery && searchResults.totalCount > 0) {
+      // Utiliser setTimeout pour laisser le DOM se mettre à jour
+      setTimeout(() => {
+        const activeElement = document.getElementById('active-search-result');
+        if (activeElement) {
+          activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [currentSearchIndex, isChatSearchOpen, chatSearchQuery, searchResults.totalCount]);
+
   return (
     <div className="h-full flex">
       {/* Sidebar */}
@@ -533,6 +631,13 @@ export function ChatPage() {
               }
             />
             <button
+              onClick={() => setIsChatSearchOpen(true)}
+              className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              title="Rechercher dans la conversation (Ctrl+F)"
+            >
+              <Search className="w-5 h-5" />
+            </button>
+            <button
               onClick={handleClearChat}
               className="p-2 rounded-xl glass-hover hover:bg-red-500/20 transition-colors"
               title="Effacer la conversation"
@@ -549,8 +654,21 @@ export function ChatPage() {
           </div>
         </div>
 
+        {/* Search Bar */}
+        {isChatSearchOpen && (
+          <ChatSearchBar
+            searchQuery={chatSearchQuery}
+            onSearchChange={handleChatSearchChange}
+            currentIndex={currentSearchIndex}
+            totalResults={searchResults.totalCount}
+            onPrevious={handleSearchPrevious}
+            onNext={handleSearchNext}
+            onClose={handleCloseChatSearch}
+          />
+        )}
+
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 relative">
         {messages.length === 0 && !streamingMessage ? (
           <div className="h-full flex items-center justify-center">
             <div className="text-center max-w-md">
@@ -577,6 +695,11 @@ export function ChatPage() {
               const lastUserIndex = messages.findLastIndex((m) => m.role === 'user');
               const isLastUserMessage = message.role === 'user' && index === lastUserIndex && !isGenerating;
 
+              // Calculer les props de recherche pour ce message
+              const messageOccurrence = searchResults.messageOccurrences.find(
+                (occ) => occ.messageIndex === index
+              );
+
               return (
                 <ChatMessage
                   key={index}
@@ -586,6 +709,9 @@ export function ChatPage() {
                   isLastAssistantMessage={isLastAssistantMessage}
                   isLastUserMessage={isLastUserMessage}
                   onEdit={isLastUserMessage ? handleEditUserMessage : undefined}
+                  searchQuery={chatSearchQuery}
+                  searchStartIndex={messageOccurrence?.startIndex}
+                  activeGlobalIndex={currentSearchIndex}
                 />
               );
             })}

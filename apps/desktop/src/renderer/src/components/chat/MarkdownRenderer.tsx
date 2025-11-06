@@ -3,6 +3,9 @@ import { Copy, Check } from 'lucide-react';
 
 interface MarkdownRendererProps {
   content: string;
+  searchQuery?: string;
+  searchStartIndex?: number; // Index de début pour ce message dans la recherche globale
+  activeGlobalIndex?: number; // Index global du résultat actif
 }
 
 interface CodeBlock {
@@ -54,9 +57,41 @@ function CodeBlockWithCopy({ language, code, rawCode }: CodeBlock) {
   );
 }
 
-export function MarkdownRenderer({ content }: MarkdownRendererProps) {
+export function MarkdownRenderer({
+  content,
+  searchQuery,
+  searchStartIndex = 0,
+  activeGlobalIndex = -1
+}: MarkdownRendererProps) {
   const parseMarkdown = (text: string): { html: string; codeBlocks: CodeBlock[] } => {
     let html = text;
+
+    // 0. SAUVEGARDER les occurrences de recherche AVANT tout traitement
+    const searchHighlights: string[] = [];
+    if (searchQuery && searchQuery.trim()) {
+      const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedQuery, 'gi');
+      let matchIndex = 0;
+
+      html = html.replace(regex, (match) => {
+        const globalIndex = searchStartIndex + matchIndex;
+        const isActive = globalIndex === activeGlobalIndex;
+        const placeholder = `§§§SEARCH_HIGHLIGHT_${matchIndex}§§§`;
+
+        // Créer le span de highlight
+        const highlightClass = isActive
+          ? 'search-highlight-active'
+          : 'search-highlight';
+        const highlightId = isActive ? 'id="active-search-result"' : '';
+
+        searchHighlights.push(
+          `<mark class="${highlightClass}" ${highlightId} data-search-index="${globalIndex}">${match}</mark>`
+        );
+
+        matchIndex++;
+        return placeholder;
+      });
+    }
 
     // 1. SAUVEGARDER les blocs de code (priorité maximale)
     const codeBlocks: CodeBlock[] = [];
@@ -189,7 +224,12 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
       html = html.replace(`§§§INLINE_CODE_${index}§§§`, code);
     });
 
-    // 12. RETOURS À LA LIGNE (à la fin)
+    // 12. RESTAURER les search highlights
+    searchHighlights.forEach((highlight, index) => {
+      html = html.replace(`§§§SEARCH_HIGHLIGHT_${index}§§§`, highlight);
+    });
+
+    // 13. RETOURS À LA LIGNE (à la fin)
     html = html.replace(/\n/g, '<br />');
 
     return { html, codeBlocks };

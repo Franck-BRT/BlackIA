@@ -258,3 +258,31 @@
   margin: 1em 0;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
+
+/* Search Highlights */
+.search-highlight {
+  background-color: rgba(234, 179, 8, 0.4);
+  color: rgb(253, 224, 71);
+  padding: 0.1em 0.2em;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.search-highlight-active {
+  background-color: rgba(249, 115, 22, 0.6);
+  color: rgb(254, 215, 170);
+  padding: 0.1em 0.2em;
+  border-radius: 3px;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.4);
+  animation: pulse-highlight 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-highlight {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.6);
+  }
+}

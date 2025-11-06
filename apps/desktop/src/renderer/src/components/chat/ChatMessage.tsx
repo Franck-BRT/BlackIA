@@ -12,6 +12,9 @@ interface ChatMessageProps {
   isLastAssistantMessage?: boolean;
   isLastUserMessage?: boolean;
   onEdit?: (newContent: string) => void;
+  searchQuery?: string;
+  searchStartIndex?: number;
+  activeGlobalIndex?: number;
 }
 
 export function ChatMessage({
@@ -22,6 +25,9 @@ export function ChatMessage({
   isLastAssistantMessage = false,
   isLastUserMessage = false,
   onEdit,
+  searchQuery,
+  searchStartIndex,
+  activeGlobalIndex,
 }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
@@ -128,7 +134,12 @@ export function ChatMessage({
               </div>
             ) : (
               <div className="break-words">
-                <MarkdownRenderer content={message.content} />
+                <MarkdownRenderer
+                  content={message.content}
+                  searchQuery={searchQuery}
+                  searchStartIndex={searchStartIndex}
+                  activeGlobalIndex={activeGlobalIndex}
+                />
                 {isStreaming && (
                   <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse" />
                 )}
