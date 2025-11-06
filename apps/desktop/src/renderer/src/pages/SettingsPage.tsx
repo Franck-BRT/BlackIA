@@ -12,6 +12,7 @@ import {
   Palette,
   Keyboard,
   Eye,
+  Info,
 } from 'lucide-react';
 import { ChatSettings } from '../components/settings/ChatSettings';
 import { KeyboardShortcutsSettings } from '../components/settings/KeyboardShortcutsSettings';
@@ -21,18 +22,7 @@ import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
 import { useSettings } from '../contexts/SettingsContext';
-import type { AppModule } from '@blackia/shared/types';
-
-type SettingsSection =
-  | 'general'
-  | 'chat'
-  | 'workflows'
-  | 'prompts'
-  | 'personas'
-  | 'appearance'
-  | 'interface'
-  | 'notifications'
-  | 'keyboard';
+import type { AppModule, SettingsSection } from '@blackia/shared/types';
 
 interface NavItem {
   icon: React.ElementType;
@@ -49,7 +39,8 @@ const navItems: NavItem[] = [
   { icon: Palette, label: 'Apparence', section: 'appearance' },
   { icon: Eye, label: 'Interface', section: 'interface' },
   { icon: Bell, label: 'Notifications', section: 'notifications' },
-  { icon: Keyboard, label: 'Raccourcis clavier', section: 'keyboard' },
+  { icon: Keyboard, label: 'Raccourcis clavier', section: 'keyboardShortcuts' },
+  { icon: Info, label: 'À propos', section: 'about' },
 ];
 
 export function SettingsPage() {
@@ -79,9 +70,7 @@ export function SettingsPage() {
 
     // Filtrer selon les paramètres de visibilité
     return navItems.filter((item) => {
-      // Vérifier la visibilité pour ce module
-      // Note: on utilise directement item.section car les types sont maintenant alignés
-      return getSectionVisibility(fromModule, item.section as any);
+      return getSectionVisibility(fromModule, item.section);
     });
   }, [fromModule, getSectionVisibility]);
 
@@ -151,7 +140,8 @@ export function SettingsPage() {
           {activeSection === 'appearance' && <AppearanceSettings />}
           {activeSection === 'interface' && <InterfaceSection />}
           {activeSection === 'notifications' && <PlaceholderSection title="Notifications" />}
-          {activeSection === 'keyboard' && <KeyboardShortcutsSettings />}
+          {activeSection === 'keyboardShortcuts' && <KeyboardShortcutsSettings />}
+          {activeSection === 'about' && <PlaceholderSection title="À propos" />}
         </div>
       </main>
     </div>
