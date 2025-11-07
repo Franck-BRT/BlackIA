@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Tag, Trash2, Edit2, Check, AlertCircle, Plus, Search, ArrowUpDown } from 'lucide-react';
+import { Tag, Trash2, Edit2, Check, AlertCircle, Plus, Search, ArrowUpDown, X } from 'lucide-react';
 import { TagModal } from '../chat/TagModal';
 import type { Tag as TagType } from '../../hooks/useTags';
 import type { Conversation } from '../../hooks/useConversations';
@@ -196,8 +196,17 @@ export function TagsSettings({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Rechercher un tag..."
-              className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-purple-500/50 transition-colors placeholder:text-muted-foreground"
+              className="w-full pl-10 pr-10 py-2 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-purple-500/50 transition-colors placeholder:text-muted-foreground"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-white/10 rounded-md transition-colors"
+                title="Réinitialiser la recherche"
+              >
+                <X className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+              </button>
+            )}
           </div>
 
           {/* Menu de tri */}
