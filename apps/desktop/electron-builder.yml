@@ -12,6 +12,9 @@ mac:
     - target: dmg
       arch: [arm64]
   identity: null
+  # Entitlements requis même pour builds non signés
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
 
 dmg:
   sign: false
