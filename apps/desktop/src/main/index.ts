@@ -3,9 +3,11 @@ import path from 'path';
 import fs from 'fs/promises';
 import { registerOllamaHandlers } from './ollama-handlers';
 import { PersonaService } from './services/persona-service';
+import { PromptService } from './services/prompt-service';
 import { syncPersonaTags } from './services/tag-sync-service';
 import { personaSuggestionService } from './services/persona-suggestion-service';
 import './handlers/persona-suggestion-handlers';
+import { registerPromptHandlers } from './handlers/prompt-handlers';
 import { initDatabase, runMigrations } from './database/client';
 
 // __dirname and __filename are available in CommonJS mode
@@ -84,6 +86,18 @@ app.whenReady().then(async () => {
       console.warn('[App] ⚠️  WARNING: No personas found!');
     }
 
+    // Initialiser le service prompts
+    console.log('[App] Initializing PromptService...');
+    await PromptService.initialize();
+    console.log('[App] ✅ PromptService initialized');
+
+    // Vérifier que les prompts sont chargés
+    const prompts = await PromptService.getAll();
+    console.log(`[App] ✅ ${prompts.length} prompts loaded`);
+    if (prompts.length === 0) {
+      console.warn('[App] ⚠️  WARNING: No prompts found!');
+    }
+
     // Synchroniser les tags des personas avec le système global
     console.log('[App] Syncing persona tags...');
     await syncPersonaTags();
@@ -99,6 +113,7 @@ app.whenReady().then(async () => {
     console.log('[App] Registering IPC handlers...');
     registerOllamaHandlers();
     registerPersonaHandlers();
+    registerPromptHandlers();
     registerTagSyncHandlers();
     console.log('[App] ✅ IPC handlers registered');
 
