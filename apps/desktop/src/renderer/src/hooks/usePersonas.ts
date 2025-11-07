@@ -1,10 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
 import type {
   Persona,
+  FewShotExample,
   CreatePersonaData,
   UpdatePersonaData,
   PersonaIpcResponse,
 } from '../types/persona';
+
+/**
+ * Parse le champ fewShots JSON en tableau fewShotExamples
+ */
+function parseFewShots(persona: Persona): Persona {
+  try {
+    if (persona.fewShots && typeof persona.fewShots === 'string') {
+      const parsed: FewShotExample[] = JSON.parse(persona.fewShots);
+      return { ...persona, fewShotExamples: parsed };
+    }
+  } catch (err) {
+    console.error('[usePersonas] Error parsing fewShots for persona:', persona.id, err);
+  }
+  return { ...persona, fewShotExamples: [] };
+}
 
 /**
  * Hook pour gérer les personas
@@ -24,7 +40,10 @@ export function usePersonas() {
       const response: PersonaIpcResponse<Persona[]> = await window.electronAPI.personas.getAll();
 
       if (response.success && response.data) {
-        setPersonas(response.data);
+        // Parser fewShots en fewShotExamples pour chaque persona
+        const parsedPersonas = response.data.map(parseFewShots);
+        console.log('[usePersonas] Personas chargés et parsés:', parsedPersonas.length);
+        setPersonas(parsedPersonas);
       } else {
         setError(response.error || 'Failed to load personas');
       }
@@ -49,7 +68,7 @@ export function usePersonas() {
 
         if (response.success && response.data) {
           await loadPersonas(); // Recharger la liste
-          return response.data;
+          return parseFewShots(response.data);
         } else {
           setError(response.error || 'Failed to create persona');
           return null;
@@ -71,7 +90,7 @@ export function usePersonas() {
 
         if (response.success && response.data) {
           await loadPersonas(); // Recharger la liste
-          return response.data;
+          return parseFewShots(response.data);
         } else {
           setError(response.error || 'Failed to update persona');
           return null;
@@ -137,7 +156,7 @@ export function usePersonas() {
 
         if (response.success && response.data) {
           await loadPersonas();
-          return response.data;
+          return parseFewShots(response.data);
         } else {
           setError(response.error || 'Failed to duplicate persona');
           return null;
@@ -166,7 +185,7 @@ export function usePersonas() {
       const response: PersonaIpcResponse<Persona[]> = await window.electronAPI.personas.search(query);
 
       if (response.success && response.data) {
-        return response.data;
+        return response.data.map(parseFewShots);
       }
       return [];
     } catch (err) {
@@ -181,7 +200,7 @@ export function usePersonas() {
       const response: PersonaIpcResponse<Persona[]> = await window.electronAPI.personas.filterByCategory(category);
 
       if (response.success && response.data) {
-        return response.data;
+        return response.data.map(parseFewShots);
       }
       return [];
     } catch (err) {
@@ -196,7 +215,7 @@ export function usePersonas() {
       const response: PersonaIpcResponse<Persona[]> = await window.electronAPI.personas.getFavorites();
 
       if (response.success && response.data) {
-        return response.data;
+        return response.data.map(parseFewShots);
       }
       return [];
     } catch (err) {

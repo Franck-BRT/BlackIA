@@ -26,6 +26,7 @@ export interface Persona {
 
   // Few-Shot Examples
   fewShots?: string; // JSON array of FewShotExample
+  fewShotExamples?: FewShotExample[]; // Parsed array (computed from fewShots)
 
   // Apparence
   avatar: string;
