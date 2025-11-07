@@ -9,11 +9,17 @@ interface PersonaAvatarPickerProps {
 export function PersonaAvatarPicker({ value, onChange }: PersonaAvatarPickerProps) {
   const [customAvatar, setCustomAvatar] = React.useState('');
 
-  const handleCustomSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCustomSubmit = () => {
     if (customAvatar.trim()) {
       onChange(customAvatar.trim());
       setCustomAvatar('');
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleCustomSubmit();
     }
   };
 
@@ -56,23 +62,25 @@ export function PersonaAvatarPicker({ value, onChange }: PersonaAvatarPickerProp
       {/* Input personnalisé */}
       <div>
         <label className="block text-sm font-medium mb-2">Ou entrez votre propre emoji</label>
-        <form onSubmit={handleCustomSubmit} className="flex gap-2">
+        <div className="flex gap-2">
           <input
             type="text"
             value={customAvatar}
             onChange={(e) => setCustomAvatar(e.target.value)}
+            onKeyPress={handleKeyPress}
             placeholder="Ex: 🚀"
             maxLength={2}
             className="flex-1 px-4 py-2 glass-card rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/50"
           />
           <button
-            type="submit"
+            type="button"
+            onClick={handleCustomSubmit}
             disabled={!customAvatar.trim()}
             className="px-4 py-2 glass-card rounded-lg hover:glass-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Utiliser
           </button>
-        </form>
+        </div>
       </div>
     </div>
   );
