@@ -1,5 +1,17 @@
 import { useMemo } from 'react';
 import type { Conversation } from './useConversations';
+import type { Persona } from '../types/persona';
+
+export interface PersonaStats {
+  personaId: string;
+  personaName: string;
+  avatar: string;
+  usageCount: number; // Nombre total d'utilisations (backend)
+  globalUsages: number; // Utilisations en tant que persona global
+  mentionUsages: number; // Utilisations via @mention
+  messageCount: number; // Nombre de messages générés
+  conversationCount: number; // Nombre de conversations utilisant ce persona
+}
 
 export interface Statistics {
   // Messages
@@ -20,6 +32,12 @@ export interface Statistics {
   modelUsage: { model: string; count: number; percentage: number }[];
   mostUsedModel: string;
 
+  // Personas
+  personaStats: PersonaStats[];
+  mostUsedPersona: string | null;
+  totalPersonaMessages: number; // Total messages avec un persona
+  personaConversationsCount: number; // Conversations avec persona global
+
   // Activité par jour (7 derniers jours)
   dailyActivity: { date: string; messages: number; conversations: number }[];
 
@@ -34,7 +52,7 @@ export interface Statistics {
 /**
  * Hook pour calculer les statistiques d'utilisation
  */
-export function useStatistics(conversations: Conversation[]): Statistics {
+export function useStatistics(conversations: Conversation[], personas: Persona[] = []): Statistics {
   return useMemo(() => {
     const now = Date.now();
     const todayStart = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
@@ -56,6 +74,11 @@ export function useStatistics(conversations: Conversation[]): Statistics {
 
     // Usage des modèles
     const modelCounts = new Map<string, number>();
+
+    // Usage des personas
+    const personaGlobalUsages = new Map<string, number>(); // Conversations avec persona global
+    const personaMentionUsages = new Map<string, number>(); // Messages avec @mention
+    const personaMessageCounts = new Map<string, number>(); // Nombre de messages générés
 
     // Activité par jour (7 derniers jours)
     const dailyMessages = new Map<string, number>();
@@ -100,14 +123,38 @@ export function useStatistics(conversations: Conversation[]): Statistics {
       const currentCount = modelCounts.get(conv.model) || 0;
       modelCounts.set(conv.model, currentCount + 1);
 
+      // Stats personas : persona global
+      if (conv.personaId) {
+        const globalCount = personaGlobalUsages.get(conv.personaId) || 0;
+        personaGlobalUsages.set(conv.personaId, globalCount + 1);
+      }
+
       // Analyser les messages
-      for (const msg of conv.messages) {
+      for (let msgIndex = 0; msgIndex < conv.messages.length; msgIndex++) {
+        const msg = conv.messages[msgIndex];
         totalMessages++;
 
         if (msg.role === 'user') {
           userMessages++;
         } else if (msg.role === 'assistant') {
           assistantMessages++;
+        }
+
+        // Stats personas : @mention (depuis les métadonnées)
+        if (conv.messageMetadata && conv.messageMetadata[msgIndex]?.personaId) {
+          const personaId = conv.messageMetadata[msgIndex].personaId!;
+
+          // Incrémenter le compteur de @mention
+          const mentionCount = personaMentionUsages.get(personaId) || 0;
+          personaMentionUsages.set(personaId, mentionCount + 1);
+
+          // Compter les messages générés avec ce persona
+          const msgCount = personaMessageCounts.get(personaId) || 0;
+          personaMessageCounts.set(personaId, msgCount + 1);
+        } else if (conv.personaId) {
+          // Si persona global et pas de @mention, compter comme message du persona global
+          const msgCount = personaMessageCounts.get(conv.personaId) || 0;
+          personaMessageCounts.set(conv.personaId, msgCount + 1);
         }
 
         // On utilise updatedAt de la conversation pour estimer la date des messages
@@ -170,6 +217,31 @@ export function useStatistics(conversations: Conversation[]): Statistics {
       ? Math.round((conversations.length / Math.min(daysWithData, 30)) * 10) / 10
       : 0;
 
+    // Calculer les stats des personas
+    const allPersonaIds = new Set([
+      ...personaGlobalUsages.keys(),
+      ...personaMentionUsages.keys(),
+      ...personaMessageCounts.keys(),
+    ]);
+
+    const personaStats: PersonaStats[] = Array.from(allPersonaIds).map((personaId) => {
+      const persona = personas.find((p) => p.id === personaId);
+      return {
+        personaId,
+        personaName: persona?.name || 'Inconnu',
+        avatar: persona?.avatar || '❓',
+        usageCount: persona?.usageCount || 0,
+        globalUsages: personaGlobalUsages.get(personaId) || 0,
+        mentionUsages: personaMentionUsages.get(personaId) || 0,
+        messageCount: personaMessageCounts.get(personaId) || 0,
+        conversationCount: personaGlobalUsages.get(personaId) || 0,
+      };
+    }).sort((a, b) => b.usageCount - a.usageCount); // Trier par usage décroissant
+
+    const mostUsedPersona = personaStats[0]?.personaName || null;
+    const totalPersonaMessages = Array.from(personaMessageCounts.values()).reduce((sum, count) => sum + count, 0);
+    const personaConversationsCount = Array.from(personaGlobalUsages.values()).reduce((sum, count) => sum + count, 0);
+
     return {
       totalMessages,
       userMessages,
@@ -187,6 +259,10 @@ export function useStatistics(conversations: Conversation[]): Statistics {
       weeklyActivity,
       averageMessagesPerConversation,
       averageConversationsPerDay,
+      personaStats,
+      mostUsedPersona,
+      totalPersonaMessages,
+      personaConversationsCount,
     };
-  }, [conversations]);
+  }, [conversations, personas]);
 }

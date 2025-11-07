@@ -98,10 +98,10 @@ export function ChatPage() {
   } = useTags();
 
   // Hook pour gérer les personas
-  const { personas } = usePersonas();
+  const { personas, incrementUsage: incrementPersonaUsage } = usePersonas();
 
   // Hook pour les statistiques
-  const statistics = useStatistics(conversations);
+  const statistics = useStatistics(conversations, personas);
 
   // Hook pour les raccourcis clavier personnalisés
   const { shortcuts: customShortcuts } = useCustomKeyboardShortcuts();
@@ -544,6 +544,11 @@ export function ChatPage() {
 
       if (mentionedPersona) {
         console.log('[ChatPage] 📧 Persona mentionné (@mention):', mentionedPersona.name);
+        // Incrémenter le compteur d'utilisation pour @mention
+        incrementPersonaUsage(mentionedPersona.id);
+      } else if (currentPersona) {
+        // Incrémenter le compteur d'utilisation pour persona global
+        incrementPersonaUsage(currentPersona.id);
       }
 
       // Construire la liste des messages avec le system prompt

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, MessageSquare, TrendingUp, Zap, Calendar, BarChart3, Cpu } from 'lucide-react';
+import { X, MessageSquare, TrendingUp, Zap, Calendar, BarChart3, Cpu, Users } from 'lucide-react';
 import type { Statistics } from '../../hooks/useStatistics';
 
 interface StatisticsModalProps {
@@ -139,6 +139,49 @@ export function StatisticsModal({ isOpen, onClose, statistics }: StatisticsModal
             </div>
           </div>
 
+          {/* Statistiques des personas */}
+          {statistics.personaStats.length > 0 && (
+            <div className="glass-card bg-white/5 rounded-xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="w-5 h-5 text-green-400" />
+                <h3 className="text-lg font-semibold">Personas les plus utilisés</h3>
+              </div>
+
+              <div className="space-y-3">
+                {statistics.personaStats.slice(0, 10).map((persona, index) => (
+                  <div key={persona.personaId} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="text-lg">{persona.avatar}</div>
+                        <span className="font-medium">{persona.personaName}</span>
+                      </div>
+                      <span className="text-muted-foreground">
+                        {persona.usageCount} utilisations
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground pl-8">
+                      {persona.globalUsages} global · {persona.mentionUsages} @mention · {persona.messageCount} messages
+                    </div>
+                    <div className="relative h-2 bg-white/5 rounded-full overflow-hidden">
+                      <div
+                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(100, (persona.usageCount / Math.max(...statistics.personaStats.map(p => p.usageCount), 1)) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {statistics.personaStats.length === 0 && (
+                <div className="text-center text-muted-foreground py-8">
+                  Aucun persona utilisé pour le moment
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Moyennes et insights */}
           <div className="glass-card bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-6">
             <h3 className="text-lg font-semibold mb-4">📊 Insights</h3>
@@ -169,6 +212,25 @@ export function StatisticsModal({ isOpen, onClose, statistics }: StatisticsModal
                   {statistics.conversationsThisWeek}
                 </div>
               </div>
+              {statistics.mostUsedPersona && (
+                <div>
+                  <div className="text-muted-foreground mb-1">Persona favori</div>
+                  <div className="text-2xl font-bold text-pink-400">
+                    {statistics.mostUsedPersona}
+                  </div>
+                </div>
+              )}
+              {statistics.totalPersonaMessages > 0 && (
+                <div>
+                  <div className="text-muted-foreground mb-1">Messages avec personas</div>
+                  <div className="text-2xl font-bold text-orange-400">
+                    {statistics.totalPersonaMessages}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {Math.round((statistics.totalPersonaMessages / statistics.totalMessages) * 100)}% du total
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
