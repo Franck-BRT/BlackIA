@@ -177,21 +177,11 @@ case $MODE in
         log_info "Compilation des packages..."
         echo ""
         build_package "@blackia/ollama" "$PROJECT_ROOT/packages/ollama"
-
-        log_info "Compilation du main process de l'app desktop..."
-        cd "$PROJECT_ROOT/apps/desktop"
-        if [ -f "tsconfig.main.json" ]; then
-            if npx tsc -p tsconfig.main.json --skipLibCheck 2>&1 | grep -q "error TS"; then
-                log_warning "  → Erreurs de compilation détectées (fichiers existants utilisés)"
-            else
-                log_success "  → Main process compilé avec succès"
-            fi
-        fi
-        cd "$PROJECT_ROOT"
         echo ""
 
-        # Lancer l'app
-        log_success "Compilation terminée ! Lancement de l'application..."
+        # Lancer l'app (le main process sera compilé automatiquement par dev:main en mode watch)
+        log_success "Compilation des packages terminée !"
+        log_info "Le main process sera compilé automatiquement par TypeScript en mode watch"
         echo ""
         pnpm --filter @blackia/desktop dev
         ;;
@@ -235,22 +225,11 @@ case $MODE in
 
         # Compiler le package Ollama
         build_package "@blackia/ollama" "$PROJECT_ROOT/packages/ollama"
-
-        # Compiler le main process de l'app desktop
-        log_info "Compilation du main process de l'app desktop..."
-        cd "$PROJECT_ROOT/apps/desktop"
-        if [ -f "tsconfig.main.json" ]; then
-            if npx tsc -p tsconfig.main.json --skipLibCheck 2>&1 | grep -q "error TS"; then
-                log_warning "  → Erreurs de compilation détectées (fichiers existants utilisés)"
-            else
-                log_success "  → Main process compilé avec succès"
-            fi
-        fi
-        cd "$PROJECT_ROOT"
         echo ""
 
-        # Lancer l'application
-        log_success "Compilation terminée ! Lancement de l'application..."
+        # Lancer l'application (le main process sera compilé automatiquement par dev:main en mode watch)
+        log_success "Compilation des packages terminée !"
+        log_info "Le main process sera compilé automatiquement par TypeScript en mode watch"
         echo ""
         pnpm --filter @blackia/desktop dev
         ;;

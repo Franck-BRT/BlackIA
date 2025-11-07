@@ -5,8 +5,9 @@ import { TagDropdownSelector } from '../shared/TagDropdownSelector';
 import { TagModal } from '../chat/TagModal';
 import { useModels } from '../../hooks/useModels';
 import { useTags } from '../../hooks/useTags';
+import { useSettings } from '../../contexts/SettingsContext';
 import type { PersonaFormData, PersonaColor } from '../../types/persona';
-import { PERSONA_CATEGORIES, PERSONA_COLORS, PERSONA_COLOR_CLASSES } from '../../types/persona';
+import { PERSONA_COLORS, PERSONA_COLOR_CLASSES } from '../../types/persona';
 
 interface PersonaFormProps {
   initialData?: Partial<PersonaFormData>;
@@ -23,6 +24,8 @@ export function PersonaForm({
 }: PersonaFormProps) {
   const { models, loading: modelsLoading, error: modelsError } = useModels();
   const { tags, createTag } = useTags();
+  const { getAllCategories } = useSettings();
+  const categories = getAllCategories();
 
   // Debug: afficher l'état des modèles
   console.log('[PersonaForm] Models:', models);
@@ -187,9 +190,9 @@ export function PersonaForm({
           className="w-full px-4 py-2 glass-card rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/50"
         >
           <option value="">Sans catégorie</option>
-          {PERSONA_CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.name}>
+              {cat.icon} {cat.name}
             </option>
           ))}
         </select>

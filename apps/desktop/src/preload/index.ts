@@ -63,6 +63,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getSynced: () => ipcRenderer.invoke('tags:getSynced'),
   },
 
+  // Persona Suggestions API
+  personaSuggestions: {
+    getAll: () => ipcRenderer.invoke('persona-suggestions:get-all'),
+    getActive: () => ipcRenderer.invoke('persona-suggestions:get-active'),
+    create: (data: any) => ipcRenderer.invoke('persona-suggestions:create', data),
+    update: (id: string, data: any) => ipcRenderer.invoke('persona-suggestions:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('persona-suggestions:delete', id),
+    toggleActive: (id: string) => ipcRenderer.invoke('persona-suggestions:toggle-active', id),
+    search: (query: string) => ipcRenderer.invoke('persona-suggestions:search', query),
+    initializeDefaults: () => ipcRenderer.invoke('persona-suggestions:initialize-defaults'),
+    resetToDefaults: () => ipcRenderer.invoke('persona-suggestions:reset-to-defaults'),
+    getStats: () => ipcRenderer.invoke('persona-suggestions:get-stats'),
+  },
+
   // Ollama API
   ollama: {
     // Vérification et configuration
@@ -166,6 +180,19 @@ export interface ElectronAPI {
 
   tags: {
     getSynced: () => Promise<{ success: boolean; data?: any[]; error?: string }>;
+  };
+
+  personaSuggestions: {
+    getAll: () => Promise<any>;
+    getActive: () => Promise<any>;
+    create: (data: any) => Promise<any>;
+    update: (id: string, data: any) => Promise<any>;
+    delete: (id: string) => Promise<any>;
+    toggleActive: (id: string) => Promise<any>;
+    search: (query: string) => Promise<any>;
+    initializeDefaults: () => Promise<any>;
+    resetToDefaults: () => Promise<any>;
+    getStats: () => Promise<any>;
   };
 
   ollama: {

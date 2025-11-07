@@ -140,8 +140,16 @@ fi
 if [ "$CLEAN" = true ]; then
     log "Nettoyage des builds précédents..."
 
-    rm -rf "$DESKTOP_DIR/dist"
-    rm -rf "$RELEASE_DIR"
+    # Supprimer avec permissions forcées et ignorer les erreurs
+    if [ -d "$DESKTOP_DIR/dist" ]; then
+        chmod -R 755 "$DESKTOP_DIR/dist" 2>/dev/null || true
+        rm -rf "$DESKTOP_DIR/dist" 2>/dev/null || true
+    fi
+
+    if [ -d "$RELEASE_DIR" ]; then
+        chmod -R 755 "$RELEASE_DIR" 2>/dev/null || true
+        rm -rf "$RELEASE_DIR" 2>/dev/null || true
+    fi
 
     success "Nettoyage terminé"
 fi
@@ -227,6 +235,18 @@ else
 fi
 
 success "Build electron-builder terminé"
+
+# Signature ad-hoc pour macOS Sequoia
+if [ "$SIGN" = false ]; then
+    log "Application de la signature ad-hoc pour macOS Sequoia..."
+    APP_PATH="$RELEASE_DIR/mac-arm64/BlackIA.app"
+    if [ -d "$APP_PATH" ]; then
+        codesign --force --deep --sign - "$APP_PATH" 2>&1 | grep -v "replacing existing signature" || true
+        success "Signature ad-hoc appliquée"
+    else
+        warning "Application non trouvée à $APP_PATH"
+    fi
+fi
 
 # Trouver le DMG créé
 echo ""

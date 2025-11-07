@@ -8,7 +8,113 @@ import type {
   KeyboardShortcut,
   InterfaceSettings,
   PersonaSuggestionSettings,
+  CategoriesSettings,
+  PersonaCategory,
 } from '@blackia/shared/types';
+
+// Catégories par défaut basées sur PERSONA_CATEGORIES
+const DEFAULT_CATEGORIES: PersonaCategory[] = [
+  {
+    id: 'general',
+    name: 'Général',
+    description: 'Catégorie générale pour tous types de personas',
+    color: 'gray',
+    icon: '⚙️',
+    isDefault: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'development',
+    name: 'Développement',
+    description: 'Personas spécialisés en développement et programmation',
+    color: 'blue',
+    icon: '💻',
+    isDefault: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'writing',
+    name: 'Écriture',
+    description: 'Personas pour la rédaction et l\'écriture',
+    color: 'purple',
+    icon: '✍️',
+    isDefault: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'analysis',
+    name: 'Analyse',
+    description: 'Personas pour l\'analyse de données et la stratégie',
+    color: 'green',
+    icon: '📊',
+    isDefault: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'teaching',
+    name: 'Enseignement',
+    description: 'Personas pédagogiques pour l\'enseignement',
+    color: 'orange',
+    icon: '🎓',
+    isDefault: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'creative',
+    name: 'Créatif',
+    description: 'Personas créatifs pour le design et l\'art',
+    color: 'pink',
+    icon: '🎨',
+    isDefault: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'business',
+    name: 'Business',
+    description: 'Personas business et entrepreneuriat',
+    color: 'indigo',
+    icon: '💼',
+    isDefault: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'marketing',
+    name: 'Marketing',
+    description: 'Personas spécialisés en marketing et communication',
+    color: 'red',
+    icon: '📢',
+    isDefault: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'science',
+    name: 'Science',
+    description: 'Personas scientifiques et techniques',
+    color: 'cyan',
+    icon: '🔬',
+    isDefault: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: 'other',
+    name: 'Autre',
+    description: 'Autres catégories non classifiées',
+    color: 'gray',
+    icon: '📁',
+    isDefault: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+];
 
 // Default settings
 const defaultSettings: AppSettings = {
@@ -59,6 +165,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        categories: true,
         tags: true,
         appearance: true,
         interface: true,
@@ -72,6 +179,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        categories: true,
         tags: true,
         appearance: true,
         interface: true,
@@ -85,6 +193,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        categories: true,
         tags: true,
         appearance: true,
         interface: true,
@@ -98,6 +207,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        categories: true,
         tags: true,
         appearance: true,
         interface: true,
@@ -111,6 +221,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        categories: true,
         tags: true,
         appearance: true,
         interface: true,
@@ -124,6 +235,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        categories: true,
         tags: true,
         appearance: true,
         interface: true,
@@ -137,6 +249,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        categories: true,
         tags: true,
         appearance: true,
         interface: true,
@@ -150,6 +263,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        categories: true,
         tags: true,
         appearance: true,
         interface: true,
@@ -165,6 +279,9 @@ const defaultSettings: AppSettings = {
     minCharacters: 10,
     showOnlyActive: true,
   },
+  categories: {
+    customCategories: DEFAULT_CATEGORIES,
+  },
 };
 
 interface SettingsContextType {
@@ -174,6 +291,11 @@ interface SettingsContextType {
   updateKeyboardShortcuts: (shortcuts: KeyboardShortcut[]) => void;
   updateInterfaceSettings: (settings: Partial<InterfaceSettings>) => void;
   updatePersonaSuggestionSettings: (settings: Partial<PersonaSuggestionSettings>) => void;
+  updateCategoriesSettings: (settings: Partial<CategoriesSettings>) => void;
+  addCategory: (category: Omit<PersonaCategory, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateCategory: (id: string, updates: Partial<PersonaCategory>) => void;
+  deleteCategory: (id: string) => void;
+  getAllCategories: () => PersonaCategory[];
   updateSectionVisibility: (
     module: AppModule,
     section: SettingsSection,
@@ -230,6 +352,11 @@ function deepMergeSettings(defaults: AppSettings, stored: Partial<AppSettings>):
   // Merge personaSuggestions
   if (stored.personaSuggestions) {
     result.personaSuggestions = { ...defaults.personaSuggestions, ...stored.personaSuggestions };
+  }
+
+  // Merge categories
+  if (stored.categories) {
+    result.categories = { ...defaults.categories, ...stored.categories };
   }
 
   return result;
@@ -295,6 +422,74 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const updateCategoriesSettings = (newSettings: Partial<CategoriesSettings>) => {
+    setSettings((prev) => ({
+      ...prev,
+      categories: { ...prev.categories, ...newSettings },
+    }));
+  };
+
+  const addCategory = (category: Omit<PersonaCategory, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const now = new Date();
+
+    // Générer un ID propre basé sur le nom
+    const baseId = category.name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Enlever les accents
+      .replace(/[^a-z0-9]+/g, '-') // Remplacer les caractères spéciaux par des tirets
+      .replace(/^-+|-+$/g, ''); // Enlever les tirets au début/fin
+
+    // Ajouter un suffixe court si l'ID existe déjà
+    let finalId = baseId;
+    let counter = 1;
+    while (settings.categories.customCategories.some(cat => cat.id === finalId)) {
+      finalId = `${baseId}-${counter}`;
+      counter++;
+    }
+
+    const newCategory: PersonaCategory = {
+      ...category,
+      id: finalId,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setSettings((prev) => ({
+      ...prev,
+      categories: {
+        ...prev.categories,
+        customCategories: [...prev.categories.customCategories, newCategory],
+      },
+    }));
+  };
+
+  const updateCategory = (id: string, updates: Partial<PersonaCategory>) => {
+    setSettings((prev) => ({
+      ...prev,
+      categories: {
+        ...prev.categories,
+        customCategories: prev.categories.customCategories.map((cat) =>
+          cat.id === id ? { ...cat, ...updates, updatedAt: new Date() } : cat
+        ),
+      },
+    }));
+  };
+
+  const deleteCategory = (id: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      categories: {
+        ...prev.categories,
+        customCategories: prev.categories.customCategories.filter((cat) => cat.id !== id),
+      },
+    }));
+  };
+
+  const getAllCategories = () => {
+    return settings.categories.customCategories;
+  };
+
   const updateSectionVisibility = (
     module: AppModule,
     section: SettingsSection,
@@ -333,6 +528,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         updateKeyboardShortcuts,
         updateInterfaceSettings,
         updatePersonaSuggestionSettings,
+        updateCategoriesSettings,
+        addCategory,
+        updateCategory,
+        deleteCategory,
+        getAllCategories,
         updateSectionVisibility,
         getSectionVisibility,
         resetSettings,

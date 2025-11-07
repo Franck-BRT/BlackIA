@@ -1,23 +1,25 @@
 {
   "name": "@blackia/desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "BlackIA Desktop Application",
   "main": "dist/main/index.js",
   "author": "Black Room Technologies",
   "license": "MIT",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm:dev:vite\" \"npm:dev:electron\"",
+    "dev": "concurrently \"npm:dev:vite\" \"npm:dev:main\" \"npm:dev:electron\"",
     "dev:vite": "vite",
-    "dev:electron": "wait-on tcp:5173 && electron .",
+    "dev:main": "tsc -p tsconfig.main.json --watch",
+    "dev:electron": "wait-on dist/main/index.js && wait-on tcp:5173 && electron .",
     "build": "tsc -p tsconfig.main.json && vite build && electron-builder",
-    "build:dir": "tsc -p tsconfig.main.json && vite build && electron-builder --dir",
+    "build:dir": "tsc -p tsconfig.main.json && vite build && electron-builder --mac --dir",
     "build:dmg": "tsc -p tsconfig.main.json && vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
     "build:dmg:arm64": "tsc -p tsconfig.main.json && vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --arm64",
     "build:dmg:x64": "tsc -p tsconfig.main.json && vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --x64",
     "build:dmg:universal": "tsc -p tsconfig.main.json && vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --universal",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src --ext .ts,.tsx"
+    "lint": "eslint src --ext .ts,.tsx",
+    "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "dependencies": {
     "@blackia/shared": "workspace:*",
@@ -32,17 +34,21 @@
     "react-router-dom": "^6.21.0",
     "lucide-react": "^0.303.0",
     "better-sqlite3": "^9.2.2",
+    "bindings": "^1.5.0",
     "drizzle-orm": "^0.29.1"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.0",
+    "@types/better-sqlite3": "^7.6.8",
     "@types/node": "^20.11.5",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
-    "electron": "^28.1.0",
-    "electron-builder": "^24.9.1",
+    "drizzle-kit": "^0.20.6",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
     "postcss": "^8.4.32",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -50,8 +56,6 @@
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.3.3",
     "vite": "^5.0.10",
-    "wait-on": "^7.2.0",
-    "drizzle-kit": "^0.20.6",
-    "@types/better-sqlite3": "^7.6.8"
+    "wait-on": "^7.2.0"
   }
 }
