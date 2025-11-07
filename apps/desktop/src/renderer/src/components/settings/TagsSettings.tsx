@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Tag, Trash2, Edit2, Check, AlertCircle, X } from 'lucide-react';
+import { Tag, Trash2, Edit2, Check, AlertCircle, X, Plus } from 'lucide-react';
 import type { Tag as TagType } from '../../hooks/useTags';
 import type { Conversation } from '../../hooks/useConversations';
 
 interface TagsSettingsProps {
   tags: TagType[];
+  onCreateTag: (name: string, color: string, icon?: string) => TagType;
   onUpdateTag: (id: string, updates: Partial<Omit<TagType, 'id' | 'createdAt'>>) => void;
   onDeleteTag: (id: string) => void;
   conversations: Conversation[];
@@ -21,6 +22,7 @@ const TAG_COLORS = [
 
 export function TagsSettings({
   tags,
+  onCreateTag,
   onUpdateTag,
   onDeleteTag,
   conversations,
@@ -29,6 +31,12 @@ export function TagsSettings({
   const [editingTagData, setEditingTagData] = useState<{ name: string; color: string; icon?: string }>({
     name: '',
     color: '',
+  });
+  const [isCreating, setIsCreating] = useState(false);
+  const [newTagData, setNewTagData] = useState<{ name: string; color: string; icon?: string }>({
+    name: '',
+    color: TAG_COLORS[0],
+    icon: '🏷️',
   });
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
@@ -77,6 +85,30 @@ export function TagsSettings({
     }
   };
 
+  // Gestion de la création
+  const handleStartCreate = () => {
+    setIsCreating(true);
+    setNewTagData({
+      name: '',
+      color: TAG_COLORS[0],
+      icon: '🏷️',
+    });
+  };
+
+  const handleCreateTag = () => {
+    if (newTagData.name.trim()) {
+      onCreateTag(newTagData.name.trim(), newTagData.color, newTagData.icon);
+      setIsCreating(false);
+      setNewTagData({ name: '', color: TAG_COLORS[0], icon: '🏷️' });
+      showNotification('success', '✅ Tag créé avec succès');
+    }
+  };
+
+  const handleCancelCreate = () => {
+    setIsCreating(false);
+    setNewTagData({ name: '', color: TAG_COLORS[0], icon: '🏷️' });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -102,9 +134,94 @@ export function TagsSettings({
 
       {/* Tags List */}
       <div className="glass-card rounded-xl p-6">
-        <h3 className="text-lg font-semibold mb-4">Tous les tags</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Tous les tags</h3>
+          <button
+            type="button"
+            onClick={handleStartCreate}
+            disabled={isCreating}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nouveau tag</span>
+          </button>
+        </div>
 
         <div className="space-y-3">
+          {/* Formulaire de création */}
+          {isCreating && (
+            <div className="glass-card bg-purple-500/10 border-purple-500/30 rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                {/* Icon & Color Preview */}
+                <div
+                  className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center text-xl"
+                  style={{ backgroundColor: newTagData.color + '33', color: newTagData.color }}
+                >
+                  {newTagData.icon || '🏷️'}
+                </div>
+
+                {/* Form */}
+                <div className="flex-1 space-y-2">
+                  <input
+                    type="text"
+                    value={newTagData.name}
+                    onChange={(e) => setNewTagData({ ...newTagData, name: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCreateTag();
+                      if (e.key === 'Escape') handleCancelCreate();
+                    }}
+                    placeholder="Nom du tag"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-purple-500/50"
+                    autoFocus
+                  />
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={newTagData.icon || ''}
+                      onChange={(e) => setNewTagData({ ...newTagData, icon: e.target.value })}
+                      placeholder="Icône"
+                      className="w-24 px-3 py-2 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-purple-500/50 text-center text-lg"
+                      maxLength={2}
+                    />
+                    <div className="flex gap-1">
+                      {TAG_COLORS.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => setNewTagData({ ...newTagData, color })}
+                          className={`w-8 h-8 rounded-lg hover:scale-110 transition-transform ${newTagData.color === color ? 'ring-2 ring-white' : ''}`}
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCreateTag}
+                    className="p-2 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors"
+                    title="Créer"
+                  >
+                    <Check className="w-5 h-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelCreate}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    title="Annuler"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Liste des tags existants */}
           {tagStats.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Tag className="w-12 h-12 mx-auto mb-3 opacity-50" />

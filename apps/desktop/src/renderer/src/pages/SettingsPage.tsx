@@ -62,7 +62,7 @@ export function SettingsPage() {
     changeFolderColor,
     deleteFolder,
   } = useFolders();
-  const { tags, updateTag, deleteTag } = useTags();
+  const { tags, createTag, updateTag, deleteTag } = useTags();
 
   // Filtrer les sections visibles en fonction du module
   const visibleNavItems = useMemo(() => {
@@ -143,6 +143,7 @@ export function SettingsPage() {
           {activeSection === 'tags' && (
             <TagsSettings
               tags={tags}
+              onCreateTag={createTag}
               onUpdateTag={updateTag}
               onDeleteTag={deleteTag}
               conversations={conversations}
