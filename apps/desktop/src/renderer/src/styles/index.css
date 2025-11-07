@@ -93,6 +93,17 @@ button, a, input, select, textarea {
   @apply transition-colors duration-200;
 }
 
+/* S'assurer que les icônes SVG dans les boutons ne bloquent pas les clics */
+button svg {
+  pointer-events: none;
+}
+
+/* S'assurer que tous les boutons sont cliquables sur toute leur surface */
+button {
+  cursor: pointer;
+  position: relative;
+}
+
 /* Background gradient animation */
 @keyframes gradient-shift {
   0%, 100% {

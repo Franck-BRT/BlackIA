@@ -960,7 +960,7 @@ export function ChatPage() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="flex items-center justify-center flex-shrink-0 p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center flex-shrink-0 min-w-[40px] min-h-[40px] p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
               title={isSidebarOpen ? 'Masquer la sidebar' : 'Afficher la sidebar'}
             >
               <Menu className="w-5 h-5" />
@@ -971,7 +971,7 @@ export function ChatPage() {
             {/* Persona Selection Button */}
             <button
               onClick={() => setIsPersonaModalOpen(true)}
-              className={`flex items-center justify-center flex-shrink-0 gap-2 px-3 py-2 rounded-xl transition-all ${
+              className={`flex items-center justify-center flex-shrink-0 gap-2 min-h-[40px] px-3 py-2 rounded-xl transition-all ${
                 currentPersona
                   ? 'glass-card border border-white/20'
                   : 'glass-hover hover:bg-white/10'
@@ -1021,28 +1021,28 @@ export function ChatPage() {
             />
             <button
               onClick={() => setIsStatisticsModalOpen(true)}
-              className="flex items-center justify-center flex-shrink-0 p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center flex-shrink-0 min-w-[40px] min-h-[40px] p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
               title="Statistiques d'utilisation (Ctrl+Shift+S)"
             >
               <BarChart3 className="w-5 h-5" />
             </button>
             <button
               onClick={() => setIsChatSearchOpen(true)}
-              className="flex items-center justify-center flex-shrink-0 p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center flex-shrink-0 min-w-[40px] min-h-[40px] p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
               title="Rechercher dans la conversation (Ctrl+F)"
             >
               <Search className="w-5 h-5" />
             </button>
             <button
               onClick={handleClearChat}
-              className="flex items-center justify-center flex-shrink-0 p-2 rounded-xl glass-hover hover:bg-red-500/20 transition-colors"
+              className="flex items-center justify-center flex-shrink-0 min-w-[40px] min-h-[40px] p-2 rounded-xl glass-hover hover:bg-red-500/20 transition-colors"
               title="Effacer la conversation"
             >
               <Trash2 className="w-5 h-5 text-red-400" />
             </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="flex items-center justify-center flex-shrink-0 p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center flex-shrink-0 min-w-[40px] min-h-[40px] p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
               title="Paramètres du Chat"
             >
               <Settings className="w-5 h-5" />
