@@ -31,11 +31,16 @@ export interface Persona {
 interface PersonasData {
   personas: Persona[];
   version: string;
+  schemaVersion?: number; // Version du schéma des personas par défaut
 }
 
 // Chemin vers le fichier de données
 const USER_DATA_PATH = app.getPath('userData');
 const PERSONAS_FILE = path.join(USER_DATA_PATH, 'personas.json');
+
+// Version du schéma des personas par défaut
+// Incrémentez ce numéro quand vous modifiez les personas par défaut
+const CURRENT_SCHEMA_VERSION = 2; // v2: ajout des fewShots
 
 // Cache en mémoire
 let cachedData: PersonasData | null = null;
@@ -297,6 +302,7 @@ async function initializePersonasFile(): Promise<void> {
       const initialData: PersonasData = {
         personas: DEFAULT_PERSONAS,
         version: '1.0.0',
+        schemaVersion: CURRENT_SCHEMA_VERSION,
       };
 
       await fs.writeFile(PERSONAS_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
@@ -311,6 +317,71 @@ async function initializePersonasFile(): Promise<void> {
 }
 
 /**
+ * Migre les personas par défaut vers la nouvelle version du schéma
+ */
+async function migrateDefaultPersonas(data: PersonasData): Promise<PersonasData> {
+  const currentSchemaVersion = data.schemaVersion || 1;
+
+  // Si déjà à jour, ne rien faire
+  if (currentSchemaVersion >= CURRENT_SCHEMA_VERSION) {
+    return data;
+  }
+
+  console.log(
+    `[PersonaService] Migrating default personas from schema v${currentSchemaVersion} to v${CURRENT_SCHEMA_VERSION}`
+  );
+
+  // Créer une map des personas par défaut actuelles par ID
+  const defaultPersonasMap = new Map<string, Persona>();
+  DEFAULT_PERSONAS.forEach((p) => {
+    defaultPersonasMap.set(p.id, p);
+  });
+
+  // Mettre à jour les personas existantes
+  const updatedPersonas = data.personas.map((existingPersona) => {
+    // Si c'est une persona par défaut et qu'on a une nouvelle définition
+    if (existingPersona.id.startsWith('default-') && defaultPersonasMap.has(existingPersona.id)) {
+      const newDefinition = defaultPersonasMap.get(existingPersona.id)!;
+
+      // Merger : prendre les nouveaux champs de la définition,
+      // mais préserver les personnalisations utilisateur
+      return {
+        ...newDefinition, // Nouveaux champs (systemPrompt, fewShots, etc.)
+        isFavorite: existingPersona.isFavorite, // Préserver les favoris
+        usageCount: existingPersona.usageCount, // Préserver le compteur d'usage
+        createdAt: existingPersona.createdAt, // Préserver la date de création originale
+        updatedAt: new Date().toISOString(), // Mettre à jour la date de modification
+      };
+    }
+
+    // Personas créées par l'utilisateur : ne pas toucher
+    return existingPersona;
+  });
+
+  // Ajouter les nouvelles personas par défaut qui n'existent pas encore
+  const existingIds = new Set(data.personas.map((p) => p.id));
+  DEFAULT_PERSONAS.forEach((defaultPersona) => {
+    if (!existingIds.has(defaultPersona.id)) {
+      updatedPersonas.push(defaultPersona);
+      console.log(`[PersonaService] Added new default persona: ${defaultPersona.name}`);
+    }
+  });
+
+  const migratedData: PersonasData = {
+    ...data,
+    personas: updatedPersonas,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+  };
+
+  // Sauvegarder immédiatement la migration
+  await saveData(migratedData);
+
+  console.log('[PersonaService] Migration completed successfully');
+
+  return migratedData;
+}
+
+/**
  * Charge les données depuis le fichier
  */
 async function loadData(): Promise<PersonasData> {
@@ -320,14 +391,20 @@ async function loadData(): Promise<PersonasData> {
 
   try {
     const fileContent = await fs.readFile(PERSONAS_FILE, 'utf-8');
-    cachedData = JSON.parse(fileContent);
-    return cachedData!;
+    let data: PersonasData = JSON.parse(fileContent);
+
+    // Migrer si nécessaire
+    data = await migrateDefaultPersonas(data);
+
+    cachedData = data;
+    return cachedData;
   } catch (error) {
     console.error('[PersonaService] Failed to load personas:', error);
     // Si le fichier n'existe pas ou est corrompu, retourner les données par défaut
     const defaultData: PersonasData = {
       personas: DEFAULT_PERSONAS,
       version: '1.0.0',
+      schemaVersion: CURRENT_SCHEMA_VERSION,
     };
     cachedData = defaultData;
     return defaultData;
