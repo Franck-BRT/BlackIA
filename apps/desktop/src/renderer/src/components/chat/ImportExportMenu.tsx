@@ -158,7 +158,7 @@ export function ImportExportMenu({
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center justify-center flex-shrink-0 min-w-[40px] min-h-[40px] p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+          className="header-btn glass-hover"
           title="Import/Export"
         >
           <Database className="w-5 h-5" />

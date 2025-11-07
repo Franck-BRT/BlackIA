@@ -104,6 +104,40 @@ button {
   position: relative;
 }
 
+/* Classe spéciale pour les boutons du header - garantit une zone cliquable complète */
+.header-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  position: relative !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  padding: 0.5rem !important;
+  border-radius: 0.75rem !important;
+  transition: all 0.2s ease-in-out !important;
+  flex-shrink: 0 !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  touch-action: manipulation !important;
+  border: none !important;
+  outline: none !important;
+}
+
+.header-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.header-btn:active {
+  transform: scale(0.95) !important;
+}
+
+/* Tous les enfants des boutons header ne capturent pas les événements */
+.header-btn > *,
+.header-btn > * > * {
+  pointer-events: none !important;
+}
+
 /* Background gradient animation */
 @keyframes gradient-shift {
   0%, 100% {
