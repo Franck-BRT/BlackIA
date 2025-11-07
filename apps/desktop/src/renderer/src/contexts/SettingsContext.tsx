@@ -431,9 +431,26 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const addCategory = (category: Omit<PersonaCategory, 'id' | 'createdAt' | 'updatedAt'>) => {
     const now = new Date();
+
+    // Générer un ID propre basé sur le nom
+    const baseId = category.name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Enlever les accents
+      .replace(/[^a-z0-9]+/g, '-') // Remplacer les caractères spéciaux par des tirets
+      .replace(/^-+|-+$/g, ''); // Enlever les tirets au début/fin
+
+    // Ajouter un suffixe court si l'ID existe déjà
+    let finalId = baseId;
+    let counter = 1;
+    while (settings.categories.customCategories.some(cat => cat.id === finalId)) {
+      finalId = `${baseId}-${counter}`;
+      counter++;
+    }
+
     const newCategory: PersonaCategory = {
       ...category,
-      id: `custom-${Date.now()}`,
+      id: finalId,
       createdAt: now,
       updatedAt: now,
     };
