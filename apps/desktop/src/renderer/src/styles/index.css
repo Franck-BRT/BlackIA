@@ -113,6 +113,8 @@ button {
   position: relative !important;
   min-width: 40px !important;
   min-height: 40px !important;
+  height: 40px !important;
+  width: auto !important;
   padding: 0.5rem !important;
   border-radius: 0.75rem !important;
   transition: all 0.2s ease-in-out !important;
@@ -122,6 +124,8 @@ button {
   touch-action: manipulation !important;
   border: none !important;
   outline: none !important;
+  overflow: visible !important;
+  z-index: 10 !important;
 }
 
 .header-btn:hover {
@@ -134,8 +138,25 @@ button {
 
 /* Tous les enfants des boutons header ne capturent pas les événements */
 .header-btn > *,
-.header-btn > * > * {
+.header-btn > * > *,
+.header-btn > * > * > * {
   pointer-events: none !important;
+}
+
+/* Overlay invisible qui capture TOUS les clics sur toute la surface du bouton */
+.header-btn::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  cursor: pointer !important;
+  z-index: 1 !important;
+  pointer-events: auto !important;
+  background: transparent !important;
 }
 
 /* Background gradient animation */
