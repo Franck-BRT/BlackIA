@@ -23,6 +23,7 @@ import { InterfaceSection } from '../components/settings/InterfaceSection';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
+import { usePersonas } from '../hooks/usePersonas';
 import { useSettings } from '../contexts/SettingsContext';
 import type { AppModule, SettingsSection } from '@blackia/shared/types';
 
@@ -63,6 +64,7 @@ export function SettingsPage() {
     deleteFolder,
   } = useFolders();
   const { tags, createTag, updateTag, deleteTag } = useTags();
+  const { personas } = usePersonas();
 
   // Filtrer les sections visibles en fonction du module
   const visibleNavItems = useMemo(() => {
@@ -147,6 +149,7 @@ export function SettingsPage() {
               onUpdateTag={updateTag}
               onDeleteTag={deleteTag}
               conversations={conversations}
+              personas={personas}
             />
           )}
           {activeSection === 'appearance' && <AppearanceSettings />}

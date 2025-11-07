@@ -3,6 +3,7 @@ import { Tag, Trash2, Edit2, Check, AlertCircle, Plus } from 'lucide-react';
 import { TagModal } from '../chat/TagModal';
 import type { Tag as TagType } from '../../hooks/useTags';
 import type { Conversation } from '../../hooks/useConversations';
+import type { Persona } from '../../types/persona';
 
 interface TagsSettingsProps {
   tags: TagType[];
@@ -10,6 +11,7 @@ interface TagsSettingsProps {
   onUpdateTag: (id: string, updates: Partial<Omit<TagType, 'id' | 'createdAt'>>) => void;
   onDeleteTag: (id: string) => void;
   conversations: Conversation[];
+  personas: Persona[];
 }
 
 export function TagsSettings({
@@ -18,6 +20,7 @@ export function TagsSettings({
   onUpdateTag,
   onDeleteTag,
   conversations,
+  personas,
 }: TagsSettingsProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -27,10 +30,26 @@ export function TagsSettings({
   );
 
   // Calculer les statistiques par tag
-  const tagStats = tags.map((tag) => ({
-    ...tag,
-    conversationCount: conversations.filter((conv) => conv.tagIds?.includes(tag.id)).length,
-  }));
+  const tagStats = tags.map((tag) => {
+    // Compter les conversations avec ce tag
+    const conversationCount = conversations.filter((conv) => conv.tagIds?.includes(tag.id)).length;
+
+    // Compter les personas avec ce tag (par nom de tag)
+    const personaCount = personas.filter((persona) => {
+      try {
+        const personaTags: string[] = JSON.parse(persona.tags || '[]');
+        return personaTags.some((tagName) => tagName.toLowerCase() === tag.name.toLowerCase());
+      } catch {
+        return false;
+      }
+    }).length;
+
+    return {
+      ...tag,
+      conversationCount,
+      personaCount,
+    };
+  });
 
   // Notifications
   const showNotification = (type: 'success' | 'error', message: string) => {
@@ -55,12 +74,22 @@ export function TagsSettings({
     }
   };
 
-  const handleDeleteTag = (tag: TagType) => {
-    const convCount = conversations.filter((c) => c.tagIds?.includes(tag.id)).length;
-    const message =
-      convCount > 0
-        ? `Supprimer le tag "${tag.name}" ?\n\nIl sera retiré de ${convCount} conversation(s).`
-        : `Supprimer le tag "${tag.name}" ?`;
+  const handleDeleteTag = (tag: TagType & { conversationCount: number; personaCount: number }) => {
+    const { conversationCount, personaCount } = tag;
+    const totalCount = conversationCount + personaCount;
+
+    let message = `Supprimer le tag "${tag.name}" ?`;
+
+    if (totalCount > 0) {
+      const parts: string[] = [];
+      if (conversationCount > 0) {
+        parts.push(`${conversationCount} conversation${conversationCount !== 1 ? 's' : ''}`);
+      }
+      if (personaCount > 0) {
+        parts.push(`${personaCount} persona${personaCount !== 1 ? 's' : ''}`);
+      }
+      message = `Supprimer le tag "${tag.name}" ?\n\nIl sera retiré de ${parts.join(' et ')}.`;
+    }
 
     if (confirm(message)) {
       onDeleteTag(tag.id);
@@ -141,6 +170,8 @@ export function TagsSettings({
                       </div>
                       <div className="text-sm text-muted-foreground">
                         {tag.conversationCount} conversation{tag.conversationCount !== 1 ? 's' : ''}
+                        {' • '}
+                        {tag.personaCount} persona{tag.personaCount !== 1 ? 's' : ''}
                       </div>
                     </div>
                   </div>
