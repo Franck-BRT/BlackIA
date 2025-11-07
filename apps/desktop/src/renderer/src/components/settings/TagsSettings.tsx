@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { Tag, Trash2, Edit2, Check, AlertCircle, Plus } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Tag, Trash2, Edit2, Check, AlertCircle, Plus, Search, ArrowUpDown } from 'lucide-react';
 import { TagModal } from '../chat/TagModal';
 import type { Tag as TagType } from '../../hooks/useTags';
 import type { Conversation } from '../../hooks/useConversations';
 import type { Persona } from '../../types/persona';
+
+type SortOption = 'name-asc' | 'name-desc' | 'usage-desc' | 'usage-asc' | 'date-desc' | 'date-asc';
 
 interface TagsSettingsProps {
   tags: TagType[];
@@ -28,50 +30,85 @@ export function TagsSettings({
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('name-asc');
 
-  // Filtrer les tags orphelins (dont le nom est l'ID)
-  const validTags = tags.filter((tag) => !tag.name.startsWith('tag-'));
+  // Calculer, filtrer et trier les tags avec useMemo pour optimiser
+  const filteredAndSortedTags = useMemo(() => {
+    // 1. Filtrer les tags orphelins (dont le nom est l'ID)
+    const validTags = tags.filter((tag) => !tag.name.startsWith('tag-'));
 
-  // Calculer les statistiques par tag
-  const tagStats = validTags.map((tag) => {
-    // Compter les conversations avec ce tag
-    const conversationCount = conversations.filter((conv) => conv.tagIds?.includes(tag.id)).length;
+    // 2. Calculer les statistiques par tag
+    const tagStats = validTags.map((tag) => {
+      // Compter les conversations avec ce tag
+      const conversationCount = conversations.filter((conv) => conv.tagIds?.includes(tag.id)).length;
 
-    // Compter les personas avec ce tag (par nom OU par ID)
-    const personaCount = personas.filter((persona) => {
-      try {
-        const personaTags: string[] = JSON.parse(persona.tags || '[]');
+      // Compter les personas avec ce tag (par nom OU par ID)
+      const personaCount = personas.filter((persona) => {
+        try {
+          const personaTags: string[] = JSON.parse(persona.tags || '[]');
 
-        // Normaliser le nom du tag global pour la comparaison
-        const normalizedTagName = tag.name.toLowerCase().trim();
-        const tagId = tag.id;
+          // Normaliser le nom du tag global pour la comparaison
+          const normalizedTagName = tag.name.toLowerCase().trim();
+          const tagId = tag.id;
 
-        const hasTag = personaTags.some((tagValue) => {
-          // Vérifier que c'est bien une string
-          if (typeof tagValue !== 'string') return false;
+          const hasTag = personaTags.some((tagValue) => {
+            // Vérifier que c'est bien une string
+            if (typeof tagValue !== 'string') return false;
 
-          const normalizedValue = tagValue.toLowerCase().trim();
+            const normalizedValue = tagValue.toLowerCase().trim();
 
-          // Match par ID ou par nom
-          const matchesById = normalizedValue === tagId;
-          const matchesByName = normalizedValue === normalizedTagName;
+            // Match par ID ou par nom
+            const matchesById = normalizedValue === tagId;
+            const matchesByName = normalizedValue === normalizedTagName;
 
-          return matchesById || matchesByName;
-        });
+            return matchesById || matchesByName;
+          });
 
-        return hasTag;
-      } catch (error) {
-        console.error(`[TagsSettings] Error parsing tags for persona ${persona.name}:`, error);
-        return false;
+          return hasTag;
+        } catch (error) {
+          console.error(`[TagsSettings] Error parsing tags for persona ${persona.name}:`, error);
+          return false;
+        }
+      }).length;
+
+      return {
+        ...tag,
+        conversationCount,
+        personaCount,
+        totalUsage: conversationCount + personaCount,
+      };
+    });
+
+    // 3. Filtrer par recherche
+    const filtered = searchQuery.trim()
+      ? tagStats.filter((tag) =>
+          tag.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
+        )
+      : tagStats;
+
+    // 4. Trier
+    const sorted = [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case 'name-asc':
+          return a.name.localeCompare(b.name);
+        case 'name-desc':
+          return b.name.localeCompare(a.name);
+        case 'usage-desc':
+          return b.totalUsage - a.totalUsage;
+        case 'usage-asc':
+          return a.totalUsage - b.totalUsage;
+        case 'date-desc':
+          return b.createdAt - a.createdAt;
+        case 'date-asc':
+          return a.createdAt - b.createdAt;
+        default:
+          return 0;
       }
-    }).length;
+    });
 
-    return {
-      ...tag,
-      conversationCount,
-      personaCount,
-    };
-  });
+    return sorted;
+  }, [tags, conversations, personas, searchQuery, sortBy]);
 
   // Notifications
   const showNotification = (type: 'success' | 'error', message: string) => {
@@ -142,8 +179,42 @@ export function TagsSettings({
             <Tag className="w-6 h-6 text-purple-400" />
           </div>
           <div>
-            <div className="text-3xl font-bold">{validTags.length}</div>
+            <div className="text-3xl font-bold">{tags.filter(t => !t.name.startsWith('tag-')).length}</div>
             <div className="text-sm text-muted-foreground">Tags créés</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recherche et tri */}
+      <div className="glass-card rounded-xl p-4">
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Barre de recherche */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Rechercher un tag..."
+              className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-purple-500/50 transition-colors placeholder:text-muted-foreground"
+            />
+          </div>
+
+          {/* Menu de tri */}
+          <div className="flex items-center gap-2">
+            <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-purple-500/50 transition-colors cursor-pointer"
+            >
+              <option value="name-asc">Nom (A → Z)</option>
+              <option value="name-desc">Nom (Z → A)</option>
+              <option value="usage-desc">Plus utilisés</option>
+              <option value="usage-asc">Moins utilisés</option>
+              <option value="date-desc">Plus récents</option>
+              <option value="date-asc">Plus anciens</option>
+            </select>
           </div>
         </div>
       </div>
@@ -151,7 +222,9 @@ export function TagsSettings({
       {/* Tags List */}
       <div className="glass-card rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Tous les tags</h3>
+          <h3 className="text-lg font-semibold">
+            {searchQuery ? `${filteredAndSortedTags.length} résultat${filteredAndSortedTags.length !== 1 ? 's' : ''}` : 'Tous les tags'}
+          </h3>
           <button
             type="button"
             onClick={() => setIsCreateModalOpen(true)}
@@ -163,14 +236,23 @@ export function TagsSettings({
         </div>
 
         <div className="space-y-3">
-          {tagStats.length === 0 ? (
+          {filteredAndSortedTags.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Tag className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>Aucun tag créé</p>
-              <p className="text-sm mt-1">Les tags permettent de catégoriser vos contenus</p>
+              {searchQuery ? (
+                <>
+                  <p>Aucun résultat pour "{searchQuery}"</p>
+                  <p className="text-sm mt-1">Essayez avec un autre terme de recherche</p>
+                </>
+              ) : (
+                <>
+                  <p>Aucun tag créé</p>
+                  <p className="text-sm mt-1">Les tags permettent de catégoriser vos contenus</p>
+                </>
+              )}
             </div>
           ) : (
-            tagStats.map((tag) => (
+            filteredAndSortedTags.map((tag) => (
               <div
                 key={tag.id}
                 className="glass-card bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-colors"
