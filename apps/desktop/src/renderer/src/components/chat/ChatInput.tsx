@@ -174,6 +174,9 @@ export function ChatInput({
     if (selectedPersonaId) {
       console.log('[ChatInput] 🎭 Persona trouvé pour affichage:', selectedPersona?.name || 'NON TROUVÉ');
       console.log('[ChatInput] 📚 État includeMentionFewShots:', includeMentionFewShots);
+      console.log('[ChatInput] 📋 Few-shot examples du persona:', selectedPersona?.fewShotExamples);
+      console.log('[ChatInput] 🔢 Nombre de few-shots:', selectedPersona?.fewShotExamples?.length || 0);
+      console.log('[ChatInput] ✅ Checkbox devrait apparaître:', !!(selectedPersona?.fewShotExamples && selectedPersona.fewShotExamples.length > 0));
     }
   }, [selectedPersona, selectedPersonaId, includeMentionFewShots]);
 
