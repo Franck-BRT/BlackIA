@@ -140,8 +140,16 @@ fi
 if [ "$CLEAN" = true ]; then
     log "Nettoyage des builds précédents..."
 
-    rm -rf "$DESKTOP_DIR/dist"
-    rm -rf "$RELEASE_DIR"
+    # Supprimer avec permissions forcées et ignorer les erreurs
+    if [ -d "$DESKTOP_DIR/dist" ]; then
+        chmod -R 755 "$DESKTOP_DIR/dist" 2>/dev/null || true
+        rm -rf "$DESKTOP_DIR/dist" 2>/dev/null || true
+    fi
+
+    if [ -d "$RELEASE_DIR" ]; then
+        chmod -R 755 "$RELEASE_DIR" 2>/dev/null || true
+        rm -rf "$RELEASE_DIR" 2>/dev/null || true
+    fi
 
     success "Nettoyage terminé"
 fi
