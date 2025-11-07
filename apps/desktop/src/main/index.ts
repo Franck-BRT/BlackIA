@@ -50,40 +50,82 @@ function createWindow() {
 
 // App lifecycle
 app.whenReady().then(async () => {
+  console.log('[App] =====================================');
+  console.log('[App] BlackIA Desktop Starting...');
+  console.log('[App] Version:', app.getVersion());
+  console.log('[App] User Data Path:', app.getPath('userData'));
+  console.log('[App] App Path:', app.getAppPath());
+  console.log('[App] Is Packaged:', app.isPackaged);
+  console.log('[App] Development mode:', isDev);
+  console.log('[App] =====================================');
+
+  let initializationError: Error | null = null;
+
   try {
     // Initialiser la base de données SQLite
     console.log('[App] Initializing database...');
     initDatabase();
+    console.log('[App] ✅ Database initialized');
 
     // Lancer les migrations
     console.log('[App] Running database migrations...');
     runMigrations();
+    console.log('[App] ✅ Migrations completed');
 
     // Initialiser le service personas
     console.log('[App] Initializing PersonaService...');
     await PersonaService.initialize();
+    console.log('[App] ✅ PersonaService initialized');
+
+    // Vérifier que les personas sont chargées
+    const personas = await PersonaService.getAll();
+    console.log(`[App] ✅ ${personas.length} personas loaded`);
+    if (personas.length === 0) {
+      console.warn('[App] ⚠️  WARNING: No personas found!');
+    }
 
     // Synchroniser les tags des personas avec le système global
     console.log('[App] Syncing persona tags...');
     await syncPersonaTags();
+    console.log('[App] ✅ Persona tags synced');
 
     // Initialiser les keywords de suggestions de personas par défaut
     console.log('[App] Initializing persona suggestion keywords...');
     const { DEFAULT_KEYWORDS } = await import('../shared/default-keywords');
     await personaSuggestionService.initializeDefaultKeywords(DEFAULT_KEYWORDS);
+    console.log('[App] ✅ Persona suggestion keywords initialized');
 
     // Enregistrer les handlers IPC
+    console.log('[App] Registering IPC handlers...');
     registerOllamaHandlers();
     registerPersonaHandlers();
     registerTagSyncHandlers();
-    // Les handlers de suggestions sont déjà enregistrés via l'import
+    console.log('[App] ✅ IPC handlers registered');
 
-    console.log('[App] All services initialized successfully');
+    console.log('[App] =====================================');
+    console.log('[App] ✅ ALL SERVICES INITIALIZED SUCCESSFULLY');
+    console.log('[App] =====================================');
   } catch (error) {
-    console.error('[App] Failed to initialize:', error);
+    initializationError = error as Error;
+    console.error('[App] =====================================');
+    console.error('[App] ❌ CRITICAL ERROR during initialization:');
+    console.error('[App]', error);
+    console.error('[App] Stack:', (error as Error).stack);
+    console.error('[App] =====================================');
   }
 
+  // Créer la fenêtre
   createWindow();
+
+  // Si erreur d'initialisation, l'afficher dans la fenêtre
+  if (initializationError && mainWindow) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      mainWindow?.webContents.executeJavaScript(`
+        console.error('❌ Initialization Error:', ${JSON.stringify(initializationError.message)});
+        console.error('Stack:', ${JSON.stringify(initializationError.stack)});
+      `);
+    });
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
