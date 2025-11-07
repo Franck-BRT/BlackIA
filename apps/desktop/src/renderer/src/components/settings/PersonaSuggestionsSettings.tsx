@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Power, PowerOff, RefreshCw, Info, Search, Edit2, X, Check } from 'lucide-react';
+import { Plus, Trash2, Power, PowerOff, RefreshCw, Info, Search, Edit2, X, Check, ArrowUpDown } from 'lucide-react';
 import { useSettings } from '../../contexts/SettingsContext';
 import { usePersonaSuggestions } from '../../hooks/usePersonaSuggestions';
 import type { PersonaSuggestionKeywordParsed } from '../../types/persona-suggestion';
+
+type SortOption =
+  | 'alpha-asc'
+  | 'alpha-desc'
+  | 'date-asc'
+  | 'date-desc'
+  | 'active-first'
+  | 'inactive-first'
+  | 'default-first'
+  | 'custom-first';
 
 export function PersonaSuggestionsSettings() {
   const { settings, updatePersonaSuggestionSettings, getAllCategories } = useSettings();
@@ -20,6 +30,7 @@ export function PersonaSuggestionsSettings() {
   } = usePersonaSuggestions();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('alpha-asc');
   const [filteredKeywords, setFilteredKeywords] = useState<PersonaSuggestionKeywordParsed[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingKeyword, setEditingKeyword] = useState<string | null>(null);
@@ -40,21 +51,50 @@ export function PersonaSuggestionsSettings() {
     loadStats();
   }, [keywords]);
 
-  // Filtrer les keywords selon la recherche
+  // Filtrer et trier les keywords
   useEffect(() => {
+    let result = [...keywords];
+
+    // Filtrer selon la recherche
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      setFilteredKeywords(
-        keywords.filter(
-          (k) =>
-            k.keyword.toLowerCase().includes(query) ||
-            k.categories.some((cat) => cat.toLowerCase().includes(query))
-        )
+      result = result.filter(
+        (k) =>
+          k.keyword.toLowerCase().includes(query) ||
+          k.categories.some((cat) => cat.toLowerCase().includes(query))
       );
-    } else {
-      setFilteredKeywords(keywords);
     }
-  }, [searchQuery, keywords]);
+
+    // Trier selon l'option sélectionnée
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'alpha-asc':
+          return a.keyword.localeCompare(b.keyword);
+        case 'alpha-desc':
+          return b.keyword.localeCompare(a.keyword);
+        case 'date-asc':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'date-desc':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'active-first':
+          if (a.isActive === b.isActive) return a.keyword.localeCompare(b.keyword);
+          return a.isActive ? -1 : 1;
+        case 'inactive-first':
+          if (a.isActive === b.isActive) return a.keyword.localeCompare(b.keyword);
+          return a.isActive ? 1 : -1;
+        case 'default-first':
+          if (a.isDefault === b.isDefault) return a.keyword.localeCompare(b.keyword);
+          return a.isDefault ? -1 : 1;
+        case 'custom-first':
+          if (a.isDefault === b.isDefault) return a.keyword.localeCompare(b.keyword);
+          return a.isDefault ? 1 : -1;
+        default:
+          return 0;
+      }
+    });
+
+    setFilteredKeywords(result);
+  }, [searchQuery, sortBy, keywords]);
 
   const handleAddKeyword = async () => {
     if (formKeyword.trim() && formCategories.length > 0) {
@@ -370,16 +410,35 @@ export function PersonaSuggestionsSettings() {
         </div>
       )}
 
-      {/* Barre de recherche */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Rechercher un mot-clé ou une catégorie..."
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        />
+      {/* Barre de recherche et tri */}
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Rechercher un mot-clé ou une catégorie..."
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+        </div>
+        <div className="relative min-w-[200px]">
+          <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white appearance-none cursor-pointer"
+          >
+            <option value="alpha-asc">A → Z</option>
+            <option value="alpha-desc">Z → A</option>
+            <option value="date-desc">Plus récent</option>
+            <option value="date-asc">Plus ancien</option>
+            <option value="active-first">Actifs d'abord</option>
+            <option value="inactive-first">Inactifs d'abord</option>
+            <option value="default-first">Défaut d'abord</option>
+            <option value="custom-first">Personnalisés d'abord</option>
+          </select>
+        </div>
       </div>
 
       {/* Liste des mots-clés */}
