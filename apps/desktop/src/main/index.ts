@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { registerOllamaHandlers } from './ollama-handlers';
 import { PersonaService } from './services/persona-service';
+import { syncPersonaTags } from './services/tag-sync-service';
 
 // __dirname and __filename are available in CommonJS mode
 
@@ -51,9 +52,14 @@ app.whenReady().then(async () => {
     console.log('[App] Initializing PersonaService...');
     await PersonaService.initialize();
 
+    // Synchroniser les tags des personas avec le système global
+    console.log('[App] Syncing persona tags...');
+    await syncPersonaTags();
+
     // Enregistrer les handlers IPC
     registerOllamaHandlers();
     registerPersonaHandlers();
+    registerTagSyncHandlers();
 
     console.log('[App] All services initialized successfully');
   } catch (error) {
@@ -228,6 +234,31 @@ function registerPersonaHandlers() {
   });
 
   console.log('[IPC] Persona handlers registered');
+}
+
+// ============================================================================
+// TAG SYNC IPC HANDLERS
+// ============================================================================
+
+function registerTagSyncHandlers() {
+  // Récupère les tags synchronisés depuis le fichier
+  ipcMain.handle('tags:getSynced', async () => {
+    try {
+      const tagsPath = path.join(app.getPath('userData'), 'tags.json');
+      const tagsContent = await fs.readFile(tagsPath, 'utf-8');
+      const tags = JSON.parse(tagsContent);
+      return { success: true, data: tags };
+    } catch (error) {
+      // Si le fichier n'existe pas encore, retourner un tableau vide
+      if ((error as any).code === 'ENOENT') {
+        return { success: true, data: [] };
+      }
+      console.error('[Tags] Error in getSynced:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  console.log('[IPC] Tag sync handlers registered');
 }
 
 // ============================================================================

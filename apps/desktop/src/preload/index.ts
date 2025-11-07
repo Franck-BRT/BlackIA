@@ -58,6 +58,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getCategories: () => ipcRenderer.invoke('personas:getCategories'),
   },
 
+  // Tags API
+  tags: {
+    getSynced: () => ipcRenderer.invoke('tags:getSynced'),
+  },
+
   // Ollama API
   ollama: {
     // Vérification et configuration
@@ -157,6 +162,10 @@ export interface ElectronAPI {
     incrementUsage: (id: string) => Promise<any>;
     duplicate: (id: string) => Promise<any>;
     getCategories: () => Promise<any>;
+  };
+
+  tags: {
+    getSynced: () => Promise<{ success: boolean; data?: any[]; error?: string }>;
   };
 
   ollama: {

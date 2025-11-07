@@ -16,18 +16,48 @@ const TAGS_STORAGE_KEY = 'tags';
 export function useTags() {
   const [tags, setTags] = useState<Tag[]>([]);
 
-  // Charger les tags depuis localStorage
+  // Charger les tags depuis localStorage et synchroniser avec le backend
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(TAGS_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Tag[];
-        setTags(parsed);
-        console.log('[useTags] Chargé', parsed.length, 'tags');
+    const loadTags = async () => {
+      try {
+        // 1. Charger les tags depuis localStorage
+        const stored = localStorage.getItem(TAGS_STORAGE_KEY);
+        let localTags: Tag[] = [];
+        if (stored) {
+          localTags = JSON.parse(stored) as Tag[];
+          console.log('[useTags] Chargé', localTags.length, 'tags depuis localStorage');
+        }
+
+        // 2. Charger les tags synchronisés depuis le backend (personas)
+        if (window.electronAPI?.tags?.getSynced) {
+          const result = await window.electronAPI.tags.getSynced();
+          if (result.success && result.data && result.data.length > 0) {
+            console.log('[useTags] Chargé', result.data.length, 'tags synchronisés depuis le backend');
+
+            // 3. Fusionner les tags - éviter les duplicates par ID
+            const existingIds = new Set(localTags.map((t) => t.id));
+            const newTags = result.data.filter((t: Tag) => !existingIds.has(t.id));
+
+            if (newTags.length > 0) {
+              console.log('[useTags] Fusion de', newTags.length, 'nouveaux tags depuis le backend');
+              const mergedTags = [...localTags, ...newTags];
+              setTags(mergedTags);
+              localStorage.setItem(TAGS_STORAGE_KEY, JSON.stringify(mergedTags));
+            } else {
+              setTags(localTags);
+            }
+          } else {
+            setTags(localTags);
+          }
+        } else {
+          setTags(localTags);
+        }
+      } catch (error) {
+        console.error('[useTags] Erreur lors du chargement:', error);
       }
-    } catch (error) {
-      console.error('[useTags] Erreur lors du chargement:', error);
-    }
+    };
+
+    loadTags();
   }, []);
 
   // Sauvegarder les tags dans localStorage
