@@ -12,6 +12,8 @@ export function useApplyAppearance() {
   useEffect(() => {
     const root = document.documentElement;
 
+    console.log('[useApplyAppearance] Applying appearance settings:', appearance);
+
     // Accent Colors - Définir les couleurs HSL pour chaque thème
     const accentColors = {
       purple: {
@@ -74,12 +76,15 @@ export function useApplyAppearance() {
 
     // Enable/Disable Glassmorphism
     if (appearance.enableGlassmorphism) {
+      console.log('[useApplyAppearance] Glassmorphism enabled, applying glass effect:', appearance.glassEffect);
       root.classList.remove('no-glassmorphism');
       root.classList.add(`glass-${appearance.glassEffect}`);
     } else {
+      console.log('[useApplyAppearance] Glassmorphism disabled, adding no-glassmorphism class');
       root.classList.add('no-glassmorphism');
       glassClasses.forEach((cls) => root.classList.remove(cls));
     }
+    console.log('[useApplyAppearance] Current root classes:', root.className);
 
     // Animations
     if (appearance.animations) {

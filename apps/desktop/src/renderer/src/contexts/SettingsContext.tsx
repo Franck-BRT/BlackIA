@@ -21,7 +21,7 @@ const defaultSettings: AppSettings = {
     fontSize: 'medium',
     density: 'comfortable',
     glassEffect: 'medium',
-    enableGlassmorphism: true,
+    enableGlassmorphism: false, // Désactivé par défaut pour meilleures performances
     animations: true,
     accentColor: 'purple',
     borderRadius: 'medium',
