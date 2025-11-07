@@ -14,13 +14,14 @@ mac:
       arch: [arm64]
   # L'icône sera générée via scripts/generate-icons.sh
   # Si absente, electron-builder utilisera une icône par défaut
-  icon: resources/icon.icns
-  hardenedRuntime: true
-  gatekeeperAssess: false
-  entitlements: resources/entitlements.mac.plist
-  entitlementsInherit: resources/entitlements.mac.plist
+  # icon: resources/icon.icns
   # Pour build de test sans signature (définir CSC_IDENTITY_AUTO_DISCOVERY=false)
   identity: null
+  # hardenedRuntime et entitlements désactivés pour builds non signés
+  # hardenedRuntime: true
+  # gatekeeperAssess: false
+  # entitlements: resources/entitlements.mac.plist
+  # entitlementsInherit: resources/entitlements.mac.plist
 
 dmg:
   sign: false
