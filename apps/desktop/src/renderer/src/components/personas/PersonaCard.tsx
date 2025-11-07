@@ -2,6 +2,7 @@ import React from 'react';
 import { Star, Edit, Copy, Trash2, Play } from 'lucide-react';
 import type { Persona } from '../../types/persona';
 import { PERSONA_COLOR_CLASSES } from '../../types/persona';
+import { useTags } from '../../hooks/useTags';
 
 interface PersonaCardProps {
   persona: Persona;
@@ -21,6 +22,7 @@ export function PersonaCard({
   onTest,
 }: PersonaCardProps) {
   const colorGradient = PERSONA_COLOR_CLASSES[persona.color] || PERSONA_COLOR_CLASSES.purple;
+  const { tags: allTags } = useTags();
 
   // Parser les tags JSON
   let tags: string[] = [];
@@ -29,6 +31,17 @@ export function PersonaCard({
   } catch (e) {
     // Ignore parsing errors
   }
+
+  // Fonction pour résoudre un tag (ID ou nom) vers son nom lisible
+  const resolveTagName = (tagValue: string): string => {
+    // Si c'est un ID (commence par "tag-"), chercher le nom
+    if (tagValue.startsWith('tag-')) {
+      const tag = allTags.find((t) => t.id === tagValue);
+      return tag ? tag.name : tagValue;
+    }
+    // Sinon, c'est déjà un nom
+    return tagValue;
+  };
 
   return (
     <div className="glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative">
@@ -130,7 +143,7 @@ export function PersonaCard({
               key={index}
               className="text-xs px-2 py-1 rounded-md glass-lg text-muted-foreground"
             >
-              {tag}
+              {resolveTagName(tag)}
             </span>
           ))}
           {tags.length > 3 && (

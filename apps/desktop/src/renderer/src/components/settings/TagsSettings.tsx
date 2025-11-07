@@ -29,17 +29,6 @@ export function TagsSettings({
     null
   );
 
-  // Debug: Log loaded data
-  console.log('[TagsSettings] Loaded data:', {
-    tagsCount: tags.length,
-    tags: tags.map(t => t.name),
-    personasCount: personas.length,
-    personas: personas.map(p => ({
-      name: p.name,
-      tags: p.tags,
-    })),
-  });
-
   // Calculer les statistiques par tag
   const tagStats = tags.map((tag) => {
     // Compter les conversations avec ce tag
@@ -64,14 +53,7 @@ export function TagsSettings({
           const matchesById = normalizedValue === tagId;
           const matchesByName = normalizedValue === normalizedTagName;
 
-          const matches = matchesById || matchesByName;
-
-          // Debug logging
-          if (matches) {
-            console.log(`[TagsSettings] Match found: tag="${tag.name}" (id=${tag.id}) persona="${persona.name}" personaTag="${tagValue}" (${matchesById ? 'by ID' : 'by name'})`);
-          }
-
-          return matches;
+          return matchesById || matchesByName;
         });
 
         return hasTag;
@@ -80,9 +62,6 @@ export function TagsSettings({
         return false;
       }
     }).length;
-
-    // Log final count for each tag
-    console.log(`[TagsSettings] Tag "${tag.name}": ${personaCount} personas, ${conversationCount} conversations`);
 
     return {
       ...tag,
