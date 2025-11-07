@@ -4,6 +4,8 @@ import fs from 'fs/promises';
 import { registerOllamaHandlers } from './ollama-handlers';
 import { PersonaService } from './services/persona-service';
 import { syncPersonaTags } from './services/tag-sync-service';
+import { personaSuggestionService } from './services/persona-suggestion-service';
+import './handlers/persona-suggestion-handlers';
 
 // __dirname and __filename are available in CommonJS mode
 
@@ -56,10 +58,16 @@ app.whenReady().then(async () => {
     console.log('[App] Syncing persona tags...');
     await syncPersonaTags();
 
+    // Initialiser les keywords de suggestions de personas par défaut
+    console.log('[App] Initializing persona suggestion keywords...');
+    const { DEFAULT_KEYWORDS } = await import('../shared/default-keywords');
+    await personaSuggestionService.initializeDefaultKeywords(DEFAULT_KEYWORDS);
+
     // Enregistrer les handlers IPC
     registerOllamaHandlers();
     registerPersonaHandlers();
     registerTagSyncHandlers();
+    // Les handlers de suggestions sont déjà enregistrés via l'import
 
     console.log('[App] All services initialized successfully');
   } catch (error) {

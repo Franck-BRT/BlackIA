@@ -85,6 +85,20 @@ export const messages = sqliteTable('messages', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+/**
+ * Table Persona Suggestion Keywords
+ * Mots-clés pour suggérer automatiquement des personas
+ */
+export const personaSuggestionKeywords = sqliteTable('persona_suggestion_keywords', {
+  id: text('id').primaryKey(),
+  keyword: text('keyword').notNull(), // Le mot-clé à détecter
+  categories: text('categories').notNull(), // JSON array des catégories à suggérer
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false), // Keyword système par défaut
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 // Types inférés pour TypeScript
 export type Persona = typeof personas.$inferSelect;
 export type NewPersona = typeof personas.$inferInsert;
@@ -94,3 +108,5 @@ export type Conversation = typeof conversations.$inferSelect;
 export type NewConversation = typeof conversations.$inferInsert;
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
+export type PersonaSuggestionKeyword = typeof personaSuggestionKeywords.$inferSelect;
+export type NewPersonaSuggestionKeyword = typeof personaSuggestionKeywords.$inferInsert;

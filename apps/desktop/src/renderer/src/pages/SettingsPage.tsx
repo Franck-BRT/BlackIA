@@ -20,6 +20,7 @@ import { TagsSettings } from '../components/settings/TagsSettings';
 import { KeyboardShortcutsSettings } from '../components/settings/KeyboardShortcutsSettings';
 import { AppearanceSettings } from '../components/settings/AppearanceSettings';
 import { InterfaceSection } from '../components/settings/InterfaceSection';
+import { PersonaSuggestionsSettings } from '../components/settings/PersonaSuggestionsSettings';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
@@ -138,7 +139,19 @@ export function SettingsPage() {
           )}
           {activeSection === 'workflows' && <PlaceholderSection title="Workflows" />}
           {activeSection === 'prompts' && <PlaceholderSection title="Prompts" />}
-          {activeSection === 'personas' && <PlaceholderSection title="Personas" />}
+          {activeSection === 'personas' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">Personas</h2>
+                <p className="text-muted-foreground">
+                  Configuration des personas et de leurs suggestions intelligentes
+                </p>
+              </div>
+              <div className="glass-card rounded-xl p-6">
+                <PersonaSuggestionsSettings />
+              </div>
+            </div>
+          )}
           {activeSection === 'tags' && (
             <TagsSettings
               tags={tags}

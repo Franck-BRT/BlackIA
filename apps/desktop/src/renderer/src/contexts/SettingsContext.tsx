@@ -7,6 +7,7 @@ import type {
   AppearanceSettings,
   KeyboardShortcut,
   InterfaceSettings,
+  PersonaSuggestionSettings,
 } from '@blackia/shared/types';
 
 // Default settings
@@ -158,6 +159,12 @@ const defaultSettings: AppSettings = {
       },
     },
   },
+  personaSuggestions: {
+    enabled: true,
+    maxSuggestions: 3,
+    minCharacters: 10,
+    showOnlyActive: true,
+  },
 };
 
 interface SettingsContextType {
@@ -166,6 +173,7 @@ interface SettingsContextType {
   updateAppearanceSettings: (settings: Partial<AppearanceSettings>) => void;
   updateKeyboardShortcuts: (shortcuts: KeyboardShortcut[]) => void;
   updateInterfaceSettings: (settings: Partial<InterfaceSettings>) => void;
+  updatePersonaSuggestionSettings: (settings: Partial<PersonaSuggestionSettings>) => void;
   updateSectionVisibility: (
     module: AppModule,
     section: SettingsSection,
@@ -217,6 +225,11 @@ function deepMergeSettings(defaults: AppSettings, stored: Partial<AppSettings>):
         ...stored.interface.sectionVisibilityByModule[module],
       };
     });
+  }
+
+  // Merge personaSuggestions
+  if (stored.personaSuggestions) {
+    result.personaSuggestions = { ...defaults.personaSuggestions, ...stored.personaSuggestions };
   }
 
   return result;
@@ -275,6 +288,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const updatePersonaSuggestionSettings = (newSettings: Partial<PersonaSuggestionSettings>) => {
+    setSettings((prev) => ({
+      ...prev,
+      personaSuggestions: { ...prev.personaSuggestions, ...newSettings },
+    }));
+  };
+
   const updateSectionVisibility = (
     module: AppModule,
     section: SettingsSection,
@@ -312,6 +332,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         updateAppearanceSettings,
         updateKeyboardShortcuts,
         updateInterfaceSettings,
+        updatePersonaSuggestionSettings,
         updateSectionVisibility,
         getSectionVisibility,
         resetSettings,
