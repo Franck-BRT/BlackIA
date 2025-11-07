@@ -1,4 +1,4 @@
-import { db } from '../database';
+import { getDatabase } from '../database/client';
 import { personaSuggestionKeywords } from '../database/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
@@ -12,6 +12,7 @@ export class PersonaSuggestionService {
    */
   async getAllKeywords() {
     try {
+      const db = getDatabase();
       const keywords = await db.select().from(personaSuggestionKeywords).all();
       return keywords;
     } catch (error) {
@@ -25,6 +26,7 @@ export class PersonaSuggestionService {
    */
   async getActiveKeywords() {
     try {
+      const db = getDatabase();
       const keywords = await db
         .select()
         .from(personaSuggestionKeywords)
@@ -42,6 +44,7 @@ export class PersonaSuggestionService {
    */
   async getKeywordById(id: string) {
     try {
+      const db = getDatabase();
       const keyword = await db
         .select()
         .from(personaSuggestionKeywords)
@@ -64,6 +67,7 @@ export class PersonaSuggestionService {
     isDefault?: boolean;
   }) {
     try {
+      const db = getDatabase();
       const id = randomUUID();
       const now = new Date();
 
@@ -98,7 +102,8 @@ export class PersonaSuggestionService {
     }
   ) {
     try {
-      const updateData: any = {
+      const db = getDatabase();
+      const updateData: Record<string, unknown> = {
         updatedAt: new Date(),
       };
 
@@ -130,6 +135,7 @@ export class PersonaSuggestionService {
    */
   async deleteKeyword(id: string) {
     try {
+      const db = getDatabase();
       // Vérifier si c'est un keyword par défaut
       const keyword = await this.getKeywordById(id);
       if (!keyword) {
@@ -174,6 +180,7 @@ export class PersonaSuggestionService {
    */
   async searchKeywords(query: string) {
     try {
+      const db = getDatabase();
       const lowerQuery = query.toLowerCase();
       const keywords = await db
         .select()
@@ -229,6 +236,7 @@ export class PersonaSuggestionService {
     categories: string[];
   }>) {
     try {
+      const db = getDatabase();
       // Supprimer tous les keywords non-default
       await db
         .delete(personaSuggestionKeywords)
@@ -256,6 +264,7 @@ export class PersonaSuggestionService {
    */
   async countKeywords() {
     try {
+      const db = getDatabase();
       const result = await db
         .select({ count: sql<number>`count(*)` })
         .from(personaSuggestionKeywords)
@@ -272,6 +281,7 @@ export class PersonaSuggestionService {
    */
   async countActiveKeywords() {
     try {
+      const db = getDatabase();
       const result = await db
         .select({ count: sql<number>`count(*)` })
         .from(personaSuggestionKeywords)
@@ -295,9 +305,9 @@ export class PersonaSuggestionService {
 
       // Compter par catégorie
       const categoryCounts: Record<string, number> = {};
-      keywords.forEach((keyword) => {
+      keywords.forEach((keyword: { categories: string }) => {
         try {
-          const categories = JSON.parse(keyword.categories);
+          const categories: string[] = JSON.parse(keyword.categories);
           categories.forEach((cat: string) => {
             categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
           });
@@ -310,8 +320,8 @@ export class PersonaSuggestionService {
         total,
         active,
         inactive: total - active,
-        defaultKeywords: keywords.filter((k) => k.isDefault).length,
-        customKeywords: keywords.filter((k) => !k.isDefault).length,
+        defaultKeywords: keywords.filter((k: { isDefault: boolean }) => k.isDefault).length,
+        customKeywords: keywords.filter((k: { isDefault: boolean }) => !k.isDefault).length,
         categoryCounts,
       };
     } catch (error) {
