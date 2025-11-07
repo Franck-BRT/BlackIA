@@ -33,7 +33,7 @@ export const usePersonaSuggestions = () => {
     setError(null);
     try {
       const response: PersonaSuggestionIpcResponse<PersonaSuggestionKeyword[]> =
-        await window.electron.ipcRenderer.invoke('persona-suggestions:get-all');
+        await window.electronAPI.personaSuggestions.getAll();
 
       if (response.success && response.data) {
         setKeywords(response.data.map(parseKeyword));
@@ -55,7 +55,7 @@ export const usePersonaSuggestions = () => {
     setError(null);
     try {
       const response: PersonaSuggestionIpcResponse<PersonaSuggestionKeyword[]> =
-        await window.electron.ipcRenderer.invoke('persona-suggestions:get-active');
+        await window.electronAPI.personaSuggestions.getActive();
 
       if (response.success && response.data) {
         setKeywords(response.data.map(parseKeyword));
@@ -75,7 +75,7 @@ export const usePersonaSuggestions = () => {
   const createKeyword = useCallback(async (data: CreatePersonaSuggestionKeywordData) => {
     try {
       const response: PersonaSuggestionIpcResponse<PersonaSuggestionKeyword> =
-        await window.electron.ipcRenderer.invoke('persona-suggestions:create', data);
+        await window.electronAPI.personaSuggestions.create(data);
 
       if (response.success && response.data) {
         setKeywords((prev) => [...prev, parseKeyword(response.data!)]);
@@ -95,7 +95,7 @@ export const usePersonaSuggestions = () => {
     async (id: string, data: UpdatePersonaSuggestionKeywordData) => {
       try {
         const response: PersonaSuggestionIpcResponse<PersonaSuggestionKeyword> =
-          await window.electron.ipcRenderer.invoke('persona-suggestions:update', id, data);
+          await window.electronAPI.personaSuggestions.update(id, data);
 
         if (response.success && response.data) {
           setKeywords((prev) =>
@@ -118,7 +118,7 @@ export const usePersonaSuggestions = () => {
   const deleteKeyword = useCallback(async (id: string) => {
     try {
       const response: PersonaSuggestionIpcResponse =
-        await window.electron.ipcRenderer.invoke('persona-suggestions:delete', id);
+        await window.electronAPI.personaSuggestions.delete(id);
 
       if (response.success) {
         setKeywords((prev) => prev.filter((k) => k.id !== id));
@@ -137,7 +137,7 @@ export const usePersonaSuggestions = () => {
   const toggleActive = useCallback(async (id: string) => {
     try {
       const response: PersonaSuggestionIpcResponse<PersonaSuggestionKeyword> =
-        await window.electron.ipcRenderer.invoke('persona-suggestions:toggle-active', id);
+        await window.electronAPI.personaSuggestions.toggleActive(id);
 
       if (response.success && response.data) {
         setKeywords((prev) =>
@@ -158,7 +158,7 @@ export const usePersonaSuggestions = () => {
   const searchKeywords = useCallback(async (query: string) => {
     try {
       const response: PersonaSuggestionIpcResponse<PersonaSuggestionKeyword[]> =
-        await window.electron.ipcRenderer.invoke('persona-suggestions:search', query);
+        await window.electronAPI.personaSuggestions.search(query);
 
       if (response.success && response.data) {
         return { success: true, data: response.data.map(parseKeyword) };
@@ -176,7 +176,7 @@ export const usePersonaSuggestions = () => {
   const initializeDefaults = useCallback(async () => {
     try {
       const response: PersonaSuggestionIpcResponse =
-        await window.electron.ipcRenderer.invoke('persona-suggestions:initialize-defaults');
+        await window.electronAPI.personaSuggestions.initializeDefaults();
 
       if (response.success) {
         await loadKeywords();
@@ -195,7 +195,7 @@ export const usePersonaSuggestions = () => {
   const resetToDefaults = useCallback(async () => {
     try {
       const response: PersonaSuggestionIpcResponse =
-        await window.electron.ipcRenderer.invoke('persona-suggestions:reset-to-defaults');
+        await window.electronAPI.personaSuggestions.resetToDefaults();
 
       if (response.success) {
         await loadKeywords();
@@ -220,7 +220,7 @@ export const usePersonaSuggestions = () => {
         defaultKeywords: number;
         customKeywords: number;
         categoryCounts: Record<string, number>;
-      }> = await window.electron.ipcRenderer.invoke('persona-suggestions:get-stats');
+      }> = await window.electronAPI.personaSuggestions.getStats();
 
       if (response.success && response.data) {
         return { success: true, data: response.data };
