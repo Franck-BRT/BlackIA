@@ -45,24 +45,30 @@ export function TagsSettings({
     // Compter les conversations avec ce tag
     const conversationCount = conversations.filter((conv) => conv.tagIds?.includes(tag.id)).length;
 
-    // Compter les personas avec ce tag (par nom de tag)
+    // Compter les personas avec ce tag (par nom OU par ID)
     const personaCount = personas.filter((persona) => {
       try {
         const personaTags: string[] = JSON.parse(persona.tags || '[]');
 
         // Normaliser le nom du tag global pour la comparaison
         const normalizedTagName = tag.name.toLowerCase().trim();
+        const tagId = tag.id;
 
-        const hasTag = personaTags.some((tagName) => {
-          // Vérifier que c'est bien une string et normaliser
-          if (typeof tagName !== 'string') return false;
-          const normalizedPersonaTag = tagName.toLowerCase().trim();
+        const hasTag = personaTags.some((tagValue) => {
+          // Vérifier que c'est bien une string
+          if (typeof tagValue !== 'string') return false;
 
-          const matches = normalizedPersonaTag === normalizedTagName;
+          const normalizedValue = tagValue.toLowerCase().trim();
+
+          // Match par ID ou par nom
+          const matchesById = normalizedValue === tagId;
+          const matchesByName = normalizedValue === normalizedTagName;
+
+          const matches = matchesById || matchesByName;
 
           // Debug logging
           if (matches) {
-            console.log(`[TagsSettings] Match found: tag="${tag.name}" persona="${persona.name}" personaTag="${tagName}"`);
+            console.log(`[TagsSettings] Match found: tag="${tag.name}" (id=${tag.id}) persona="${persona.name}" personaTag="${tagValue}" (${matchesById ? 'by ID' : 'by name'})`);
           }
 
           return matches;
