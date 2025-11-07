@@ -18,7 +18,12 @@ export function PersonaForm({
   onCancel,
   submitLabel = 'Créer',
 }: PersonaFormProps) {
-  const { models, loading: modelsLoading } = useModels();
+  const { models, loading: modelsLoading, error: modelsError } = useModels();
+
+  // Debug: afficher l'état des modèles
+  console.log('[PersonaForm] Models:', models);
+  console.log('[PersonaForm] Models loading:', modelsLoading);
+  console.log('[PersonaForm] Models error:', modelsError);
 
   const [formData, setFormData] = useState<PersonaFormData>({
     name: initialData?.name || '',
@@ -214,9 +219,11 @@ export function PersonaForm({
         <p className="text-sm text-muted-foreground mt-1">
           {modelsLoading
             ? 'Chargement des modèles Ollama...'
-            : models.length === 0
-              ? 'Aucun modèle Ollama détecté. Installez des modèles avec Ollama.'
-              : 'Sélectionnez un modèle spécifique ou laissez vide pour utiliser le modèle par défaut'}
+            : modelsError
+              ? `Erreur: ${modelsError}`
+              : models.length === 0
+                ? 'Aucun modèle Ollama détecté. Vérifiez qu\'Ollama est démarré et que des modèles sont installés.'
+                : `${models.length} modèle(s) disponible(s)`}
         </p>
       </div>
 
