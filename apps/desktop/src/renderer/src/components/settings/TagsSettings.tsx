@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tag, Trash2, Edit2, Check, AlertCircle, X, Plus } from 'lucide-react';
+import { Tag, Trash2, Edit2, Check, AlertCircle, Plus } from 'lucide-react';
 import { TagModal } from '../chat/TagModal';
 import type { Tag as TagType } from '../../hooks/useTags';
 import type { Conversation } from '../../hooks/useConversations';
@@ -12,15 +12,6 @@ interface TagsSettingsProps {
   conversations: Conversation[];
 }
 
-const TAG_COLORS_FOR_EDITING = [
-  '#3b82f6', // blue
-  '#10b981', // green
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // purple
-  '#ec4899', // pink
-];
-
 export function TagsSettings({
   tags,
   onCreateTag,
@@ -28,12 +19,9 @@ export function TagsSettings({
   onDeleteTag,
   conversations,
 }: TagsSettingsProps) {
-  const [editingTagId, setEditingTagId] = useState<string | null>(null);
-  const [editingTagData, setEditingTagData] = useState<{ name: string; color: string; icon?: string }>({
-    name: '',
-    color: '',
-  });
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTag, setEditingTag] = useState<TagType | null>(null);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
@@ -52,18 +40,17 @@ export function TagsSettings({
 
   // Gestion des tags
   const handleStartEditTag = (tag: TagType) => {
-    setEditingTagId(tag.id);
-    setEditingTagData({ name: tag.name, color: tag.color, icon: tag.icon });
+    setEditingTag(tag);
+    setIsEditModalOpen(true);
   };
 
-  const handleSaveTag = () => {
-    if (editingTagId && editingTagData.name.trim()) {
-      onUpdateTag(editingTagId, {
-        name: editingTagData.name.trim(),
-        color: editingTagData.color,
-        icon: editingTagData.icon,
+  const handleEditTag = (name: string, color: string, icon?: string) => {
+    if (editingTag) {
+      onUpdateTag(editingTag.id, {
+        name: name.trim(),
+        color,
+        icon,
       });
-      setEditingTagId(null);
       showNotification('success', '✅ Tag modifié avec succès');
     }
   };
@@ -148,97 +135,35 @@ export function TagsSettings({
 
                   {/* Name */}
                   <div className="flex-1 min-w-0">
-                    {editingTagId === tag.id ? (
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          value={editingTagData.name}
-                          onChange={(e) => setEditingTagData({ ...editingTagData, name: e.target.value })}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveTag();
-                            if (e.key === 'Escape') setEditingTagId(null);
-                          }}
-                          placeholder="Nom du tag"
-                          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-blue-500/50"
-                          autoFocus
-                        />
-                        <div className="flex gap-2 items-center">
-                          <input
-                            type="text"
-                            value={editingTagData.icon || ''}
-                            onChange={(e) => setEditingTagData({ ...editingTagData, icon: e.target.value })}
-                            placeholder="Icône"
-                            className="w-24 px-3 py-2 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-blue-500/50 text-center text-lg"
-                            maxLength={2}
-                          />
-                          <div className="flex gap-1">
-                            {TAG_COLORS_FOR_EDITING.map((color) => (
-                              <button
-                                key={color}
-                                type="button"
-                                onClick={() => setEditingTagData({ ...editingTagData, color })}
-                                className={`w-8 h-8 rounded-lg hover:scale-110 transition-transform ${editingTagData.color === color ? 'ring-2 ring-white' : ''}`}
-                                style={{ backgroundColor: color }}
-                                title={color}
-                              />
-                            ))}
-                          </div>
-                        </div>
+                    <div>
+                      <div className="font-medium text-lg" style={{ color: tag.color }}>
+                        {tag.name}
                       </div>
-                    ) : (
-                      <div>
-                        <div className="font-medium text-lg" style={{ color: tag.color }}>
-                          {tag.name}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {tag.conversationCount} conversation{tag.conversationCount !== 1 ? 's' : ''}
-                        </div>
+                      <div className="text-sm text-muted-foreground">
+                        {tag.conversationCount} conversation{tag.conversationCount !== 1 ? 's' : ''}
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   {/* Actions */}
                   <div className="flex items-center gap-2">
-                    {editingTagId === tag.id ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={handleSaveTag}
-                          className="p-2 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors"
-                          title="Sauvegarder"
-                        >
-                          <Check className="w-5 h-5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingTagId(null)}
-                          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                          title="Annuler"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditTag(tag)}
-                          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                          title="Modifier"
-                        >
-                          <Edit2 className="w-5 h-5" />
-                        </button>
+                    <button
+                      type="button"
+                      onClick={() => handleStartEditTag(tag)}
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                      title="Modifier"
+                    >
+                      <Edit2 className="w-5 h-5" />
+                    </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteTag(tag)}
-                          className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTag(tag)}
+                      className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
+                      title="Supprimer"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -260,6 +185,17 @@ export function TagsSettings({
         onClose={() => setIsCreateModalOpen(false)}
         onSave={handleCreateTag}
         title="Nouveau tag"
+      />
+
+      {/* Modal d'édition */}
+      <TagModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSave={handleEditTag}
+        initialName={editingTag?.name}
+        initialColor={editingTag?.color}
+        initialIcon={editingTag?.icon}
+        title="Modifier le tag"
       />
 
       {/* Notification */}
