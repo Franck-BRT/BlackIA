@@ -8,6 +8,7 @@ import {
   User,
   Tag,
   FolderOpen,
+  Folder,
   Globe,
   Bell,
   Palette,
@@ -21,6 +22,7 @@ import { KeyboardShortcutsSettings } from '../components/settings/KeyboardShortc
 import { AppearanceSettings } from '../components/settings/AppearanceSettings';
 import { InterfaceSection } from '../components/settings/InterfaceSection';
 import { PersonaSuggestionsSettings } from '../components/settings/PersonaSuggestionsSettings';
+import { CategoriesSettings } from '../components/settings/CategoriesSettings';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
@@ -40,6 +42,7 @@ const navItems: NavItem[] = [
   { icon: Workflow, label: 'Workflows', section: 'workflows' },
   { icon: FileText, label: 'Prompts', section: 'prompts' },
   { icon: User, label: 'Personas', section: 'personas' },
+  { icon: Folder, label: 'Catégories', section: 'categories' },
   { icon: Tag, label: 'Tags', section: 'tags' },
   { icon: Palette, label: 'Apparence', section: 'appearance' },
   { icon: Eye, label: 'Interface', section: 'interface' },
@@ -149,6 +152,19 @@ export function SettingsPage() {
               </div>
               <div className="glass-card rounded-xl p-6">
                 <PersonaSuggestionsSettings />
+              </div>
+            </div>
+          )}
+          {activeSection === 'categories' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">Catégories</h2>
+                <p className="text-muted-foreground">
+                  Gérez les catégories pour organiser vos personas et mots-clés
+                </p>
+              </div>
+              <div className="glass-card rounded-xl p-6">
+                <CategoriesSettings />
               </div>
             </div>
           )}

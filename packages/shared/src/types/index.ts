@@ -135,6 +135,7 @@ export type SettingsSection =
   | 'workflows'
   | 'prompts'
   | 'personas'
+  | 'categories'
   | 'tags'
   | 'appearance'
   | 'interface'
@@ -190,6 +191,23 @@ export interface PersonaSuggestionSettings {
   showOnlyActive: boolean; // Ne montrer que les keywords actifs
 }
 
+// Category definition
+export interface PersonaCategory {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Categories settings
+export interface CategoriesSettings {
+  customCategories: PersonaCategory[]; // Catégories personnalisées
+}
+
 // Complete settings structure
 export interface AppSettings {
   general: GeneralSettings;
@@ -197,4 +215,5 @@ export interface AppSettings {
   keyboardShortcuts: KeyboardShortcut[];
   interface: InterfaceSettings;
   personaSuggestions: PersonaSuggestionSettings;
+  categories: CategoriesSettings;
 }
