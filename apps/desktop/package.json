@@ -34,6 +34,7 @@
     "react-router-dom": "^6.21.0",
     "lucide-react": "^0.303.0",
     "better-sqlite3": "^9.2.2",
+    "bindings": "^1.5.0",
     "drizzle-orm": "^0.29.1"
   },
   "devDependencies": {
