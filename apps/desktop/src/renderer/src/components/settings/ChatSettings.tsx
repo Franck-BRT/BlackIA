@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Folder, Tag, Trash2, Edit2, Palette, Check, AlertCircle, X } from 'lucide-react';
+import { Folder, Trash2, Edit2, Palette, Check, AlertCircle, X } from 'lucide-react';
 import type { Folder as FolderType } from '../../hooks/useConversations';
-import type { Tag as TagType } from '../../hooks/useTags';
 import type { Conversation } from '../../hooks/useConversations';
 
 interface ChatSettingsProps {
@@ -11,16 +10,9 @@ interface ChatSettingsProps {
   onChangeFolderColor: (id: string, color: string) => void;
   onDeleteFolder: (id: string) => void;
 
-  // Tags
-  tags: TagType[];
-  onUpdateTag: (id: string, updates: Partial<Omit<TagType, 'id' | 'createdAt'>>) => void;
-  onDeleteTag: (id: string) => void;
-
   // Conversations (pour les stats)
   conversations: Conversation[];
 }
-
-type TabType = 'folders' | 'tags';
 
 const FOLDER_COLORS = [
   '#3b82f6', // blue
@@ -33,33 +25,15 @@ const FOLDER_COLORS = [
   '#84cc16', // lime
 ];
 
-const TAG_COLORS = [
-  '#3b82f6', // blue
-  '#10b981', // green
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // purple
-  '#ec4899', // pink
-];
-
 export function ChatSettings({
   folders,
   onRenameFolder,
   onChangeFolderColor,
   onDeleteFolder,
-  tags,
-  onUpdateTag,
-  onDeleteTag,
   conversations,
 }: ChatSettingsProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('folders');
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editingFolderName, setEditingFolderName] = useState('');
-  const [editingTagId, setEditingTagId] = useState<string | null>(null);
-  const [editingTagData, setEditingTagData] = useState<{ name: string; color: string; icon?: string }>({
-    name: '',
-    color: '',
-  });
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
   );
@@ -68,12 +42,6 @@ export function ChatSettings({
   const folderStats = folders.map((folder) => ({
     ...folder,
     conversationCount: conversations.filter((conv) => conv.folderId === folder.id).length,
-  }));
-
-  // Calculer les statistiques par tag
-  const tagStats = tags.map((tag) => ({
-    ...tag,
-    conversationCount: conversations.filter((conv) => conv.tagIds?.includes(tag.id)).length,
   }));
 
   // Notifications
@@ -109,311 +77,145 @@ export function ChatSettings({
     }
   };
 
-  // Gestion des tags
-  const handleStartEditTag = (tag: TagType) => {
-    setEditingTagId(tag.id);
-    setEditingTagData({ name: tag.name, color: tag.color, icon: tag.icon });
-  };
-
-  const handleSaveTag = () => {
-    if (editingTagId && editingTagData.name.trim()) {
-      onUpdateTag(editingTagId, {
-        name: editingTagData.name.trim(),
-        color: editingTagData.color,
-        icon: editingTagData.icon,
-      });
-      setEditingTagId(null);
-      showNotification('success', '✅ Tag modifié avec succès');
-    }
-  };
-
-  const handleDeleteTag = (tag: TagType) => {
-    const convCount = conversations.filter((c) => c.tagIds?.includes(tag.id)).length;
-    const message =
-      convCount > 0
-        ? `Supprimer le tag "${tag.name}" ?\n\nIl sera retiré de ${convCount} conversation(s).`
-        : `Supprimer le tag "${tag.name}" ?`;
-
-    if (confirm(message)) {
-      onDeleteTag(tag.id);
-      showNotification('success', '✅ Tag supprimé avec succès');
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold mb-2">Paramètres du Chat</h2>
         <p className="text-muted-foreground">
-          Gérez vos dossiers et tags pour organiser vos conversations
+          Gérez vos dossiers pour organiser vos conversations
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="glass-card rounded-xl overflow-hidden">
-        <div className="border-b border-white/10 flex">
-          <button
-            onClick={() => setActiveTab('folders')}
-            className={`flex-1 px-6 py-4 font-medium transition-colors relative ${
-              activeTab === 'folders' ? 'text-blue-400' : 'text-muted-foreground hover:text-white'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <Folder className="w-4 h-4" />
-              <span>Dossiers</span>
-              <span className="text-xs bg-white/10 px-2 py-0.5 rounded-full">{folders.length}</span>
-            </div>
-            {activeTab === 'folders' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400" />}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('tags')}
-            className={`flex-1 px-6 py-4 font-medium transition-colors relative ${
-              activeTab === 'tags' ? 'text-blue-400' : 'text-muted-foreground hover:text-white'
-            }`}
-          >
-            <div className="flex items-center justify-center gap-2">
-              <Tag className="w-4 h-4" />
-              <span>Tags</span>
-              <span className="text-xs bg-white/10 px-2 py-0.5 rounded-full">{tags.length}</span>
-            </div>
-            {activeTab === 'tags' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400" />}
-          </button>
+      {/* Dossiers */}
+      <div className="glass-card rounded-xl p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Folder className="w-5 h-5 text-blue-400" />
+          <h3 className="text-lg font-semibold">Dossiers</h3>
+          <span className="text-xs bg-white/10 px-2 py-0.5 rounded-full">{folders.length}</span>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          {activeTab === 'folders' && (
-            <div className="space-y-3">
-              {folderStats.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Folder className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>Aucun dossier créé</p>
-                  <p className="text-sm mt-1">Les dossiers permettent d'organiser vos conversations</p>
-                </div>
-              ) : (
-                folderStats.map((folder) => (
+        <div className="space-y-3">
+          {folderStats.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Folder className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>Aucun dossier créé</p>
+              <p className="text-sm mt-1">Les dossiers permettent d'organiser vos conversations</p>
+            </div>
+          ) : (
+            folderStats.map((folder) => (
+              <div
+                key={folder.id}
+                className="glass-card bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  {/* Color indicator */}
                   <div
-                    key={folder.id}
-                    className="glass-card bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      {/* Color indicator */}
-                      <div
-                        className="w-8 h-8 rounded-lg flex-shrink-0"
-                        style={{ backgroundColor: folder.color }}
+                    className="w-8 h-8 rounded-lg flex-shrink-0"
+                    style={{ backgroundColor: folder.color }}
+                  />
+
+                  {/* Name */}
+                  <div className="flex-1 min-w-0">
+                    {editingFolderId === folder.id ? (
+                      <input
+                        type="text"
+                        value={editingFolderName}
+                        onChange={(e) => setEditingFolderName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveFolder();
+                          if (e.key === 'Escape') setEditingFolderId(null);
+                        }}
+                        className="w-full px-3 py-1 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-blue-500/50"
+                        autoFocus
                       />
+                    ) : (
+                      <div>
+                        <div className="font-medium">{folder.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {folder.conversationCount} conversation{folder.conversationCount !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
-                      {/* Name */}
-                      <div className="flex-1 min-w-0">
-                        {editingFolderId === folder.id ? (
-                          <input
-                            type="text"
-                            value={editingFolderName}
-                            onChange={(e) => setEditingFolderName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveFolder();
-                              if (e.key === 'Escape') setEditingFolderId(null);
-                            }}
-                            className="w-full px-3 py-1 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-blue-500/50"
-                            autoFocus
-                          />
-                        ) : (
-                          <div>
-                            <div className="font-medium">{folder.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {folder.conversationCount} conversation{folder.conversationCount !== 1 ? 's' : ''}
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    {editingFolderId === folder.id ? (
+                      <>
+                        <button
+                          onClick={handleSaveFolder}
+                          className="p-2 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors"
+                          title="Sauvegarder"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setEditingFolderId(null)}
+                          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                          title="Annuler"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleStartEditFolder(folder)}
+                          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                          title="Renommer"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+
+                        {/* Color picker */}
+                        <div className="relative group">
+                          <button
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                            title="Changer la couleur"
+                          >
+                            <Palette className="w-4 h-4" />
+                          </button>
+                          <div className="absolute right-0 top-full mt-2 p-2 glass-card bg-gray-900/95 rounded-xl hidden group-hover:block z-10">
+                            <div className="grid grid-cols-4 gap-2">
+                              {FOLDER_COLORS.map((color) => (
+                                <button
+                                  key={color}
+                                  onClick={() => {
+                                    onChangeFolderColor(folder.id, color);
+                                    showNotification('success', '✅ Couleur modifiée');
+                                  }}
+                                  className="w-8 h-8 rounded-lg hover:scale-110 transition-transform"
+                                  style={{ backgroundColor: color }}
+                                  title={color}
+                                />
+                              ))}
                             </div>
                           </div>
-                        )}
-                      </div>
+                        </div>
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-2">
-                        {editingFolderId === folder.id ? (
-                          <>
-                            <button
-                              onClick={handleSaveFolder}
-                              className="p-2 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors"
-                              title="Sauvegarder"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setEditingFolderId(null)}
-                              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                              title="Annuler"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => handleStartEditFolder(folder)}
-                              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                              title="Renommer"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-
-                            {/* Color picker */}
-                            <div className="relative group">
-                              <button
-                                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                                title="Changer la couleur"
-                              >
-                                <Palette className="w-4 h-4" />
-                              </button>
-                              <div className="absolute right-0 top-full mt-2 p-2 glass-card bg-gray-900/95 rounded-xl hidden group-hover:block z-10">
-                                <div className="grid grid-cols-4 gap-2">
-                                  {FOLDER_COLORS.map((color) => (
-                                    <button
-                                      key={color}
-                                      onClick={() => {
-                                        onChangeFolderColor(folder.id, color);
-                                        showNotification('success', '✅ Couleur modifiée');
-                                      }}
-                                      className="w-8 h-8 rounded-lg hover:scale-110 transition-transform"
-                                      style={{ backgroundColor: color }}
-                                      title={color}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-
-                            <button
-                              onClick={() => handleDeleteFolder(folder)}
-                              className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
-                              title="Supprimer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
+                        <button
+                          onClick={() => handleDeleteFolder(folder)}
+                          className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {activeTab === 'tags' && (
-            <div className="space-y-3">
-              {tagStats.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Tag className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  <p>Aucun tag créé</p>
-                  <p className="text-sm mt-1">Les tags permettent de catégoriser vos conversations</p>
                 </div>
-              ) : (
-                tagStats.map((tag) => (
-                  <div
-                    key={tag.id}
-                    className="glass-card bg-white/5 rounded-xl p-4 hover:bg-white/10 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      {/* Icon & Color */}
-                      <div
-                        className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center text-lg"
-                        style={{ backgroundColor: tag.color + '33', color: tag.color }}
-                      >
-                        {tag.icon || '🏷️'}
-                      </div>
-
-                      {/* Name */}
-                      <div className="flex-1 min-w-0">
-                        {editingTagId === tag.id ? (
-                          <div className="space-y-2">
-                            <input
-                              type="text"
-                              value={editingTagData.name}
-                              onChange={(e) => setEditingTagData({ ...editingTagData, name: e.target.value })}
-                              placeholder="Nom du tag"
-                              className="w-full px-3 py-1 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-blue-500/50"
-                            />
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={editingTagData.icon || ''}
-                                onChange={(e) => setEditingTagData({ ...editingTagData, icon: e.target.value })}
-                                placeholder="Icône (emoji)"
-                                className="w-20 px-3 py-1 bg-white/5 border border-white/10 rounded-lg outline-none focus:border-blue-500/50 text-center"
-                                maxLength={2}
-                              />
-                              <div className="flex gap-1">
-                                {TAG_COLORS.map((color) => (
-                                  <button
-                                    key={color}
-                                    onClick={() => setEditingTagData({ ...editingTagData, color })}
-                                    className={`w-6 h-6 rounded ${editingTagData.color === color ? 'ring-2 ring-white' : ''}`}
-                                    style={{ backgroundColor: color }}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div>
-                            <div className="font-medium" style={{ color: tag.color }}>
-                              {tag.name}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {tag.conversationCount} conversation{tag.conversationCount !== 1 ? 's' : ''}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2">
-                        {editingTagId === tag.id ? (
-                          <>
-                            <button
-                              onClick={handleSaveTag}
-                              className="p-2 hover:bg-green-500/20 text-green-400 rounded-lg transition-colors"
-                              title="Sauvegarder"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setEditingTagId(null)}
-                              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                              title="Annuler"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => handleStartEditTag(tag)}
-                              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                              title="Modifier"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-
-                            <button
-                              onClick={() => handleDeleteTag(tag)}
-                              className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
-                              title="Supprimer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+              </div>
+            ))
           )}
         </div>
+      </div>
+
+      {/* Info */}
+      <div className="p-4 glass-card rounded-lg bg-blue-500/10 border border-blue-500/20">
+        <p className="text-xs text-blue-400">
+          💡 Les dossiers vous permettent d'organiser vos conversations. Les tags sont maintenant gérés dans leur propre section.
+        </p>
       </div>
 
       {/* Notification */}

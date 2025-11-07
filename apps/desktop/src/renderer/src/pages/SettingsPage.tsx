@@ -6,6 +6,7 @@ import {
   Workflow,
   FileText,
   User,
+  Tag,
   FolderOpen,
   Globe,
   Bell,
@@ -15,12 +16,14 @@ import {
   Info,
 } from 'lucide-react';
 import { ChatSettings } from '../components/settings/ChatSettings';
+import { TagsSettings } from '../components/settings/TagsSettings';
 import { KeyboardShortcutsSettings } from '../components/settings/KeyboardShortcutsSettings';
 import { AppearanceSettings } from '../components/settings/AppearanceSettings';
 import { InterfaceSection } from '../components/settings/InterfaceSection';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
+import { usePersonas } from '../hooks/usePersonas';
 import { useSettings } from '../contexts/SettingsContext';
 import type { AppModule, SettingsSection } from '@blackia/shared/types';
 
@@ -36,6 +39,7 @@ const navItems: NavItem[] = [
   { icon: Workflow, label: 'Workflows', section: 'workflows' },
   { icon: FileText, label: 'Prompts', section: 'prompts' },
   { icon: User, label: 'Personas', section: 'personas' },
+  { icon: Tag, label: 'Tags', section: 'tags' },
   { icon: Palette, label: 'Apparence', section: 'appearance' },
   { icon: Eye, label: 'Interface', section: 'interface' },
   { icon: Bell, label: 'Notifications', section: 'notifications' },
@@ -59,7 +63,8 @@ export function SettingsPage() {
     changeFolderColor,
     deleteFolder,
   } = useFolders();
-  const { tags, updateTag, deleteTag } = useTags();
+  const { tags, createTag, updateTag, deleteTag } = useTags();
+  const { personas } = usePersonas();
 
   // Filtrer les sections visibles en fonction du module
   const visibleNavItems = useMemo(() => {
@@ -128,15 +133,22 @@ export function SettingsPage() {
               onRenameFolder={renameFolder}
               onChangeFolderColor={changeFolderColor}
               onDeleteFolder={deleteFolder}
-              tags={tags}
-              onUpdateTag={updateTag}
-              onDeleteTag={deleteTag}
               conversations={conversations}
             />
           )}
           {activeSection === 'workflows' && <PlaceholderSection title="Workflows" />}
           {activeSection === 'prompts' && <PlaceholderSection title="Prompts" />}
           {activeSection === 'personas' && <PlaceholderSection title="Personas" />}
+          {activeSection === 'tags' && (
+            <TagsSettings
+              tags={tags}
+              onCreateTag={createTag}
+              onUpdateTag={updateTag}
+              onDeleteTag={deleteTag}
+              conversations={conversations}
+              personas={personas}
+            />
+          )}
           {activeSection === 'appearance' && <AppearanceSettings />}
           {activeSection === 'interface' && <InterfaceSection />}
           {activeSection === 'notifications' && <PlaceholderSection title="Notifications" />}

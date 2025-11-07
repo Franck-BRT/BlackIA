@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Trash2, Settings, Menu, Search, BarChart3 } from 'lucide-react';
+import { Trash2, Settings, Menu, Search, BarChart3, User } from 'lucide-react';
 import { ChatMessage } from '../components/chat/ChatMessage';
 import { ChatInput } from '../components/chat/ChatInput';
 import { ModelSelector } from '../components/chat/ModelSelector';
@@ -12,17 +12,22 @@ import { TagModal } from '../components/chat/TagModal';
 import { FolderModal } from '../components/chat/FolderModal';
 import { KeyboardShortcutsModal } from '../components/chat/KeyboardShortcutsModal';
 import { StatisticsModal } from '../components/chat/StatisticsModal';
-import { useConversations } from '../hooks/useConversations';
+import { PersonaSelectionModal } from '../components/chat/PersonaSelectionModal';
+import { useConversations, type MessageMetadata } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
+import { usePersonas } from '../hooks/usePersonas';
 import { useKeyboardShortcuts, KeyboardShortcut } from '../hooks/useKeyboardShortcuts';
 import { useCustomKeyboardShortcuts } from '../hooks/useCustomKeyboardShortcuts';
 import { useStatistics } from '../hooks/useStatistics';
 import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
 import type { Folder } from '../hooks/useConversations';
+import type { Persona } from '../types/persona';
+import { PERSONA_COLOR_CLASSES } from '../types/persona';
 
 export function ChatPage() {
   const [messages, setMessages] = useState<OllamaMessage[]>([]);
+  const [messageMetadata, setMessageMetadata] = useState<Record<number, MessageMetadata>>({});
   const [selectedModel, setSelectedModel] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
@@ -37,6 +42,7 @@ export function ChatPage() {
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [isStatisticsModalOpen, setIsStatisticsModalOpen] = useState(false);
+  const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
   const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
     // Charger les settings depuis localStorage au démarrage
     try {
@@ -49,6 +55,8 @@ export function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentStreamIdRef = useRef<string | null>(null);
   const previousMessagesLengthRef = useRef<number>(0);
+  const currentMentionedPersonaIdRef = useRef<string | undefined>(undefined); // Legacy
+  const currentMentionedPersonaIdsRef = useRef<string[] | undefined>(undefined); // Pour @mention multiple
 
   // Hook pour gérer les conversations
   const {
@@ -90,8 +98,11 @@ export function ChatPage() {
     importTags,
   } = useTags();
 
+  // Hook pour gérer les personas
+  const { personas, incrementUsage: incrementPersonaUsage } = usePersonas();
+
   // Hook pour les statistiques
-  const statistics = useStatistics(conversations);
+  const statistics = useStatistics(conversations, personas);
 
   // Hook pour les raccourcis clavier personnalisés
   const { shortcuts: customShortcuts } = useCustomKeyboardShortcuts();
@@ -124,6 +135,13 @@ export function ChatPage() {
     return { totalCount, messageOccurrences };
   }, [messages, chatSearchQuery]);
 
+  // Obtenir le persona actuel de la conversation
+  const currentPersona = useMemo(() => {
+    const currentConv = getCurrentConversation();
+    if (!currentConv?.personaId) return null;
+    return personas.find((p) => p.id === currentConv.personaId) || null;
+  }, [getCurrentConversation, personas, currentConversationId]);
+
   // Auto-scroll vers le bas
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -147,6 +165,7 @@ export function ChatPage() {
         currentConversationId,
         {
           messages,
+          messageMetadata,
           model: selectedModel,
           title,
         },
@@ -155,7 +174,7 @@ export function ChatPage() {
 
       console.log('[ChatPage] 💾 Conversation auto-sauvegardée:', currentConversationId, 'isNewMessage:', isNewMessage);
     }
-  }, [messages, currentConversationId, selectedModel, updateConversation, generateTitle]);
+  }, [messages, messageMetadata, currentConversationId, selectedModel, updateConversation, generateTitle]);
 
   // Setup des listeners pour le streaming
   useEffect(() => {
@@ -196,11 +215,32 @@ export function ChatPage() {
               role: 'assistant',
               content: finalContent,
             };
-            setMessages((prev) => [...prev, finalMessage]);
+            setMessages((prev) => {
+              const newMessages = [...prev, finalMessage];
+              // L'index du message assistant sera prev.length
+              const assistantMessageIndex = prev.length;
+
+              // Si des personas ont été mentionnés pour cette requête, ajouter les métadonnées
+              if (currentMentionedPersonaIdsRef.current && currentMentionedPersonaIdsRef.current.length > 0) {
+                setMessageMetadata((prevMetadata) => ({
+                  ...prevMetadata,
+                  [assistantMessageIndex]: {
+                    personaId: currentMentionedPersonaIdsRef.current[0], // Legacy
+                    personaIds: currentMentionedPersonaIdsRef.current,
+                    timestamp: Date.now(),
+                  },
+                }));
+                console.log('[ChatPage] 📝 Métadonnées ajoutées pour le message assistant à l\'index', assistantMessageIndex, 'personas:', currentMentionedPersonaIdsRef.current);
+              }
+
+              return newMessages;
+            });
             return '';
           });
           setIsGenerating(false);
           currentStreamIdRef.current = null;
+          currentMentionedPersonaIdRef.current = undefined; // Réinitialiser (legacy)
+          currentMentionedPersonaIdsRef.current = undefined; // Réinitialiser
         }
       } else {
         console.log('[ChatPage] ⚠️ StreamId ne correspond pas, chunk ignoré');
@@ -278,9 +318,12 @@ export function ChatPage() {
     // La conversation sera créée automatiquement au premier message
     setCurrentConversationId(null);
     setMessages([]);
+    setMessageMetadata({});
     setStreamingMessage('');
     setIsGenerating(false);
     currentStreamIdRef.current = null;
+    currentMentionedPersonaIdRef.current = undefined;
+    currentMentionedPersonaIdsRef.current = undefined;
     previousMessagesLengthRef.current = 0;
     setRegenerationCounts(new Map());
 
@@ -318,11 +361,131 @@ export function ChatPage() {
     deleteTag(tagId);
   };
 
+  // Sélectionner un persona pour la conversation
+  const handleSelectPersona = async (persona: Persona | null, includeFewShots: boolean) => {
+    // Si persona est null, on le retire
+    if (!persona) {
+      if (currentConversationId) {
+        updateConversation(currentConversationId, { personaId: undefined });
+        console.log('[ChatPage] 👤 Persona retiré de la conversation');
+      }
+      return;
+    }
+
+    // Déterminer le modèle à utiliser
+    const modelToUse = persona.model || selectedModel;
+
+    // Si pas de modèle sélectionné du tout, demander à l'utilisateur
+    if (!modelToUse) {
+      alert('Veuillez d\'abord sélectionner un modèle');
+      return;
+    }
+
+    // Vérifier si le persona utilise un modèle différent
+    if (persona.model && persona.model !== selectedModel) {
+      const confirmed = confirm(
+        `Le persona "${persona.name}" utilise le modèle "${persona.model}".\n\n` +
+        `Voulez-vous changer le modèle actuel "${selectedModel || 'aucun'}" vers "${persona.model}" ?`
+      );
+
+      if (confirmed) {
+        setSelectedModel(persona.model);
+        console.log('[ChatPage] 🔄 Modèle changé:', selectedModel, '→', persona.model);
+      }
+    } else if (!selectedModel) {
+      // Si aucun modèle n'était sélectionné, utiliser celui du persona ou demander
+      setSelectedModel(modelToUse);
+    }
+
+    // Créer une nouvelle conversation si nécessaire
+    let conversationId = currentConversationId;
+    const isNewConversation = !conversationId || messages.length === 0;
+
+    if (!conversationId) {
+      const newConv = createConversation(modelToUse, `Conversation avec ${persona.name}`);
+      conversationId = newConv.id;
+      console.log('[ChatPage] ✨ Nouvelle conversation créée pour le persona:', conversationId);
+    }
+
+    // Stocker le persona dans la conversation
+    updateConversation(conversationId, { personaId: persona.id });
+
+    // Stocker les préférences few-shots dans chatSettings (temporaire pour cette session)
+    setChatSettings(prev => ({
+      ...prev,
+      includeFewShots,
+    }));
+
+    console.log('[ChatPage] 👤 Persona appliqué:', persona.name, 'Few-shots:', includeFewShots);
+
+    // Si c'est une nouvelle conversation, générer un message de bienvenue
+    if (isNewConversation) {
+      await generatePersonaWelcomeMessage(persona, includeFewShots, modelToUse);
+    }
+  };
+
+  // Générer un message de bienvenue du persona
+  const generatePersonaWelcomeMessage = async (persona: Persona, includeFewShots: boolean, model: string) => {
+    try {
+      console.log('[ChatPage] 💬 Génération du message de bienvenue du persona');
+
+      // Construire le prompt système pour le persona
+      let systemPrompt = persona.systemPrompt;
+
+      if (includeFewShots && persona.fewShotExamples?.length) {
+        const fewShotsText = persona.fewShotExamples
+          .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
+          .join('\n\n');
+        systemPrompt += '\n\nExemples:\n' + fewShotsText;
+      }
+
+      // Message demandant à l'IA de se présenter
+      const welcomePrompt: OllamaMessage = {
+        role: 'user',
+        content: 'Bonjour ! Peux-tu te présenter brièvement et m\'expliquer comment tu peux m\'aider ?',
+      };
+
+      const messagesToSend: OllamaMessage[] = [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+        welcomePrompt,
+      ];
+
+      // Ajouter le message utilisateur à l'historique
+      setMessages([welcomePrompt]);
+
+      // Envoyer la requête de chat avec streaming
+      await window.electronAPI.ollama.chatStream({
+        model,
+        messages: messagesToSend,
+        stream: true,
+        options: {
+          temperature: persona.temperature ?? chatSettings.temperature,
+          num_ctx: persona.maxTokens ?? chatSettings.maxTokens,
+          top_p: chatSettings.topP,
+        },
+      });
+
+      console.log('[ChatPage] ✅ Message de bienvenue généré');
+    } catch (error: any) {
+      console.error('[ChatPage] ❌ Erreur génération message de bienvenue:', error);
+
+      const errorMessage: OllamaMessage = {
+        role: 'system',
+        content: `❌ Erreur lors de la génération du message de bienvenue: ${error.message || 'Erreur inconnue'}`,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
+  };
+
   // Charger une conversation
   const handleSelectConversation = (id: string) => {
     const conv = loadConversation(id);
     if (conv) {
       setMessages(conv.messages);
+      setMessageMetadata(conv.messageMetadata || {});
       setSelectedModel(conv.model);
       setStreamingMessage('');
       setIsGenerating(false);
@@ -336,11 +499,17 @@ export function ChatPage() {
     }
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, mentionedPersonaIds?: string[], includeMentionFewShots: boolean = false) => {
+    console.log('[ChatPage] 📥 handleSendMessage reçu:', { mentionedPersonaIds, includeMentionFewShots });
+
     if (!selectedModel) {
       alert('Veuillez sélectionner un modèle');
       return;
     }
+
+    // Stocker les mentionedPersonaIds dans le ref pour l'utiliser dans les listeners
+    currentMentionedPersonaIdsRef.current = mentionedPersonaIds;
+    currentMentionedPersonaIdRef.current = mentionedPersonaIds?.[0]; // Legacy
 
     // Créer une nouvelle conversation si nécessaire
     if (!currentConversationId && messages.length === 0) {
@@ -354,33 +523,149 @@ export function ChatPage() {
       content,
     };
 
+    // Calculer l'index du message utilisateur avant de l'ajouter
+    const userMessageIndex = messages.length;
+
     setMessages((prev) => [...prev, userMessage]);
+
+    // Si des personas ont été mentionnés, stocker les métadonnées
+    if (mentionedPersonaIds && mentionedPersonaIds.length > 0) {
+      setMessageMetadata((prev) => ({
+        ...prev,
+        [userMessageIndex]: {
+          personaId: mentionedPersonaIds[0], // Legacy: premier persona
+          personaIds: mentionedPersonaIds, // Nouveau: tableau de tous les personas
+          timestamp: Date.now(),
+        },
+      }));
+      console.log('[ChatPage] 📝 Métadonnées ajoutées pour le message utilisateur à l\'index', userMessageIndex, 'personas:', mentionedPersonaIds);
+    }
 
     try {
       console.log('[ChatPage] 📤 Envoi du message au backend');
       console.log('[ChatPage] 📋 Settings:', chatSettings);
+      console.log('[ChatPage] 👤 Persona global:', currentPersona?.name || 'aucun');
 
-      // Construire la liste des messages avec le system prompt si défini
+      // Déterminer quels personas utiliser
+      // Priorité: Personas mentionnés (@mention) > Persona global > Aucun
+      const mentionedPersonas = mentionedPersonaIds
+        ? mentionedPersonaIds.map(id => personas.find(p => p.id === id)).filter((p): p is Persona => p !== undefined)
+        : [];
+
+      const personasToUse = mentionedPersonas.length > 0 ? mentionedPersonas : (currentPersona ? [currentPersona] : []);
+
+      if (mentionedPersonas.length > 0) {
+        console.log('[ChatPage] 📧 Personas mentionnés (@mention):', mentionedPersonas.map(p => p.name).join(', '));
+        // Incrémenter le compteur d'utilisation pour tous les @mentions
+        mentionedPersonas.forEach(p => incrementPersonaUsage(p.id));
+      } else if (currentPersona) {
+        // Incrémenter le compteur d'utilisation pour persona global
+        incrementPersonaUsage(currentPersona.id);
+      }
+
+      // Construire la liste des messages avec le system prompt
       const messagesToSend: OllamaMessage[] = [];
 
-      if (chatSettings.systemPrompt.trim()) {
+      // Priorité 1: System prompt des personas (mentionnés ou global)
+      // Priorité 2: System prompt des settings
+      let systemPromptToUse = '';
+
+      if (personasToUse.length > 0) {
+        // Combiner les system prompts de tous les personas
+        if (personasToUse.length === 1) {
+          systemPromptToUse = personasToUse[0].systemPrompt || '';
+          console.log('[ChatPage] 📝 Utilisation du system prompt du persona:', personasToUse[0].name);
+        } else {
+          // Plusieurs personas: combiner leurs prompts
+          const combinedPrompts = personasToUse
+            .filter(p => p.systemPrompt)
+            .map((p, index) => {
+              return `[Rôle ${index + 1}: ${p.name}]\n${p.systemPrompt}`;
+            })
+            .join('\n\n---\n\n');
+
+          systemPromptToUse = `Vous devez combiner les perspectives de plusieurs rôles pour répondre. Voici les rôles à adopter :\n\n${combinedPrompts}\n\nRépondez en intégrant les perspectives de tous ces rôles.`;
+          console.log('[ChatPage] 📝 Combinaison des system prompts de', personasToUse.length, 'personas:', personasToUse.map(p => p.name).join(', '));
+        }
+
+        // Ajouter les few-shots si demandé
+        // Pour personas mentionnés: utiliser includeMentionFewShots
+        // Pour persona global: utiliser chatSettings.includeFewShots
+        const shouldIncludeFewShots = mentionedPersonas.length > 0
+          ? includeMentionFewShots
+          : chatSettings.includeFewShots;
+
+        if (shouldIncludeFewShots) {
+          // Combiner les few-shots de tous les personas
+          const allFewShots = personasToUse
+            .filter(p => p.fewShotExamples && p.fewShotExamples.length > 0)
+            .flatMap(p => p.fewShotExamples || []);
+
+          if (allFewShots.length > 0) {
+            const fewShotsText = allFewShots
+              .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
+              .join('\n\n');
+            systemPromptToUse += '\n\nExemples:\n' + fewShotsText;
+            console.log(
+              '[ChatPage] 📚 Few-shots ajoutés:',
+              allFewShots.length,
+              'exemples de',
+              personasToUse.length,
+              'personas',
+              mentionedPersonas.length > 0 ? '(@mention)' : '(global)'
+            );
+          }
+        }
+      } else if (chatSettings.systemPrompt.trim()) {
+        systemPromptToUse = chatSettings.systemPrompt;
+        console.log('[ChatPage] 📝 Utilisation du system prompt des settings');
+      }
+
+      if (systemPromptToUse) {
         messagesToSend.push({
           role: 'system',
-          content: chatSettings.systemPrompt,
+          content: systemPromptToUse,
         });
       }
 
       messagesToSend.push(...messages, userMessage);
 
+      // Déterminer les paramètres à utiliser (premier persona ou settings)
+      const firstPersona = personasToUse[0];
+      const temperature = firstPersona?.temperature ?? chatSettings.temperature;
+      const maxTokens = firstPersona?.maxTokens ?? chatSettings.maxTokens;
+
+      // Déterminer le modèle à utiliser
+      // Priorité: Modèle du premier persona mentionné > Modèle du persona global > Modèle sélectionné
+      let modelToUse = selectedModel;
+      if (firstPersona?.model) {
+        modelToUse = firstPersona.model;
+        if (modelToUse !== selectedModel) {
+          console.log(
+            '[ChatPage] 🔄 Utilisation du modèle du premier persona:',
+            firstPersona.name,
+            '→',
+            modelToUse,
+            '(au lieu de',
+            selectedModel + ')'
+          );
+          if (mentionedPersonas.length > 0) {
+            console.log('[ChatPage] 💡 @mention utilise automatiquement le modèle configuré du premier persona');
+          }
+        }
+      }
+
+      console.log('[ChatPage] ⚙️ Paramètres:', { model: modelToUse, temperature, maxTokens });
+
       // Envoyer la requête de chat avec streaming
       // Le streamId sera défini par le listener onStreamStart
       await window.electronAPI.ollama.chatStream({
-        model: selectedModel,
+        model: modelToUse,
         messages: messagesToSend,
         stream: true,
         options: {
-          temperature: chatSettings.temperature,
-          num_ctx: chatSettings.maxTokens,
+          temperature,
+          num_ctx: maxTokens,
           top_p: chatSettings.topP,
         },
       });
@@ -432,9 +717,12 @@ export function ChatPage() {
   const handleClearChat = () => {
     if (confirm('Voulez-vous vraiment effacer toute la conversation ?')) {
       setMessages([]);
+      setMessageMetadata({});
       setStreamingMessage('');
       setIsGenerating(false);
       currentStreamIdRef.current = null;
+      currentMentionedPersonaIdRef.current = undefined;
+      currentMentionedPersonaIdsRef.current = undefined;
       setRegenerationCounts(new Map());
     }
   };
@@ -466,17 +754,38 @@ export function ChatPage() {
     try {
       console.log('[ChatPage] 🔄 Régénération de la réponse');
 
-      // Construire la liste des messages avec le system prompt si défini
+      // Construire la liste des messages avec le system prompt
       const messagesToSend: OllamaMessage[] = [];
 
-      if (chatSettings.systemPrompt.trim()) {
+      // Utiliser le persona si disponible, sinon les settings
+      let systemPromptToUse = '';
+
+      if (currentPersona?.systemPrompt) {
+        systemPromptToUse = currentPersona.systemPrompt;
+
+        // Ajouter les few-shots si demandé
+        if (chatSettings.includeFewShots && currentPersona.fewShotExamples?.length) {
+          const fewShotsText = currentPersona.fewShotExamples
+            .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
+            .join('\n\n');
+          systemPromptToUse += '\n\nExemples:\n' + fewShotsText;
+        }
+      } else if (chatSettings.systemPrompt.trim()) {
+        systemPromptToUse = chatSettings.systemPrompt;
+      }
+
+      if (systemPromptToUse) {
         messagesToSend.push({
           role: 'system',
-          content: chatSettings.systemPrompt,
+          content: systemPromptToUse,
         });
       }
 
       messagesToSend.push(...updatedMessages);
+
+      // Déterminer les paramètres à utiliser (persona ou settings)
+      const temperature = currentPersona?.temperature ?? chatSettings.temperature;
+      const maxTokens = currentPersona?.maxTokens ?? chatSettings.maxTokens;
 
       // Relancer la génération avec le même contexte
       await window.electronAPI.ollama.chatStream({
@@ -484,8 +793,8 @@ export function ChatPage() {
         messages: messagesToSend,
         stream: true,
         options: {
-          temperature: chatSettings.temperature,
-          num_ctx: chatSettings.maxTokens,
+          temperature,
+          num_ctx: maxTokens,
           top_p: chatSettings.topP,
         },
       });
@@ -547,7 +856,7 @@ export function ChatPage() {
   // Activer les raccourcis clavier
   useKeyboardShortcuts({
     shortcuts: keyboardShortcuts,
-    enabled: !isSettingsOpen && !isTagModalOpen && !isFolderModalOpen && !isShortcutsModalOpen && !isStatisticsModalOpen,
+    enabled: !isSettingsOpen && !isTagModalOpen && !isFolderModalOpen && !isShortcutsModalOpen && !isStatisticsModalOpen && !isPersonaModalOpen,
   });
 
   // Éditer le dernier message utilisateur et régénérer la réponse
@@ -581,17 +890,38 @@ export function ChatPage() {
     try {
       console.log('[ChatPage] ✏️ Édition du message et régénération');
 
-      // Construire la liste des messages avec le system prompt si défini
+      // Construire la liste des messages avec le system prompt
       const messagesToSend: OllamaMessage[] = [];
 
-      if (chatSettings.systemPrompt.trim()) {
+      // Utiliser le persona si disponible, sinon les settings
+      let systemPromptToUse = '';
+
+      if (currentPersona?.systemPrompt) {
+        systemPromptToUse = currentPersona.systemPrompt;
+
+        // Ajouter les few-shots si demandé
+        if (chatSettings.includeFewShots && currentPersona.fewShotExamples?.length) {
+          const fewShotsText = currentPersona.fewShotExamples
+            .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
+            .join('\n\n');
+          systemPromptToUse += '\n\nExemples:\n' + fewShotsText;
+        }
+      } else if (chatSettings.systemPrompt.trim()) {
+        systemPromptToUse = chatSettings.systemPrompt;
+      }
+
+      if (systemPromptToUse) {
         messagesToSend.push({
           role: 'system',
-          content: chatSettings.systemPrompt,
+          content: systemPromptToUse,
         });
       }
 
       messagesToSend.push(...updatedMessages);
+
+      // Déterminer les paramètres à utiliser (persona ou settings)
+      const temperature = currentPersona?.temperature ?? chatSettings.temperature;
+      const maxTokens = currentPersona?.maxTokens ?? chatSettings.maxTokens;
 
       // Relancer la génération avec le message édité
       await window.electronAPI.ollama.chatStream({
@@ -599,8 +929,8 @@ export function ChatPage() {
         messages: messagesToSend,
         stream: true,
         options: {
-          temperature: chatSettings.temperature,
-          num_ctx: chatSettings.maxTokens,
+          temperature,
+          num_ctx: maxTokens,
           top_p: chatSettings.topP,
         },
       });
@@ -709,6 +1039,7 @@ export function ChatPage() {
             conversations={conversations}
             folders={folders}
             tags={tags}
+            personas={personas}
             currentConversationId={currentConversationId}
             onSelectConversation={handleSelectConversation}
             onNewConversation={handleNewConversation}
@@ -755,13 +1086,42 @@ export function ChatPage() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              className="header-btn glass-hover"
               title={isSidebarOpen ? 'Masquer la sidebar' : 'Afficher la sidebar'}
             >
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-xl font-bold">Chat</h1>
             <ModelSelector selectedModel={selectedModel} onModelChange={setSelectedModel} />
+
+            {/* Persona Selection Button */}
+            <button
+              onClick={() => setIsPersonaModalOpen(true)}
+              className={`header-btn gap-2 px-3 ${
+                currentPersona
+                  ? 'glass-card border border-white/20'
+                  : 'glass-hover'
+              }`}
+              title={currentPersona ? `Persona: ${currentPersona.name}` : 'Sélectionner un persona'}
+            >
+              {currentPersona ? (
+                <>
+                  <div
+                    className={`w-6 h-6 rounded-lg bg-gradient-to-br ${
+                      PERSONA_COLOR_CLASSES[currentPersona.color] || PERSONA_COLOR_CLASSES.purple
+                    } flex items-center justify-center text-sm flex-shrink-0`}
+                  >
+                    {currentPersona.avatar}
+                  </div>
+                  <span className="text-sm font-medium">{currentPersona.name}</span>
+                </>
+              ) : (
+                <>
+                  <User className="w-5 h-5 flex-shrink-0" />
+                  <span className="text-sm">Persona</span>
+                </>
+              )}
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -787,28 +1147,28 @@ export function ChatPage() {
             />
             <button
               onClick={() => setIsStatisticsModalOpen(true)}
-              className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              className="header-btn glass-hover"
               title="Statistiques d'utilisation (Ctrl+Shift+S)"
             >
               <BarChart3 className="w-5 h-5" />
             </button>
             <button
               onClick={() => setIsChatSearchOpen(true)}
-              className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              className="header-btn glass-hover"
               title="Rechercher dans la conversation (Ctrl+F)"
             >
               <Search className="w-5 h-5" />
             </button>
             <button
               onClick={handleClearChat}
-              className="p-2 rounded-xl glass-hover hover:bg-red-500/20 transition-colors"
+              className="header-btn glass-hover hover:bg-red-500/20"
               title="Effacer la conversation"
             >
               <Trash2 className="w-5 h-5 text-red-400" />
             </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              className="header-btn glass-hover"
               title="Paramètres du Chat"
             >
               <Settings className="w-5 h-5" />
@@ -862,6 +1222,14 @@ export function ChatPage() {
                 (occ) => occ.messageIndex === index
               );
 
+              // Récupérer les personas mentionnés pour ce message
+              const metadata = messageMetadata[index];
+              const mentionedPersonas = metadata?.personaIds
+                ? metadata.personaIds.map(id => personas.find((p) => p.id === id)).filter((p): p is Persona => p !== undefined)
+                : (metadata?.personaId
+                    ? [personas.find((p) => p.id === metadata.personaId)].filter((p): p is Persona => p !== undefined)
+                    : undefined);
+
               return (
                 <ChatMessage
                   key={index}
@@ -876,6 +1244,7 @@ export function ChatPage() {
                   activeGlobalIndex={currentSearchIndex}
                   syntaxTheme={chatSettings.syntaxTheme}
                   showLineNumbers={chatSettings.showLineNumbers}
+                  mentionedPersonas={mentionedPersonas}
                 />
               );
             })}
@@ -890,6 +1259,11 @@ export function ChatPage() {
                 isStreaming={true}
                 syntaxTheme={chatSettings.syntaxTheme}
                 showLineNumbers={chatSettings.showLineNumbers}
+                mentionedPersonas={
+                  currentMentionedPersonaIdsRef.current
+                    ? currentMentionedPersonaIdsRef.current.map(id => personas.find((p) => p.id === id)).filter((p): p is Persona => p !== undefined)
+                    : undefined
+                }
               />
             )}
 
@@ -908,9 +1282,10 @@ export function ChatPage() {
               isGenerating={isGenerating}
               placeholder={
                 selectedModel
-                  ? 'Tapez votre message...'
+                  ? 'Tapez votre message... (@ pour mentionner un persona)'
                   : 'Sélectionnez d\'abord un modèle...'
               }
+              personas={personas}
             />
           </div>
         </div>
@@ -973,6 +1348,15 @@ export function ChatPage() {
         isOpen={isStatisticsModalOpen}
         onClose={() => setIsStatisticsModalOpen(false)}
         statistics={statistics}
+      />
+
+      {/* Persona Selection Modal */}
+      <PersonaSelectionModal
+        isOpen={isPersonaModalOpen}
+        onClose={() => setIsPersonaModalOpen(false)}
+        onSelect={handleSelectPersona}
+        personas={personas}
+        currentPersonaId={currentPersona?.id}
       />
     </div>
   );

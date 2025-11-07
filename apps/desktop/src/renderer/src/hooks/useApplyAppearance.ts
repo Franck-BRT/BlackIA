@@ -71,7 +71,15 @@ export function useApplyAppearance() {
     // Glass Effect
     const glassClasses = ['glass-subtle', 'glass-medium', 'glass-intense'];
     glassClasses.forEach((cls) => root.classList.remove(cls));
-    root.classList.add(`glass-${appearance.glassEffect}`);
+
+    // Enable/Disable Glassmorphism
+    if (appearance.enableGlassmorphism) {
+      root.classList.remove('no-glassmorphism');
+      root.classList.add(`glass-${appearance.glassEffect}`);
+    } else {
+      root.classList.add('no-glassmorphism');
+      glassClasses.forEach((cls) => root.classList.remove(cls));
+    }
 
     // Animations
     if (appearance.animations) {

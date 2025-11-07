@@ -22,6 +22,7 @@ export function TagSelector({
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium">Tags</span>
           <button
+            type="button"
             onClick={onCreateTag}
             className="p-1 rounded-lg hover:bg-white/10 transition-colors"
             title="Créer un nouveau tag"
@@ -37,6 +38,7 @@ export function TagSelector({
           <div className="px-3 py-6 text-center text-sm text-muted-foreground">
             <p>Aucun tag</p>
             <button
+              type="button"
               onClick={onCreateTag}
               className="mt-2 text-blue-400 hover:text-blue-300 transition-colors"
             >
@@ -49,6 +51,7 @@ export function TagSelector({
               const isSelected = selectedTagIds.includes(tag.id);
               return (
                 <button
+                  type="button"
                   key={tag.id}
                   onClick={() => onToggleTag(tag.id)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${

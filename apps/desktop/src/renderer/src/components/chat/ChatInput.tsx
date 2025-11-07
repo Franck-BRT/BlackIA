@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Square } from 'lucide-react';
+import { PersonaMentionDropdown } from './PersonaMentionDropdown';
+import type { Persona } from '../../types/persona';
 
 interface ChatInputProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, personaIds?: string[], includeFewShots?: boolean) => void;
   onStop?: () => void;
   disabled?: boolean;
   isGenerating?: boolean;
   placeholder?: string;
+  personas?: Persona[]; // Liste des personas pour l'autocomplete @mention
 }
 
 export function ChatInput({
@@ -15,15 +18,131 @@ export function ChatInput({
   disabled,
   isGenerating,
   placeholder = 'Tapez votre message...',
+  personas = [],
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([]);
+  const [includeMentionFewShots, setIncludeMentionFewShots] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number }>({ top: -420, left: 0 });
+  const [currentMentionPosition, setCurrentMentionPosition] = useState<number>(0); // Position du curseur lors de @mention
+  const [suggestedPersonas, setSuggestedPersonas] = useState<Persona[]>([]); // Suggestions intelligentes
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  /**
+   * Extrait tous les @mentions du texte et retourne les IDs des personas correspondants
+   */
+  const extractMentionsFromText = (text: string): string[] => {
+    // Pattern pour matcher @PersonaName (alphanumérique + espaces + accents)
+    const mentionPattern = /@([a-zA-ZÀ-ÿ0-9\s&]+?)(?=\s|$|@)/g;
+    const matches = text.matchAll(mentionPattern);
+    const mentionedIds: string[] = [];
+
+    for (const match of matches) {
+      const mentionedName = match[1].trim();
+      // Chercher le persona par nom (case insensitive)
+      const persona = personas.find(p => p.name.toLowerCase() === mentionedName.toLowerCase());
+      if (persona && !mentionedIds.includes(persona.id)) {
+        mentionedIds.push(persona.id);
+      }
+    }
+
+    return mentionedIds;
+  };
+
+  /**
+   * Suggestions intelligentes : détecte des mots-clés et suggère des personas pertinents
+   */
+  const suggestPersonasFromText = (text: string): Persona[] => {
+    const lowerText = text.toLowerCase();
+    const suggestions: Persona[] = [];
+
+    // Mapping de mots-clés vers catégories de personas
+    const keywordMapping: Record<string, string[]> = {
+      // Développement & Code
+      'code': ['Développement', 'Technique', 'Code'],
+      'bug': ['Développement', 'Technique', 'Debugger'],
+      'erreur': ['Développement', 'Technique', 'Debugger'],
+      'debug': ['Développement', 'Technique', 'Debugger'],
+      'optimis': ['Développement', 'Technique', 'Performance'],
+      'performance': ['Développement', 'Technique', 'Performance'],
+      'test': ['Développement', 'Technique', 'QA'],
+      'fonction': ['Développement', 'Technique'],
+      'algorithm': ['Développement', 'Technique'],
+
+      // Créativité
+      'créat': ['Créatif', 'Design'],
+      'créer': ['Créatif', 'Design'],
+      'design': ['Créatif', 'Design'],
+      'idée': ['Créatif', 'Brainstorming'],
+      'innov': ['Créatif', 'Innovation'],
+      'imagine': ['Créatif', 'Storytelling'],
+      'histoire': ['Créatif', 'Storytelling'],
+
+      // Analyse & Stratégie
+      'analys': ['Analyse', 'Stratégie'],
+      'stratég': ['Stratégie', 'Business'],
+      'décision': ['Stratégie', 'Analyse'],
+      'données': ['Analyse', 'Data'],
+      'statistique': ['Analyse', 'Data'],
+
+      // Éducation & Explication
+      'expliqu': ['Éducation', 'Pédagogie'],
+      'apprend': ['Éducation', 'Pédagogie'],
+      'enseign': ['Éducation', 'Pédagogie'],
+      'comment': ['Éducation', 'Tutoriel'],
+      'tutoriel': ['Éducation', 'Tutoriel'],
+
+      // Rédaction & Communication
+      'écri': ['Rédaction', 'Communication'],
+      'rédige': ['Rédaction', 'Communication'],
+      'article': ['Rédaction', 'Content'],
+      'document': ['Rédaction', 'Documentation'],
+      'communiqu': ['Communication', 'Marketing'],
+    };
+
+    // Chercher des mots-clés dans le texte
+    for (const [keyword, categories] of Object.entries(keywordMapping)) {
+      if (lowerText.includes(keyword)) {
+        // Trouver les personas qui correspondent aux catégories
+        for (const category of categories) {
+          const matchingPersonas = personas.filter(p =>
+            p.category?.toLowerCase().includes(category.toLowerCase()) &&
+            !suggestions.some(s => s.id === p.id) &&
+            !selectedPersonaIds.includes(p.id)
+          );
+          suggestions.push(...matchingPersonas);
+        }
+      }
+    }
+
+    // Limiter à 3 suggestions max
+    return suggestions.slice(0, 3);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled && !isGenerating) {
-      onSend(message.trim());
+      // Extraire tous les @mentions du texte
+      const mentionedIds = extractMentionsFromText(message);
+
+      // Combiner avec les personas sélectionnés manuellement (via autocomplete)
+      const allPersonaIds = [...new Set([...selectedPersonaIds, ...mentionedIds])];
+
+      console.log('[ChatInput] 📤 Envoi du message avec personas:', allPersonaIds, 'includeFewShots:', includeMentionFewShots);
+
+      // Envoyer le message avec tous les personas mentionnés
+      onSend(message.trim(), allPersonaIds.length > 0 ? allPersonaIds : undefined, allPersonaIds.length > 0 ? includeMentionFewShots : false);
       setMessage('');
+      setSelectedPersonaIds([]);
+      setIncludeMentionFewShots(false);
+      setShowMentionDropdown(false);
+      setMentionQuery('');
+      setShowSuggestions(false);
+      setSuggestedPersonas([]);
       // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
@@ -32,6 +151,26 @@ export function ChatInput({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Ctrl+Space pour ouvrir le @mention dropdown
+    if (e.key === ' ' && e.ctrlKey) {
+      e.preventDefault();
+      // Insérer @ au début si pas déjà présent
+      if (!message.startsWith('@')) {
+        setMessage('@' + message);
+        // Calculer la position du dropdown
+        const position = calculateDropdownPosition();
+        setDropdownPosition(position);
+        setShowMentionDropdown(true);
+        setMentionQuery('');
+      }
+      return;
+    }
+
+    // Si le dropdown de mention est ouvert, ne pas intercepter Enter (laissé au dropdown)
+    if (showMentionDropdown) {
+      return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
@@ -44,6 +183,132 @@ export function ChatInput({
     }
   };
 
+  const calculateDropdownPosition = () => {
+    if (!formRef.current) return { top: -420, left: 0 };
+
+    const formRect = formRef.current.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+
+    // Hauteur estimée du dropdown (max 400px + padding)
+    const dropdownHeight = 420;
+
+    // Espace disponible au-dessus du formulaire
+    const spaceAbove = formRect.top;
+
+    // Si pas assez d'espace au-dessus, afficher en dessous
+    if (spaceAbove < dropdownHeight) {
+      console.log('[ChatInput] 📍 Dropdown positionné en dessous (pas assez d\'espace au-dessus)');
+      return { top: 60, left: 0 }; // En dessous du textarea
+    } else {
+      console.log('[ChatInput] 📍 Dropdown positionné au-dessus');
+      return { top: -dropdownHeight, left: 0 };
+    }
+  };
+
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newMessage = e.target.value;
+    setMessage(newMessage);
+
+    // Détecter @mention n'importe où dans le message
+    const cursorPosition = e.target.selectionStart || 0;
+    const textBeforeCursor = newMessage.substring(0, cursorPosition);
+
+    // Chercher le dernier @ avant le curseur
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex !== -1) {
+      // Vérifier qu'il n'y a pas d'espace entre @ et le curseur (sinon la mention est terminée)
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+
+      if (!textAfterAt.includes(' ')) {
+        // On est en train de taper une mention
+        setCurrentMentionPosition(lastAtIndex);
+
+        // Calculer la position du dropdown
+        const position = calculateDropdownPosition();
+        setDropdownPosition(position);
+
+        setShowMentionDropdown(true);
+        setMentionQuery(textAfterAt);
+        setShowSuggestions(false); // Masquer les suggestions quand on tape @
+      } else {
+        setShowMentionDropdown(false);
+        setMentionQuery('');
+      }
+    } else {
+      setShowMentionDropdown(false);
+      setMentionQuery('');
+
+      // Suggestions intelligentes : analyser le texte après un court délai
+      // Seulement si le message a plus de 10 caractères et pas de @mention active
+      if (newMessage.length >= 10 && !newMessage.includes('@')) {
+        const suggestions = suggestPersonasFromText(newMessage);
+        if (suggestions.length > 0) {
+          setSuggestedPersonas(suggestions);
+          setShowSuggestions(true);
+        } else {
+          setShowSuggestions(false);
+        }
+      } else {
+        setShowSuggestions(false);
+      }
+    }
+  };
+
+  const handlePersonaSelect = (persona: Persona) => {
+    console.log('[ChatInput] 📧 Persona sélectionné via @mention:', persona.name, persona.id);
+
+    // Insérer le nom du persona à la position du @ dans le texte
+    const beforeMention = message.substring(0, currentMentionPosition);
+    const afterCursor = message.substring(textareaRef.current?.selectionStart || message.length);
+
+    // Construire le nouveau message avec @PersonaName
+    const newMessage = `${beforeMention}@${persona.name} ${afterCursor}`;
+    setMessage(newMessage);
+
+    // Ajouter le persona à la liste des personas sélectionnés
+    if (!selectedPersonaIds.includes(persona.id)) {
+      setSelectedPersonaIds([...selectedPersonaIds, persona.id]);
+    }
+
+    setShowMentionDropdown(false);
+    setMentionQuery('');
+
+    // Refocus sur le textarea et positionner le curseur après la mention
+    if (textareaRef.current) {
+      const newCursorPosition = beforeMention.length + persona.name.length + 2; // +2 pour @ et espace
+      textareaRef.current.focus();
+      setTimeout(() => {
+        textareaRef.current?.setSelectionRange(newCursorPosition, newCursorPosition);
+      }, 0);
+    }
+  };
+
+  const handleCloseMentionDropdown = () => {
+    setShowMentionDropdown(false);
+    setMentionQuery('');
+  };
+
+  const handleAcceptSuggestion = (persona: Persona) => {
+    // Ajouter le persona aux personas sélectionnés
+    if (!selectedPersonaIds.includes(persona.id)) {
+      setSelectedPersonaIds([...selectedPersonaIds, persona.id]);
+    }
+
+    // Retirer cette suggestion de la liste
+    setSuggestedPersonas(suggestedPersonas.filter(p => p.id !== persona.id));
+
+    // Masquer les suggestions si plus aucune
+    if (suggestedPersonas.length <= 1) {
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleDismissSuggestions = () => {
+    setShowSuggestions(false);
+    setSuggestedPersonas([]);
+  };
+
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
@@ -52,13 +317,117 @@ export function ChatInput({
     }
   }, [message]);
 
+  // Trouver les personas sélectionnés pour l'affichage
+  const selectedPersonas = selectedPersonaIds
+    .map(id => personas.find(p => p.id === id))
+    .filter((p): p is Persona => p !== undefined);
+
+  // Vérifier si au moins un persona sélectionné a des few-shots
+  const hasAnyFewShots = selectedPersonas.some(p => p.fewShotExamples && p.fewShotExamples.length > 0);
+  const totalFewShots = selectedPersonas.reduce((sum, p) => sum + (p.fewShotExamples?.length || 0), 0);
+
   return (
-    <form onSubmit={handleSubmit} className="glass-card rounded-2xl p-4">
+    <form ref={formRef} onSubmit={handleSubmit} className="glass-card rounded-2xl p-4 relative">
+      {/* Dropdown de mention @persona */}
+      {showMentionDropdown && (
+        <PersonaMentionDropdown
+          personas={personas}
+          searchQuery={mentionQuery}
+          onSelect={handlePersonaSelect}
+          onClose={handleCloseMentionDropdown}
+          position={dropdownPosition}
+        />
+      )}
+
+      {/* Suggestions intelligentes */}
+      {showSuggestions && suggestedPersonas.length > 0 && (
+        <div className="mb-2 p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2 text-xs text-blue-400">
+              <span>💡</span>
+              <span className="font-medium">Suggestions de personas :</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleDismissSuggestions}
+              className="text-white/40 hover:text-white/60 transition-colors text-xs"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {suggestedPersonas.map((persona) => (
+              <button
+                key={persona.id}
+                type="button"
+                onClick={() => handleAcceptSuggestion(persona)}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 transition-colors text-xs group"
+              >
+                <span>{persona.avatar}</span>
+                <span className="font-medium">{persona.name}</span>
+                <span className="text-white/40 group-hover:text-white/60">+</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Badges des personas sélectionnés */}
+      {selectedPersonas.length > 0 && (
+        <div className="mb-2 flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-purple-400">
+              {selectedPersonas.length === 1 ? 'Persona sélectionné :' : 'Personas sélectionnés :'}
+            </span>
+            {selectedPersonas.map((persona) => (
+              <div
+                key={persona.id}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg bg-purple-500/20"
+              >
+                <span>{persona.avatar}</span>
+                <span className="font-medium">{persona.name}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPersonaIds(selectedPersonaIds.filter(id => id !== persona.id));
+                    if (selectedPersonaIds.length === 1) {
+                      setIncludeMentionFewShots(false);
+                    }
+                  }}
+                  className="ml-1 text-white/60 hover:text-white transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Checkbox pour les few-shots si au moins un persona en a */}
+          {hasAnyFewShots && (
+            <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer hover:text-white/80 transition-colors">
+              <input
+                type="checkbox"
+                checked={includeMentionFewShots}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  console.log('[ChatInput] 📚 Checkbox few-shots changée:', checked);
+                  setIncludeMentionFewShots(checked);
+                }}
+                className="w-3.5 h-3.5 rounded border-white/20 bg-white/5 checked:bg-purple-500"
+              />
+              <span>
+                Inclure les exemples ({totalFewShots} exemples au total)
+              </span>
+            </label>
+          )}
+        </div>
+      )}
+
       <div className="flex items-end gap-3">
         <textarea
           ref={textareaRef}
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={handleMessageChange}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
@@ -91,6 +460,7 @@ export function ChatInput({
       <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
         <span>↵ Entrée pour envoyer</span>
         <span>⇧ + ↵ pour nouvelle ligne</span>
+        <span>@ ou Ctrl+Space pour mentionner un persona</span>
       </div>
     </form>
   );

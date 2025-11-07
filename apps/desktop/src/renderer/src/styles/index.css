@@ -38,10 +38,10 @@
   }
 }
 
-/* Glassmorphism utilities */
+/* Glassmorphism utilities - Optimisés pour réduire la charge GPU */
 @layer utilities {
   .glass {
-    @apply backdrop-blur-xl bg-white/5 border border-white/10;
+    @apply backdrop-blur-md bg-white/5 border border-white/10;
   }
 
   .glass-sm {
@@ -53,11 +53,11 @@
   }
 
   .glass-lg {
-    @apply backdrop-blur-xl bg-white/10 border border-white/20;
+    @apply backdrop-blur-lg bg-white/10 border border-white/20;
   }
 
   .glass-card {
-    @apply backdrop-blur-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/20 shadow-2xl;
+    @apply backdrop-blur-lg bg-gradient-to-br from-white/10 to-white/5 border border-white/20 shadow-2xl;
   }
 
   .glass-hover {
@@ -65,11 +65,11 @@
   }
 
   .glass-sidebar {
-    @apply backdrop-blur-2xl bg-black/40 border-r border-white/10;
+    @apply backdrop-blur-lg bg-black/40 border-r border-white/10;
   }
 
   .glass-nav {
-    @apply backdrop-blur-xl bg-black/30 border-b border-white/10;
+    @apply backdrop-blur-md bg-black/30 border-b border-white/10;
   }
 }
 
@@ -87,9 +87,76 @@
   @apply bg-white/10 rounded-full hover:bg-white/20;
 }
 
-/* Smooth transitions */
-* {
+/* Smooth transitions - appliquées sélectivement pour éviter la surcharge GPU */
+/* NOTE: Ne pas utiliser * { transition } car cela crée une charge GPU énorme */
+button, a, input, select, textarea {
   @apply transition-colors duration-200;
+}
+
+/* S'assurer que les icônes SVG dans les boutons ne bloquent pas les clics */
+button svg {
+  pointer-events: none;
+}
+
+/* S'assurer que tous les boutons sont cliquables sur toute leur surface */
+button {
+  cursor: pointer;
+  position: relative;
+}
+
+/* Classe spéciale pour les boutons du header - garantit une zone cliquable complète */
+.header-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  position: relative !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  height: 40px !important;
+  width: auto !important;
+  padding: 0.5rem !important;
+  border-radius: 0.75rem !important;
+  transition: all 0.2s ease-in-out !important;
+  flex-shrink: 0 !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  touch-action: manipulation !important;
+  border: none !important;
+  outline: none !important;
+  overflow: visible !important;
+  z-index: 10 !important;
+}
+
+.header-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.header-btn:active {
+  transform: scale(0.95) !important;
+}
+
+/* Tous les enfants des boutons header ne capturent pas les événements */
+.header-btn > *,
+.header-btn > * > *,
+.header-btn > * > * > * {
+  pointer-events: none !important;
+}
+
+/* Overlay invisible qui capture TOUS les clics sur toute la surface du bouton */
+.header-btn::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  cursor: pointer !important;
+  z-index: 1 !important;
+  pointer-events: auto !important;
+  background: transparent !important;
 }
 
 /* Background gradient animation */
@@ -140,25 +207,31 @@
 
 /* ===== Appearance Settings CSS ===== */
 
-/* Glass effect variations based on user settings */
+/* Glass effect variations based on user settings - Optimisé pour GPU */
 .glass-subtle .glass,
 .glass-subtle .glass-card,
-.glass-subtle .glass-lg {
+.glass-subtle .glass-lg,
+.glass-subtle .glass-sidebar,
+.glass-subtle .glass-nav {
   backdrop-filter: blur(4px);
   background-color: rgba(255, 255, 255, 0.03);
 }
 
 .glass-medium .glass,
 .glass-medium .glass-card,
-.glass-medium .glass-lg {
-  backdrop-filter: blur(12px);
+.glass-medium .glass-lg,
+.glass-medium .glass-sidebar,
+.glass-medium .glass-nav {
+  backdrop-filter: blur(8px);
   background-color: rgba(255, 255, 255, 0.05);
 }
 
 .glass-intense .glass,
 .glass-intense .glass-card,
-.glass-intense .glass-lg {
-  backdrop-filter: blur(40px);
+.glass-intense .glass-lg,
+.glass-intense .glass-sidebar,
+.glass-intense .glass-nav {
+  backdrop-filter: blur(16px);
   background-color: rgba(255, 255, 255, 0.12);
 }
 
@@ -193,6 +266,47 @@
 .no-animations * {
   animation-duration: 0s !important;
   transition-duration: 0s !important;
+}
+
+/* CRITIQUE: Désactiver aussi backdrop-filter pour réduire la charge GPU */
+html.no-animations * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.no-animations .glass,
+html.no-animations .glass-sm,
+html.no-animations .glass-md,
+html.no-animations .glass-lg,
+html.no-animations .glass-card,
+html.no-animations .glass-sidebar,
+html.no-animations .glass-nav,
+html.no-animations [class*="glass"] {
+  background: rgba(0, 0, 0, 0.85) !important;
+  background-color: rgba(0, 0, 0, 0.85) !important;
+  background-image: none !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Désactivation complète du glassmorphism */
+/* Utiliser une spécificité maximale pour écraser toutes les classes Tailwind */
+html.no-glassmorphism * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.no-glassmorphism .glass,
+html.no-glassmorphism .glass-sm,
+html.no-glassmorphism .glass-md,
+html.no-glassmorphism .glass-lg,
+html.no-glassmorphism .glass-card,
+html.no-glassmorphism .glass-sidebar,
+html.no-glassmorphism .glass-nav,
+html.no-glassmorphism [class*="glass"] {
+  background: rgba(0, 0, 0, 0.95) !important;
+  background-color: rgba(0, 0, 0, 0.95) !important;
+  background-image: none !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
 }
 
 /* Reduced motion for accessibility */

@@ -111,7 +111,7 @@ export function ExportMenu({ messages, conversationTitle = 'Conversation', conve
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+        className="header-btn glass-hover"
         title="Exporter la conversation"
       >
         <Download className="w-5 h-5" />

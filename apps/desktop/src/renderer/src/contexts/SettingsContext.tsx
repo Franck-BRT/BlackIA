@@ -21,6 +21,7 @@ const defaultSettings: AppSettings = {
     fontSize: 'medium',
     density: 'comfortable',
     glassEffect: 'medium',
+    enableGlassmorphism: false, // Désactivé par défaut pour meilleures performances
     animations: true,
     accentColor: 'purple',
     borderRadius: 'medium',
@@ -57,6 +58,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        tags: true,
         appearance: true,
         interface: true,
         notifications: true,
@@ -69,6 +71,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        tags: true,
         appearance: true,
         interface: true,
         notifications: true,
@@ -81,6 +84,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        tags: true,
         appearance: true,
         interface: true,
         notifications: true,
@@ -93,6 +97,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        tags: true,
         appearance: true,
         interface: true,
         notifications: true,
@@ -105,6 +110,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        tags: true,
         appearance: true,
         interface: true,
         notifications: true,
@@ -117,6 +123,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        tags: true,
         appearance: true,
         interface: true,
         notifications: true,
@@ -129,6 +136,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        tags: true,
         appearance: true,
         interface: true,
         notifications: true,
@@ -141,6 +149,7 @@ const defaultSettings: AppSettings = {
         workflows: true,
         prompts: true,
         personas: true,
+        tags: true,
         appearance: true,
         interface: true,
         notifications: true,
@@ -182,6 +191,11 @@ function deepMergeSettings(defaults: AppSettings, stored: Partial<AppSettings>):
   // Merge appearance
   if (stored.appearance) {
     result.appearance = { ...defaults.appearance, ...stored.appearance };
+
+    // Migration: Si enableGlassmorphism n'est pas défini, utiliser le nouveau défaut (false)
+    if (stored.appearance.enableGlassmorphism === undefined) {
+      result.appearance.enableGlassmorphism = false;
+    }
   }
 
   // Merge keyboardShortcuts
