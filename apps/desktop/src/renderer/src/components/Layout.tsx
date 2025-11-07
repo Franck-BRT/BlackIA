@@ -12,9 +12,9 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 animated-gradient">
-      {/* Drag region for window movement - RÉDUIT À 8px pour ne pas bloquer les boutons */}
+      {/* Drag region for window movement - Zone de 40px pour faciliter le déplacement */}
       <div
-        className="absolute top-0 left-0 right-0 h-2 z-50"
+        className="absolute top-0 left-0 right-0 h-10 z-50"
         style={{
           WebkitAppRegion: 'drag',
           userSelect: 'none',
