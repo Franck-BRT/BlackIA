@@ -334,37 +334,53 @@ export function ChatPage() {
   };
 
   // Sélectionner un persona pour la conversation
-  const handleSelectPersona = (persona: Persona | null, includeFewShots: boolean) => {
-    if (!currentConversationId) {
-      alert('Veuillez d\'abord créer ou sélectionner une conversation');
+  const handleSelectPersona = async (persona: Persona | null, includeFewShots: boolean) => {
+    // Si persona est null, on le retire
+    if (!persona) {
+      if (currentConversationId) {
+        updateConversation(currentConversationId, { personaId: undefined });
+        console.log('[ChatPage] 👤 Persona retiré de la conversation');
+      }
       return;
     }
 
-    // Si persona est null, on le retire
-    if (!persona) {
-      updateConversation(currentConversationId, { personaId: undefined });
-      console.log('[ChatPage] 👤 Persona retiré de la conversation');
+    // Déterminer le modèle à utiliser
+    const modelToUse = persona.model || selectedModel;
+
+    // Si pas de modèle sélectionné du tout, demander à l'utilisateur
+    if (!modelToUse) {
+      alert('Veuillez d\'abord sélectionner un modèle');
       return;
     }
 
     // Vérifier si le persona utilise un modèle différent
-    const currentModel = selectedModel;
-    const personaModel = persona.model;
-
-    if (personaModel && personaModel !== currentModel) {
+    if (persona.model && persona.model !== selectedModel) {
       const confirmed = confirm(
-        `Le persona "${persona.name}" utilise le modèle "${personaModel}".\n\n` +
-        `Voulez-vous changer le modèle actuel "${currentModel}" vers "${personaModel}" ?`
+        `Le persona "${persona.name}" utilise le modèle "${persona.model}".\n\n` +
+        `Voulez-vous changer le modèle actuel "${selectedModel || 'aucun'}" vers "${persona.model}" ?`
       );
 
       if (confirmed) {
-        setSelectedModel(personaModel);
-        console.log('[ChatPage] 🔄 Modèle changé:', currentModel, '→', personaModel);
+        setSelectedModel(persona.model);
+        console.log('[ChatPage] 🔄 Modèle changé:', selectedModel, '→', persona.model);
       }
+    } else if (!selectedModel) {
+      // Si aucun modèle n'était sélectionné, utiliser celui du persona ou demander
+      setSelectedModel(modelToUse);
+    }
+
+    // Créer une nouvelle conversation si nécessaire
+    let conversationId = currentConversationId;
+    const isNewConversation = !conversationId || messages.length === 0;
+
+    if (!conversationId) {
+      const newConv = createConversation(modelToUse, `Conversation avec ${persona.name}`);
+      conversationId = newConv.id;
+      console.log('[ChatPage] ✨ Nouvelle conversation créée pour le persona:', conversationId);
     }
 
     // Stocker le persona dans la conversation
-    updateConversation(currentConversationId, { personaId: persona.id });
+    updateConversation(conversationId, { personaId: persona.id });
 
     // Stocker les préférences few-shots dans chatSettings (temporaire pour cette session)
     setChatSettings(prev => ({
@@ -373,6 +389,67 @@ export function ChatPage() {
     }));
 
     console.log('[ChatPage] 👤 Persona appliqué:', persona.name, 'Few-shots:', includeFewShots);
+
+    // Si c'est une nouvelle conversation, générer un message de bienvenue
+    if (isNewConversation) {
+      await generatePersonaWelcomeMessage(persona, includeFewShots, modelToUse);
+    }
+  };
+
+  // Générer un message de bienvenue du persona
+  const generatePersonaWelcomeMessage = async (persona: Persona, includeFewShots: boolean, model: string) => {
+    try {
+      console.log('[ChatPage] 💬 Génération du message de bienvenue du persona');
+
+      // Construire le prompt système pour le persona
+      let systemPrompt = persona.systemPrompt;
+
+      if (includeFewShots && persona.fewShotExamples?.length) {
+        const fewShotsText = persona.fewShotExamples
+          .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
+          .join('\n\n');
+        systemPrompt += '\n\nExemples:\n' + fewShotsText;
+      }
+
+      // Message demandant à l'IA de se présenter
+      const welcomePrompt: OllamaMessage = {
+        role: 'user',
+        content: 'Bonjour ! Peux-tu te présenter brièvement et m\'expliquer comment tu peux m\'aider ?',
+      };
+
+      const messagesToSend: OllamaMessage[] = [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+        welcomePrompt,
+      ];
+
+      // Ajouter le message utilisateur à l'historique
+      setMessages([welcomePrompt]);
+
+      // Envoyer la requête de chat avec streaming
+      await window.electronAPI.ollama.chatStream({
+        model,
+        messages: messagesToSend,
+        stream: true,
+        options: {
+          temperature: persona.temperature ?? chatSettings.temperature,
+          num_ctx: persona.maxTokens ?? chatSettings.maxTokens,
+          top_p: chatSettings.topP,
+        },
+      });
+
+      console.log('[ChatPage] ✅ Message de bienvenue généré');
+    } catch (error: any) {
+      console.error('[ChatPage] ❌ Erreur génération message de bienvenue:', error);
+
+      const errorMessage: OllamaMessage = {
+        role: 'system',
+        content: `❌ Erreur lors de la génération du message de bienvenue: ${error.message || 'Erreur inconnue'}`,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
   };
 
   // Charger une conversation
@@ -883,7 +960,7 @@ export function ChatPage() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center flex-shrink-0 p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
               title={isSidebarOpen ? 'Masquer la sidebar' : 'Afficher la sidebar'}
             >
               <Menu className="w-5 h-5" />
@@ -894,7 +971,7 @@ export function ChatPage() {
             {/* Persona Selection Button */}
             <button
               onClick={() => setIsPersonaModalOpen(true)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all ${
+              className={`flex items-center justify-center flex-shrink-0 gap-2 px-3 py-2 rounded-xl transition-all ${
                 currentPersona
                   ? 'glass-card border border-white/20'
                   : 'glass-hover hover:bg-white/10'
@@ -906,7 +983,7 @@ export function ChatPage() {
                   <div
                     className={`w-6 h-6 rounded-lg bg-gradient-to-br ${
                       PERSONA_COLOR_CLASSES[currentPersona.color] || PERSONA_COLOR_CLASSES.purple
-                    } flex items-center justify-center text-sm`}
+                    } flex items-center justify-center text-sm flex-shrink-0`}
                   >
                     {currentPersona.avatar}
                   </div>
@@ -914,7 +991,7 @@ export function ChatPage() {
                 </>
               ) : (
                 <>
-                  <User className="w-5 h-5" />
+                  <User className="w-5 h-5 flex-shrink-0" />
                   <span className="text-sm">Persona</span>
                 </>
               )}
@@ -944,28 +1021,28 @@ export function ChatPage() {
             />
             <button
               onClick={() => setIsStatisticsModalOpen(true)}
-              className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center flex-shrink-0 p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
               title="Statistiques d'utilisation (Ctrl+Shift+S)"
             >
               <BarChart3 className="w-5 h-5" />
             </button>
             <button
               onClick={() => setIsChatSearchOpen(true)}
-              className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center flex-shrink-0 p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
               title="Rechercher dans la conversation (Ctrl+F)"
             >
               <Search className="w-5 h-5" />
             </button>
             <button
               onClick={handleClearChat}
-              className="p-2 rounded-xl glass-hover hover:bg-red-500/20 transition-colors"
+              className="flex items-center justify-center flex-shrink-0 p-2 rounded-xl glass-hover hover:bg-red-500/20 transition-colors"
               title="Effacer la conversation"
             >
               <Trash2 className="w-5 h-5 text-red-400" />
             </button>
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
+              className="flex items-center justify-center flex-shrink-0 p-2 rounded-xl glass-hover hover:bg-white/10 transition-colors"
               title="Paramètres du Chat"
             >
               <Settings className="w-5 h-5" />
