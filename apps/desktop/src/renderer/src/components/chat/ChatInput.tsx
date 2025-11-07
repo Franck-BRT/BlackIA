@@ -173,8 +173,9 @@ export function ChatInput({
   useEffect(() => {
     if (selectedPersonaId) {
       console.log('[ChatInput] 🎭 Persona trouvé pour affichage:', selectedPersona?.name || 'NON TROUVÉ');
+      console.log('[ChatInput] 📚 État includeMentionFewShots:', includeMentionFewShots);
     }
-  }, [selectedPersona, selectedPersonaId]);
+  }, [selectedPersona, selectedPersonaId, includeMentionFewShots]);
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="glass-card rounded-2xl p-4 relative">
@@ -216,7 +217,11 @@ export function ChatInput({
               <input
                 type="checkbox"
                 checked={includeMentionFewShots}
-                onChange={(e) => setIncludeMentionFewShots(e.target.checked)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  console.log('[ChatInput] 📚 Checkbox few-shots changée:', checked);
+                  setIncludeMentionFewShots(checked);
+                }}
                 className="w-3.5 h-3.5 rounded border-white/20 bg-white/5 checked:bg-purple-500"
               />
               <span>

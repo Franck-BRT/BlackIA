@@ -495,7 +495,9 @@ export function ChatPage() {
     }
   };
 
-  const handleSendMessage = async (content: string, mentionedPersonaId?: string, includeMentionFewShots?: boolean) => {
+  const handleSendMessage = async (content: string, mentionedPersonaId?: string, includeMentionFewShots: boolean = false) => {
+    console.log('[ChatPage] 📥 handleSendMessage reçu:', { mentionedPersonaId, includeMentionFewShots });
+
     if (!selectedModel) {
       alert('Veuillez sélectionner un modèle');
       return;
@@ -561,6 +563,14 @@ export function ChatPage() {
         const shouldIncludeFewShots = mentionedPersona
           ? includeMentionFewShots
           : chatSettings.includeFewShots;
+
+        console.log('[ChatPage] 🔍 Vérification few-shots:', {
+          mentionedPersona: mentionedPersona?.name,
+          includeMentionFewShots,
+          'chatSettings.includeFewShots': chatSettings.includeFewShots,
+          shouldIncludeFewShots,
+          'personaToUse.fewShotExamples?.length': personaToUse.fewShotExamples?.length,
+        });
 
         if (shouldIncludeFewShots && personaToUse.fewShotExamples?.length) {
           const fewShotsText = personaToUse.fewShotExamples
