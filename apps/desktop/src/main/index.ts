@@ -6,6 +6,7 @@ import { PersonaService } from './services/persona-service';
 import { syncPersonaTags } from './services/tag-sync-service';
 import { personaSuggestionService } from './services/persona-suggestion-service';
 import './handlers/persona-suggestion-handlers';
+import { initDatabase, runMigrations } from './database/client';
 
 // __dirname and __filename are available in CommonJS mode
 
@@ -50,6 +51,14 @@ function createWindow() {
 // App lifecycle
 app.whenReady().then(async () => {
   try {
+    // Initialiser la base de données SQLite
+    console.log('[App] Initializing database...');
+    initDatabase();
+
+    // Lancer les migrations
+    console.log('[App] Running database migrations...');
+    runMigrations();
+
     // Initialiser le service personas
     console.log('[App] Initializing PersonaService...');
     await PersonaService.initialize();

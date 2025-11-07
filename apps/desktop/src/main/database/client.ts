@@ -66,18 +66,100 @@ export function runMigrations() {
 
     const migrationsFolder = path.join(__dirname, 'migrations');
 
-    // Créer le dossier migrations s'il n'existe pas
-    if (!fs.existsSync(migrationsFolder)) {
-      fs.mkdirSync(migrationsFolder, { recursive: true });
+    // Vérifier si les fichiers de migration existent
+    const hasMigrations = fs.existsSync(migrationsFolder) &&
+                          fs.readdirSync(migrationsFolder).some(f => f.endsWith('.sql'));
+
+    if (hasMigrations) {
+      migrate(dbInstance, { migrationsFolder });
+      console.log('[Database] Migrations completed successfully');
+    } else {
+      console.log('[Database] No migration files found, creating tables directly...');
+      createTablesDirectly();
     }
-
-    migrate(dbInstance, { migrationsFolder });
-
-    console.log('[Database] Migrations completed successfully');
   } catch (error) {
     console.error('[Database] Migration failed:', error);
-    throw error;
+    console.log('[Database] Falling back to direct table creation...');
+    try {
+      createTablesDirectly();
+    } catch (fallbackError) {
+      console.error('[Database] Fallback table creation also failed:', fallbackError);
+      throw fallbackError;
+    }
   }
+}
+
+/**
+ * Crée les tables directement via SQL
+ * Utilisé comme fallback si les migrations ne sont pas disponibles
+ */
+function createTablesDirectly() {
+  if (!dbInstance) {
+    throw new Error('Database not initialized');
+  }
+
+  const db = (dbInstance as any)._.session.db as Database.Database;
+
+  // Créer les tables si elles n'existent pas
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS personas (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      system_prompt TEXT NOT NULL,
+      model TEXT,
+      temperature REAL,
+      max_tokens INTEGER,
+      avatar TEXT NOT NULL,
+      color TEXT NOT NULL,
+      category TEXT,
+      tags TEXT NOT NULL DEFAULT '[]',
+      is_default INTEGER NOT NULL DEFAULT 0,
+      is_favorite INTEGER NOT NULL DEFAULT 0,
+      usage_count INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS folders (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      color TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS conversations (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      persona_id TEXT REFERENCES personas(id) ON DELETE SET NULL,
+      folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL,
+      tags TEXT NOT NULL DEFAULT '[]',
+      is_favorite INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
+      content TEXT NOT NULL,
+      images TEXT,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS persona_suggestion_keywords (
+      id TEXT PRIMARY KEY,
+      keyword TEXT NOT NULL,
+      categories TEXT NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      is_default INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+  `);
+
+  console.log('[Database] Tables created successfully');
 }
 
 /**
