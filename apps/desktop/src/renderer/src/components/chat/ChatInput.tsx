@@ -30,6 +30,8 @@ export function ChatInput({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled && !isGenerating) {
+      console.log('[ChatInput] 📤 Envoi du message avec personaId:', selectedPersonaId);
+
       // Si un persona a été sélectionné via @mention, on l'envoie avec le message
       onSend(message.trim(), selectedPersonaId);
       setMessage('');
@@ -67,19 +69,22 @@ export function ChatInput({
 
     // Détecter @mention au début du message
     if (newMessage.startsWith('@')) {
+      // Si un persona était déjà sélectionné et qu'on retape @, on le réinitialise
+      if (selectedPersonaId) {
+        setSelectedPersonaId(undefined);
+      }
       setShowMentionDropdown(true);
       setMentionQuery(newMessage.slice(1)); // Extraire la requête après @
     } else {
       setShowMentionDropdown(false);
       setMentionQuery('');
-      // Si on n'a plus de @, on réinitialise la sélection
-      if (selectedPersonaId && !newMessage.includes('@')) {
-        setSelectedPersonaId(undefined);
-      }
+      // NE PAS réinitialiser selectedPersonaId ici - il reste actif jusqu'à l'envoi
     }
   };
 
   const handlePersonaSelect = (persona: Persona) => {
+    console.log('[ChatInput] 📧 Persona sélectionné via @mention:', persona.name, persona.id);
+
     // Remplacer @query par le message sans @mention
     const messageWithoutMention = message.replace(/^@[^\s]*/, '').trim();
     setMessage(messageWithoutMention);
@@ -106,10 +111,25 @@ export function ChatInput({
     }
   }, [message]);
 
+  // Debug: Logger quand le persona sélectionné change
+  useEffect(() => {
+    if (selectedPersonaId) {
+      console.log('[ChatInput] 🔍 selectedPersonaId changé:', selectedPersonaId);
+      console.log('[ChatInput] 📋 Nombre de personas disponibles:', personas.length);
+    }
+  }, [selectedPersonaId, personas]);
+
   // Trouver le persona sélectionné pour l'afficher
   const selectedPersona = selectedPersonaId
     ? personas.find(p => p.id === selectedPersonaId)
     : undefined;
+
+  // Debug: Logger si le persona est trouvé
+  useEffect(() => {
+    if (selectedPersonaId) {
+      console.log('[ChatInput] 🎭 Persona trouvé pour affichage:', selectedPersona?.name || 'NON TROUVÉ');
+    }
+  }, [selectedPersona, selectedPersonaId]);
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="glass-card rounded-2xl p-4 relative">
