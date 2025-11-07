@@ -495,7 +495,7 @@ export function ChatPage() {
     }
   };
 
-  const handleSendMessage = async (content: string, mentionedPersonaId?: string) => {
+  const handleSendMessage = async (content: string, mentionedPersonaId?: string, includeMentionFewShots?: boolean) => {
     if (!selectedModel) {
       alert('Veuillez sélectionner un modèle');
       return;
@@ -555,13 +555,24 @@ export function ChatPage() {
         systemPromptToUse = personaToUse.systemPrompt;
         console.log('[ChatPage] 📝 Utilisation du system prompt du persona:', personaToUse.name);
 
-        // Ajouter les few-shots si demandé (seulement pour persona global, pas @mention)
-        if (!mentionedPersona && chatSettings.includeFewShots && personaToUse.fewShotExamples?.length) {
+        // Ajouter les few-shots si demandé
+        // Pour persona global: utiliser chatSettings.includeFewShots
+        // Pour @mention: utiliser includeMentionFewShots
+        const shouldIncludeFewShots = mentionedPersona
+          ? includeMentionFewShots
+          : chatSettings.includeFewShots;
+
+        if (shouldIncludeFewShots && personaToUse.fewShotExamples?.length) {
           const fewShotsText = personaToUse.fewShotExamples
             .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
             .join('\n\n');
           systemPromptToUse += '\n\nExemples:\n' + fewShotsText;
-          console.log('[ChatPage] 📚 Few-shots ajoutés:', personaToUse.fewShotExamples.length, 'exemples');
+          console.log(
+            '[ChatPage] 📚 Few-shots ajoutés:',
+            personaToUse.fewShotExamples.length,
+            'exemples',
+            mentionedPersona ? '(@mention)' : '(global)'
+          );
         }
       } else if (chatSettings.systemPrompt.trim()) {
         systemPromptToUse = chatSettings.systemPrompt;
@@ -581,12 +592,30 @@ export function ChatPage() {
       const temperature = personaToUse?.temperature ?? chatSettings.temperature;
       const maxTokens = personaToUse?.maxTokens ?? chatSettings.maxTokens;
 
-      console.log('[ChatPage] ⚙️ Paramètres:', { temperature, maxTokens });
+      // Déterminer le modèle à utiliser
+      // Priorité: Modèle du persona mentionné > Modèle du persona global > Modèle sélectionné
+      let modelToUse = selectedModel;
+      if (personaToUse?.model) {
+        modelToUse = personaToUse.model;
+        if (modelToUse !== selectedModel) {
+          console.log(
+            '[ChatPage] 🔄 Utilisation du modèle du persona:',
+            modelToUse,
+            '(au lieu de',
+            selectedModel + ')'
+          );
+          if (mentionedPersona) {
+            console.log('[ChatPage] 💡 @mention utilise automatiquement le modèle configuré du persona');
+          }
+        }
+      }
+
+      console.log('[ChatPage] ⚙️ Paramètres:', { model: modelToUse, temperature, maxTokens });
 
       // Envoyer la requête de chat avec streaming
       // Le streamId sera défini par le listener onStreamStart
       await window.electronAPI.ollama.chatStream({
-        model: selectedModel,
+        model: modelToUse,
         messages: messagesToSend,
         stream: true,
         options: {
