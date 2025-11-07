@@ -470,7 +470,7 @@ export function ChatPage() {
     }
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, mentionedPersonaId?: string) => {
     if (!selectedModel) {
       alert('Veuillez sélectionner un modèle');
       return;
@@ -493,26 +493,35 @@ export function ChatPage() {
     try {
       console.log('[ChatPage] 📤 Envoi du message au backend');
       console.log('[ChatPage] 📋 Settings:', chatSettings);
-      console.log('[ChatPage] 👤 Persona actuel:', currentPersona?.name || 'aucun');
+      console.log('[ChatPage] 👤 Persona global:', currentPersona?.name || 'aucun');
+
+      // Déterminer quel persona utiliser
+      // Priorité: Persona mentionné (@mention) > Persona global > Aucun
+      const mentionedPersona = mentionedPersonaId ? personas.find(p => p.id === mentionedPersonaId) : null;
+      const personaToUse = mentionedPersona || currentPersona;
+
+      if (mentionedPersona) {
+        console.log('[ChatPage] 📧 Persona mentionné (@mention):', mentionedPersona.name);
+      }
 
       // Construire la liste des messages avec le system prompt
       const messagesToSend: OllamaMessage[] = [];
 
-      // Priorité 1: System prompt du persona (si présent)
+      // Priorité 1: System prompt du persona (mentionné ou global)
       // Priorité 2: System prompt des settings
       let systemPromptToUse = '';
 
-      if (currentPersona?.systemPrompt) {
-        systemPromptToUse = currentPersona.systemPrompt;
-        console.log('[ChatPage] 📝 Utilisation du system prompt du persona');
+      if (personaToUse?.systemPrompt) {
+        systemPromptToUse = personaToUse.systemPrompt;
+        console.log('[ChatPage] 📝 Utilisation du system prompt du persona:', personaToUse.name);
 
-        // Ajouter les few-shots si demandé
-        if (chatSettings.includeFewShots && currentPersona.fewShotExamples?.length) {
-          const fewShotsText = currentPersona.fewShotExamples
+        // Ajouter les few-shots si demandé (seulement pour persona global, pas @mention)
+        if (!mentionedPersona && chatSettings.includeFewShots && personaToUse.fewShotExamples?.length) {
+          const fewShotsText = personaToUse.fewShotExamples
             .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
             .join('\n\n');
           systemPromptToUse += '\n\nExemples:\n' + fewShotsText;
-          console.log('[ChatPage] 📚 Few-shots ajoutés:', currentPersona.fewShotExamples.length, 'exemples');
+          console.log('[ChatPage] 📚 Few-shots ajoutés:', personaToUse.fewShotExamples.length, 'exemples');
         }
       } else if (chatSettings.systemPrompt.trim()) {
         systemPromptToUse = chatSettings.systemPrompt;
@@ -529,8 +538,8 @@ export function ChatPage() {
       messagesToSend.push(...messages, userMessage);
 
       // Déterminer les paramètres à utiliser (persona ou settings)
-      const temperature = currentPersona?.temperature ?? chatSettings.temperature;
-      const maxTokens = currentPersona?.maxTokens ?? chatSettings.maxTokens;
+      const temperature = personaToUse?.temperature ?? chatSettings.temperature;
+      const maxTokens = personaToUse?.maxTokens ?? chatSettings.maxTokens;
 
       console.log('[ChatPage] ⚙️ Paramètres:', { temperature, maxTokens });
 
@@ -1142,9 +1151,10 @@ export function ChatPage() {
               isGenerating={isGenerating}
               placeholder={
                 selectedModel
-                  ? 'Tapez votre message...'
+                  ? 'Tapez votre message... (@ pour mentionner un persona)'
                   : 'Sélectionnez d\'abord un modèle...'
               }
+              personas={personas}
             />
           </div>
         </div>
