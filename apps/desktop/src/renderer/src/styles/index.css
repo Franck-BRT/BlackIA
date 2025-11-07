@@ -203,29 +203,44 @@ button, a, input, select, textarea {
 }
 
 /* CRITIQUE: Désactiver aussi backdrop-filter pour réduire la charge GPU */
-.no-animations .glass,
-.no-animations .glass-sm,
-.no-animations .glass-md,
-.no-animations .glass-lg,
-.no-animations .glass-card,
-.no-animations .glass-sidebar,
-.no-animations .glass-nav {
+html.no-animations * {
   backdrop-filter: none !important;
-  background-color: rgba(0, 0, 0, 0.85) !important; /* Fallback opaque */
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.no-animations .glass,
+html.no-animations .glass-sm,
+html.no-animations .glass-md,
+html.no-animations .glass-lg,
+html.no-animations .glass-card,
+html.no-animations .glass-sidebar,
+html.no-animations .glass-nav,
+html.no-animations [class*="glass"] {
+  background: rgba(0, 0, 0, 0.85) !important;
+  background-color: rgba(0, 0, 0, 0.85) !important;
+  background-image: none !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
 }
 
 /* Désactivation complète du glassmorphism */
-.no-glassmorphism .glass,
-.no-glassmorphism .glass-sm,
-.no-glassmorphism .glass-md,
-.no-glassmorphism .glass-lg,
-.no-glassmorphism .glass-card,
-.no-glassmorphism .glass-sidebar,
-.no-glassmorphism .glass-nav {
+/* Utiliser une spécificité maximale pour écraser toutes les classes Tailwind */
+html.no-glassmorphism * {
   backdrop-filter: none !important;
-  background-color: rgba(0, 0, 0, 0.9) !important; /* Background solide et opaque */
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.no-glassmorphism .glass,
+html.no-glassmorphism .glass-sm,
+html.no-glassmorphism .glass-md,
+html.no-glassmorphism .glass-lg,
+html.no-glassmorphism .glass-card,
+html.no-glassmorphism .glass-sidebar,
+html.no-glassmorphism .glass-nav,
+html.no-glassmorphism [class*="glass"] {
+  background: rgba(0, 0, 0, 0.95) !important;
+  background-color: rgba(0, 0, 0, 0.95) !important;
+  background-image: none !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
 }
 
 /* Reduced motion for accessibility */

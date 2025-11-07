@@ -183,6 +183,12 @@ function deepMergeSettings(defaults: AppSettings, stored: Partial<AppSettings>):
   // Merge appearance
   if (stored.appearance) {
     result.appearance = { ...defaults.appearance, ...stored.appearance };
+
+    // Migration: Si enableGlassmorphism n'est pas défini, utiliser le nouveau défaut (false)
+    if (stored.appearance.enableGlassmorphism === undefined) {
+      result.appearance.enableGlassmorphism = false;
+      console.log('[SettingsContext] Migration: enableGlassmorphism not defined, setting to false');
+    }
   }
 
   // Merge keyboardShortcuts
