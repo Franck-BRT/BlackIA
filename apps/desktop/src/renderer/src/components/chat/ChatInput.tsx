@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Square } from 'lucide-react';
 import { PersonaMentionDropdown } from './PersonaMentionDropdown';
 import type { Persona } from '../../types/persona';
+import { useSettings } from '../../contexts/SettingsContext';
+import { usePersonaSuggestions } from '../../hooks/usePersonaSuggestions';
 
 interface ChatInputProps {
   onSend: (message: string, personaIds?: string[], includeFewShots?: boolean) => void;
@@ -32,6 +34,15 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // Charger les paramètres et keywords de suggestions
+  const { settings } = useSettings();
+  const { keywords: allKeywords } = usePersonaSuggestions();
+
+  // Filtrer uniquement les keywords actifs si nécessaire
+  const activeKeywords = settings.personaSuggestions.showOnlyActive
+    ? allKeywords.filter(k => k.isActive)
+    : allKeywords;
+
   /**
    * Extrait tous les @mentions du texte et retourne les IDs des personas correspondants
    */
@@ -55,62 +66,24 @@ export function ChatInput({
 
   /**
    * Suggestions intelligentes : détecte des mots-clés et suggère des personas pertinents
+   * Utilise désormais la configuration dynamique depuis la base de données
    */
   const suggestPersonasFromText = (text: string): Persona[] => {
+    // Vérifier si les suggestions sont activées
+    if (!settings.personaSuggestions.enabled) {
+      return [];
+    }
+
     const lowerText = text.toLowerCase();
     const suggestions: Persona[] = [];
 
-    // Mapping de mots-clés vers catégories de personas
-    const keywordMapping: Record<string, string[]> = {
-      // Développement & Code
-      'code': ['Développement', 'Technique', 'Code'],
-      'bug': ['Développement', 'Technique', 'Debugger'],
-      'erreur': ['Développement', 'Technique', 'Debugger'],
-      'debug': ['Développement', 'Technique', 'Debugger'],
-      'optimis': ['Développement', 'Technique', 'Performance'],
-      'performance': ['Développement', 'Technique', 'Performance'],
-      'test': ['Développement', 'Technique', 'QA'],
-      'fonction': ['Développement', 'Technique'],
-      'algorithm': ['Développement', 'Technique'],
-
-      // Créativité
-      'créat': ['Créatif', 'Design'],
-      'créer': ['Créatif', 'Design'],
-      'design': ['Créatif', 'Design'],
-      'idée': ['Créatif', 'Brainstorming'],
-      'innov': ['Créatif', 'Innovation'],
-      'imagine': ['Créatif', 'Storytelling'],
-      'histoire': ['Créatif', 'Storytelling'],
-
-      // Analyse & Stratégie
-      'analys': ['Analyse', 'Stratégie'],
-      'stratég': ['Stratégie', 'Business'],
-      'décision': ['Stratégie', 'Analyse'],
-      'données': ['Analyse', 'Data'],
-      'statistique': ['Analyse', 'Data'],
-
-      // Éducation & Explication
-      'expliqu': ['Éducation', 'Pédagogie'],
-      'apprend': ['Éducation', 'Pédagogie'],
-      'enseign': ['Éducation', 'Pédagogie'],
-      'comment': ['Éducation', 'Tutoriel'],
-      'tutoriel': ['Éducation', 'Tutoriel'],
-
-      // Rédaction & Communication
-      'écri': ['Rédaction', 'Communication'],
-      'rédige': ['Rédaction', 'Communication'],
-      'article': ['Rédaction', 'Content'],
-      'document': ['Rédaction', 'Documentation'],
-      'communiqu': ['Communication', 'Marketing'],
-    };
-
-    // Chercher des mots-clés dans le texte
-    for (const [keyword, categories] of Object.entries(keywordMapping)) {
-      if (lowerText.includes(keyword)) {
+    // Chercher des mots-clés dans le texte à partir de la configuration
+    for (const keywordData of activeKeywords) {
+      if (lowerText.includes(keywordData.keyword.toLowerCase())) {
         // Trouver les personas qui correspondent aux catégories
-        for (const category of categories) {
+        for (const category of keywordData.categories) {
           const matchingPersonas = personas.filter(p =>
-            p.category?.toLowerCase().includes(category.toLowerCase()) &&
+            p.category?.toLowerCase() === category.toLowerCase() &&
             !suggestions.some(s => s.id === p.id) &&
             !selectedPersonaIds.includes(p.id)
           );
@@ -119,8 +92,8 @@ export function ChatInput({
       }
     }
 
-    // Limiter à 3 suggestions max
-    return suggestions.slice(0, 3);
+    // Limiter au nombre max configuré
+    return suggestions.slice(0, settings.personaSuggestions.maxSuggestions);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -240,8 +213,9 @@ export function ChatInput({
       setMentionQuery('');
 
       // Suggestions intelligentes : analyser le texte après un court délai
-      // Seulement si le message a plus de 10 caractères et pas de @mention active
-      if (newMessage.length >= 10 && !newMessage.includes('@')) {
+      // Seulement si le message dépasse le seuil minimum de caractères et pas de @mention active
+      const minChars = settings.personaSuggestions.minCharacters;
+      if (settings.personaSuggestions.enabled && newMessage.length >= minChars && !newMessage.includes('@')) {
         const suggestions = suggestPersonasFromText(newMessage);
         if (suggestions.length > 0) {
           setSuggestedPersonas(suggestions);

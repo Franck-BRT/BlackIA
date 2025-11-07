@@ -182,10 +182,19 @@ export interface KeyboardShortcut {
   enabled: boolean;
 }
 
+// Persona suggestions settings
+export interface PersonaSuggestionSettings {
+  enabled: boolean; // Activer/désactiver les suggestions
+  maxSuggestions: number; // Nombre maximum de suggestions à afficher
+  minCharacters: number; // Nombre minimum de caractères avant de suggérer
+  showOnlyActive: boolean; // Ne montrer que les keywords actifs
+}
+
 // Complete settings structure
 export interface AppSettings {
   general: GeneralSettings;
   appearance: AppearanceSettings;
   keyboardShortcuts: KeyboardShortcut[];
   interface: InterfaceSettings;
+  personaSuggestions: PersonaSuggestionSettings;
 }
