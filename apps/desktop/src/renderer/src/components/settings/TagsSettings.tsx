@@ -29,6 +29,17 @@ export function TagsSettings({
     null
   );
 
+  // Debug: Log loaded data
+  console.log('[TagsSettings] Loaded data:', {
+    tagsCount: tags.length,
+    tags: tags.map(t => t.name),
+    personasCount: personas.length,
+    personas: personas.map(p => ({
+      name: p.name,
+      tags: p.tags,
+    })),
+  });
+
   // Calculer les statistiques par tag
   const tagStats = tags.map((tag) => {
     // Compter les conversations avec ce tag
@@ -38,11 +49,34 @@ export function TagsSettings({
     const personaCount = personas.filter((persona) => {
       try {
         const personaTags: string[] = JSON.parse(persona.tags || '[]');
-        return personaTags.some((tagName) => tagName.toLowerCase() === tag.name.toLowerCase());
-      } catch {
+
+        // Normaliser le nom du tag global pour la comparaison
+        const normalizedTagName = tag.name.toLowerCase().trim();
+
+        const hasTag = personaTags.some((tagName) => {
+          // Vérifier que c'est bien une string et normaliser
+          if (typeof tagName !== 'string') return false;
+          const normalizedPersonaTag = tagName.toLowerCase().trim();
+
+          const matches = normalizedPersonaTag === normalizedTagName;
+
+          // Debug logging
+          if (matches) {
+            console.log(`[TagsSettings] Match found: tag="${tag.name}" persona="${persona.name}" personaTag="${tagName}"`);
+          }
+
+          return matches;
+        });
+
+        return hasTag;
+      } catch (error) {
+        console.error(`[TagsSettings] Error parsing tags for persona ${persona.name}:`, error);
         return false;
       }
     }).length;
+
+    // Log final count for each tag
+    console.log(`[TagsSettings] Tag "${tag.name}": ${personaCount} personas, ${conversationCount} conversations`);
 
     return {
       ...tag,
