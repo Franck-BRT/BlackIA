@@ -187,7 +187,6 @@ function deepMergeSettings(defaults: AppSettings, stored: Partial<AppSettings>):
     // Migration: Si enableGlassmorphism n'est pas défini, utiliser le nouveau défaut (false)
     if (stored.appearance.enableGlassmorphism === undefined) {
       result.appearance.enableGlassmorphism = false;
-      console.log('[SettingsContext] Migration: enableGlassmorphism not defined, setting to false');
     }
   }
 
