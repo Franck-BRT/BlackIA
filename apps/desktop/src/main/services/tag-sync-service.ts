@@ -114,6 +114,13 @@ export async function syncPersonaTags(): Promise<void> {
     try {
       const tagsContent = await fs.readFile(TAGS_FILE, 'utf-8');
       existingTags = JSON.parse(tagsContent);
+
+      // Nettoyer les tags orphelins (dont le nom est l'ID)
+      const orphanCount = existingTags.filter(t => t.name.startsWith('tag-')).length;
+      if (orphanCount > 0) {
+        existingTags = existingTags.filter(t => !t.name.startsWith('tag-'));
+        console.log(`[TagSyncService] Nettoyé ${orphanCount} tags orphelins`);
+      }
     } catch (error) {
       console.log('[TagSyncService] Aucun fichier tags.json trouvé, création...');
     }

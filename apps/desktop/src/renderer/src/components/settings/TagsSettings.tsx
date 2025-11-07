@@ -29,8 +29,11 @@ export function TagsSettings({
     null
   );
 
+  // Filtrer les tags orphelins (dont le nom est l'ID)
+  const validTags = tags.filter((tag) => !tag.name.startsWith('tag-'));
+
   // Calculer les statistiques par tag
-  const tagStats = tags.map((tag) => {
+  const tagStats = validTags.map((tag) => {
     // Compter les conversations avec ce tag
     const conversationCount = conversations.filter((conv) => conv.tagIds?.includes(tag.id)).length;
 
@@ -139,7 +142,7 @@ export function TagsSettings({
             <Tag className="w-6 h-6 text-purple-400" />
           </div>
           <div>
-            <div className="text-3xl font-bold">{tags.length}</div>
+            <div className="text-3xl font-bold">{validTags.length}</div>
             <div className="text-sm text-muted-foreground">Tags créés</div>
           </div>
         </div>

@@ -26,6 +26,15 @@ export function useTags() {
         if (stored) {
           localTags = JSON.parse(stored) as Tag[];
           console.log('[useTags] Chargé', localTags.length, 'tags depuis localStorage');
+
+          // Nettoyer les tags orphelins (dont le nom est l'ID)
+          const orphanCount = localTags.filter((t) => t.name.startsWith('tag-')).length;
+          if (orphanCount > 0) {
+            localTags = localTags.filter((t) => !t.name.startsWith('tag-'));
+            console.log('[useTags] Nettoyé', orphanCount, 'tags orphelins');
+            // Sauvegarder les tags nettoyés
+            localStorage.setItem(TAGS_STORAGE_KEY, JSON.stringify(localTags));
+          }
         }
 
         // 2. Charger les tags synchronisés depuis le backend (personas)
@@ -34,9 +43,12 @@ export function useTags() {
           if (result.success && result.data && result.data.length > 0) {
             console.log('[useTags] Chargé', result.data.length, 'tags synchronisés depuis le backend');
 
+            // Nettoyer aussi les tags orphelins du backend
+            const backendTags = (result.data as Tag[]).filter((t) => !t.name.startsWith('tag-'));
+
             // 3. Fusionner les tags - éviter les duplicates par ID
             const existingIds = new Set(localTags.map((t) => t.id));
-            const newTags = result.data.filter((t: Tag) => !existingIds.has(t.id));
+            const newTags = backendTags.filter((t: Tag) => !existingIds.has(t.id));
 
             if (newTags.length > 0) {
               console.log('[useTags] Fusion de', newTags.length, 'nouveaux tags depuis le backend');
