@@ -25,23 +25,29 @@ export function PersonaCard({
   const { tags: allTags } = useTags();
 
   // Parser les tags JSON
-  let tags: string[] = [];
+  let rawTags: string[] = [];
   try {
-    tags = JSON.parse(persona.tags);
+    rawTags = JSON.parse(persona.tags);
   } catch (e) {
     // Ignore parsing errors
   }
 
   // Fonction pour résoudre un tag (ID ou nom) vers son nom lisible
-  const resolveTagName = (tagValue: string): string => {
+  // Retourne null si le tag n'existe pas (pour pouvoir le filtrer)
+  const resolveTagName = (tagValue: string): string | null => {
     // Si c'est un ID (commence par "tag-"), chercher le nom
     if (tagValue.startsWith('tag-')) {
       const tag = allTags.find((t) => t.id === tagValue);
-      return tag ? tag.name : tagValue;
+      return tag ? tag.name : null; // Retourner null si non trouvé
     }
     // Sinon, c'est déjà un nom
     return tagValue;
   };
+
+  // Résoudre tous les tags et filtrer ceux qui n'existent plus
+  const tags = rawTags
+    .map(resolveTagName)
+    .filter((name): name is string => name !== null);
 
   return (
     <div className="glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative">
