@@ -42,9 +42,12 @@ export function useModels(): UseModelsResult {
       console.log('[useModels] Récupération de la liste des modèles...');
       const response = await window.electronAPI.ollama.listModels();
       console.log('[useModels] Réponse listModels:', response);
-      console.log('[useModels] Nombre de modèles:', response?.models?.length || 0);
 
-      setModels(response.models || []);
+      // La réponse peut être soit un tableau directement, soit un objet { models: [...] }
+      const modelsList = Array.isArray(response) ? response : (response?.models || []);
+      console.log('[useModels] Nombre de modèles:', modelsList.length);
+
+      setModels(modelsList);
     } catch (err: any) {
       console.error('[useModels] Erreur lors du chargement des modèles:', err);
       setError(err.message || 'Erreur lors du chargement des modèles');
