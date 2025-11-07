@@ -27,6 +27,8 @@ export function ChatInput({
   const [includeMentionFewShots, setIncludeMentionFewShots] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number }>({ top: -420, left: 0 });
   const [currentMentionPosition, setCurrentMentionPosition] = useState<number>(0); // Position du curseur lors de @mention
+  const [suggestedPersonas, setSuggestedPersonas] = useState<Persona[]>([]); // Suggestions intelligentes
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -51,6 +53,76 @@ export function ChatInput({
     return mentionedIds;
   };
 
+  /**
+   * Suggestions intelligentes : détecte des mots-clés et suggère des personas pertinents
+   */
+  const suggestPersonasFromText = (text: string): Persona[] => {
+    const lowerText = text.toLowerCase();
+    const suggestions: Persona[] = [];
+
+    // Mapping de mots-clés vers catégories de personas
+    const keywordMapping: Record<string, string[]> = {
+      // Développement & Code
+      'code': ['Développement', 'Technique', 'Code'],
+      'bug': ['Développement', 'Technique', 'Debugger'],
+      'erreur': ['Développement', 'Technique', 'Debugger'],
+      'debug': ['Développement', 'Technique', 'Debugger'],
+      'optimis': ['Développement', 'Technique', 'Performance'],
+      'performance': ['Développement', 'Technique', 'Performance'],
+      'test': ['Développement', 'Technique', 'QA'],
+      'fonction': ['Développement', 'Technique'],
+      'algorithm': ['Développement', 'Technique'],
+
+      // Créativité
+      'créat': ['Créatif', 'Design'],
+      'créer': ['Créatif', 'Design'],
+      'design': ['Créatif', 'Design'],
+      'idée': ['Créatif', 'Brainstorming'],
+      'innov': ['Créatif', 'Innovation'],
+      'imagine': ['Créatif', 'Storytelling'],
+      'histoire': ['Créatif', 'Storytelling'],
+
+      // Analyse & Stratégie
+      'analys': ['Analyse', 'Stratégie'],
+      'stratég': ['Stratégie', 'Business'],
+      'décision': ['Stratégie', 'Analyse'],
+      'données': ['Analyse', 'Data'],
+      'statistique': ['Analyse', 'Data'],
+
+      // Éducation & Explication
+      'expliqu': ['Éducation', 'Pédagogie'],
+      'apprend': ['Éducation', 'Pédagogie'],
+      'enseign': ['Éducation', 'Pédagogie'],
+      'comment': ['Éducation', 'Tutoriel'],
+      'tutoriel': ['Éducation', 'Tutoriel'],
+
+      // Rédaction & Communication
+      'écri': ['Rédaction', 'Communication'],
+      'rédige': ['Rédaction', 'Communication'],
+      'article': ['Rédaction', 'Content'],
+      'document': ['Rédaction', 'Documentation'],
+      'communiqu': ['Communication', 'Marketing'],
+    };
+
+    // Chercher des mots-clés dans le texte
+    for (const [keyword, categories] of Object.entries(keywordMapping)) {
+      if (lowerText.includes(keyword)) {
+        // Trouver les personas qui correspondent aux catégories
+        for (const category of categories) {
+          const matchingPersonas = personas.filter(p =>
+            p.category?.toLowerCase().includes(category.toLowerCase()) &&
+            !suggestions.some(s => s.id === p.id) &&
+            !selectedPersonaIds.includes(p.id)
+          );
+          suggestions.push(...matchingPersonas);
+        }
+      }
+    }
+
+    // Limiter à 3 suggestions max
+    return suggestions.slice(0, 3);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled && !isGenerating) {
@@ -69,6 +141,8 @@ export function ChatInput({
       setIncludeMentionFewShots(false);
       setShowMentionDropdown(false);
       setMentionQuery('');
+      setShowSuggestions(false);
+      setSuggestedPersonas([]);
       // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
@@ -156,6 +230,7 @@ export function ChatInput({
 
         setShowMentionDropdown(true);
         setMentionQuery(textAfterAt);
+        setShowSuggestions(false); // Masquer les suggestions quand on tape @
       } else {
         setShowMentionDropdown(false);
         setMentionQuery('');
@@ -163,6 +238,20 @@ export function ChatInput({
     } else {
       setShowMentionDropdown(false);
       setMentionQuery('');
+
+      // Suggestions intelligentes : analyser le texte après un court délai
+      // Seulement si le message a plus de 10 caractères et pas de @mention active
+      if (newMessage.length >= 10 && !newMessage.includes('@')) {
+        const suggestions = suggestPersonasFromText(newMessage);
+        if (suggestions.length > 0) {
+          setSuggestedPersonas(suggestions);
+          setShowSuggestions(true);
+        } else {
+          setShowSuggestions(false);
+        }
+      } else {
+        setShowSuggestions(false);
+      }
     }
   };
 
@@ -200,6 +289,26 @@ export function ChatInput({
     setMentionQuery('');
   };
 
+  const handleAcceptSuggestion = (persona: Persona) => {
+    // Ajouter le persona aux personas sélectionnés
+    if (!selectedPersonaIds.includes(persona.id)) {
+      setSelectedPersonaIds([...selectedPersonaIds, persona.id]);
+    }
+
+    // Retirer cette suggestion de la liste
+    setSuggestedPersonas(suggestedPersonas.filter(p => p.id !== persona.id));
+
+    // Masquer les suggestions si plus aucune
+    if (suggestedPersonas.length <= 1) {
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleDismissSuggestions = () => {
+    setShowSuggestions(false);
+    setSuggestedPersonas([]);
+  };
+
   // Auto-resize textarea
   useEffect(() => {
     if (textareaRef.current) {
@@ -228,6 +337,39 @@ export function ChatInput({
           onClose={handleCloseMentionDropdown}
           position={dropdownPosition}
         />
+      )}
+
+      {/* Suggestions intelligentes */}
+      {showSuggestions && suggestedPersonas.length > 0 && (
+        <div className="mb-2 p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2 text-xs text-blue-400">
+              <span>💡</span>
+              <span className="font-medium">Suggestions de personas :</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleDismissSuggestions}
+              className="text-white/40 hover:text-white/60 transition-colors text-xs"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {suggestedPersonas.map((persona) => (
+              <button
+                key={persona.id}
+                type="button"
+                onClick={() => handleAcceptSuggestion(persona)}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 transition-colors text-xs group"
+              >
+                <span>{persona.avatar}</span>
+                <span className="font-medium">{persona.name}</span>
+                <span className="text-white/40 group-hover:text-white/60">+</span>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Badges des personas sélectionnés */}
