@@ -10,6 +10,7 @@ export interface Conversation {
   updatedAt: number;
   folderId?: string | null; // Dossier optionnel
   tagIds?: string[]; // Tags optionnels
+  personaId?: string; // Persona global appliqué à toute la conversation
   isFavorite?: boolean; // Favori
 }
 

@@ -8,11 +8,14 @@ import { SearchBar } from './SearchBar';
 import { groupConversationsByDate } from '../../hooks/useConversations';
 import type { Conversation, Folder } from '../../hooks/useConversations';
 import type { Tag as TagType } from '../../hooks/useTags';
+import type { Persona } from '../../types/persona';
+import { PERSONA_COLOR_CLASSES } from '../../types/persona';
 
 interface ConversationSidebarProps {
   conversations: Conversation[];
   folders: Folder[];
   tags: TagType[];
+  personas?: Persona[]; // Optionnel pour compatibilité
   currentConversationId: string | null;
   onSelectConversation: (id: string) => void;
   onNewConversation: () => void;
@@ -34,6 +37,7 @@ export function ConversationSidebar({
   conversations,
   folders,
   tags,
+  personas = [],
   currentConversationId,
   onSelectConversation,
   onNewConversation,
@@ -173,27 +177,53 @@ export function ConversationSidebar({
     );
   };
 
-  const renderConversation = (conv: Conversation) => (
-    <div
-      key={conv.id}
-      className={`group relative rounded-xl transition-colors cursor-pointer ${
-        currentConversationId === conv.id
-          ? 'bg-blue-500/20 hover:bg-blue-500/30'
-          : 'hover:bg-white/5'
-      }`}
-    >
-      <div onClick={() => onSelectConversation(conv.id)} className="p-3 pr-16">
-        <div className="flex items-start gap-3">
-          <MessageSquare className="w-4 h-4 mt-1 flex-shrink-0 text-muted-foreground" />
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-medium truncate">
-              {searchQuery ? highlightText(conv.title, searchQuery) : conv.title}
-            </h3>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs text-muted-foreground truncate">{conv.model}</span>
-              <span className="text-xs text-muted-foreground">•</span>
-              <span className="text-xs text-muted-foreground">{conv.messages.length} msg</span>
-            </div>
+  const renderConversation = (conv: Conversation) => {
+    // Obtenir le persona de la conversation s'il existe
+    const persona = conv.personaId ? personas.find(p => p.id === conv.personaId) : null;
+
+    return (
+      <div
+        key={conv.id}
+        className={`group relative rounded-xl transition-colors cursor-pointer ${
+          currentConversationId === conv.id
+            ? 'bg-blue-500/20 hover:bg-blue-500/30'
+            : 'hover:bg-white/5'
+        }`}
+      >
+        <div onClick={() => onSelectConversation(conv.id)} className="p-3 pr-16">
+          <div className="flex items-start gap-3">
+            {/* Afficher le persona avatar ou l'icône par défaut */}
+            {persona ? (
+              <div
+                className={`w-7 h-7 rounded-lg bg-gradient-to-br ${
+                  PERSONA_COLOR_CLASSES[persona.color] || PERSONA_COLOR_CLASSES.purple
+                } flex items-center justify-center flex-shrink-0 border-2 ${
+                  currentConversationId === conv.id
+                    ? 'border-blue-400'
+                    : 'border-white/20'
+                }`}
+                title={`Persona: ${persona.name}`}
+              >
+                <span className="text-sm">{persona.avatar}</span>
+              </div>
+            ) : (
+              <MessageSquare className="w-4 h-4 mt-1 flex-shrink-0 text-muted-foreground" />
+            )}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-medium truncate">
+                {searchQuery ? highlightText(conv.title, searchQuery) : conv.title}
+              </h3>
+              <div className="flex items-center gap-2 mt-1">
+                {persona && (
+                  <>
+                    <span className="text-xs text-purple-400 font-medium">{persona.name}</span>
+                    <span className="text-xs text-muted-foreground">•</span>
+                  </>
+                )}
+                <span className="text-xs text-muted-foreground truncate">{conv.model}</span>
+                <span className="text-xs text-muted-foreground">•</span>
+                <span className="text-xs text-muted-foreground">{conv.messages.length} msg</span>
+              </div>
             {/* Tags */}
             {conv.tagIds && conv.tagIds.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
@@ -280,7 +310,8 @@ export function ConversationSidebar({
         </button>
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="h-full flex flex-col glass-card border-r border-white/10">
