@@ -66,10 +66,8 @@ files:
     filter:
       - package.json
 
-# Ne pas empaqueter les modules natifs dans asar
-asarUnpack:
-  - node_modules/better-sqlite3/**/*
-  - node_modules/bindings/**/*
+# Désactiver asar pour éviter les problèmes avec les modules natifs
+asar: false
 
 # afterSign désactivé pour les builds de test
 # Décommenter pour notarisation en production
