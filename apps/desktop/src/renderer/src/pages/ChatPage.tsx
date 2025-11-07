@@ -13,7 +13,7 @@ import { FolderModal } from '../components/chat/FolderModal';
 import { KeyboardShortcutsModal } from '../components/chat/KeyboardShortcutsModal';
 import { StatisticsModal } from '../components/chat/StatisticsModal';
 import { PersonaSelectionModal } from '../components/chat/PersonaSelectionModal';
-import { useConversations } from '../hooks/useConversations';
+import { useConversations, type MessageMetadata } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
 import { usePersonas } from '../hooks/usePersonas';
@@ -27,6 +27,7 @@ import { PERSONA_COLOR_CLASSES } from '../types/persona';
 
 export function ChatPage() {
   const [messages, setMessages] = useState<OllamaMessage[]>([]);
+  const [messageMetadata, setMessageMetadata] = useState<Record<number, MessageMetadata>>({});
   const [selectedModel, setSelectedModel] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
@@ -54,6 +55,7 @@ export function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentStreamIdRef = useRef<string | null>(null);
   const previousMessagesLengthRef = useRef<number>(0);
+  const currentMentionedPersonaIdRef = useRef<string | undefined>(undefined);
 
   // Hook pour gérer les conversations
   const {
@@ -162,6 +164,7 @@ export function ChatPage() {
         currentConversationId,
         {
           messages,
+          messageMetadata,
           model: selectedModel,
           title,
         },
@@ -170,7 +173,7 @@ export function ChatPage() {
 
       console.log('[ChatPage] 💾 Conversation auto-sauvegardée:', currentConversationId, 'isNewMessage:', isNewMessage);
     }
-  }, [messages, currentConversationId, selectedModel, updateConversation, generateTitle]);
+  }, [messages, messageMetadata, currentConversationId, selectedModel, updateConversation, generateTitle]);
 
   // Setup des listeners pour le streaming
   useEffect(() => {
@@ -211,11 +214,30 @@ export function ChatPage() {
               role: 'assistant',
               content: finalContent,
             };
-            setMessages((prev) => [...prev, finalMessage]);
+            setMessages((prev) => {
+              const newMessages = [...prev, finalMessage];
+              // L'index du message assistant sera prev.length
+              const assistantMessageIndex = prev.length;
+
+              // Si un persona a été mentionné pour cette requête, ajouter les métadonnées
+              if (currentMentionedPersonaIdRef.current) {
+                setMessageMetadata((prevMetadata) => ({
+                  ...prevMetadata,
+                  [assistantMessageIndex]: {
+                    personaId: currentMentionedPersonaIdRef.current,
+                    timestamp: Date.now(),
+                  },
+                }));
+                console.log('[ChatPage] 📝 Métadonnées ajoutées pour le message assistant à l\'index', assistantMessageIndex);
+              }
+
+              return newMessages;
+            });
             return '';
           });
           setIsGenerating(false);
           currentStreamIdRef.current = null;
+          currentMentionedPersonaIdRef.current = undefined; // Réinitialiser
         }
       } else {
         console.log('[ChatPage] ⚠️ StreamId ne correspond pas, chunk ignoré');
@@ -293,9 +315,11 @@ export function ChatPage() {
     // La conversation sera créée automatiquement au premier message
     setCurrentConversationId(null);
     setMessages([]);
+    setMessageMetadata({});
     setStreamingMessage('');
     setIsGenerating(false);
     currentStreamIdRef.current = null;
+    currentMentionedPersonaIdRef.current = undefined;
     previousMessagesLengthRef.current = 0;
     setRegenerationCounts(new Map());
 
@@ -457,6 +481,7 @@ export function ChatPage() {
     const conv = loadConversation(id);
     if (conv) {
       setMessages(conv.messages);
+      setMessageMetadata(conv.messageMetadata || {});
       setSelectedModel(conv.model);
       setStreamingMessage('');
       setIsGenerating(false);
@@ -476,6 +501,9 @@ export function ChatPage() {
       return;
     }
 
+    // Stocker le mentionedPersonaId dans le ref pour l'utiliser dans les listeners
+    currentMentionedPersonaIdRef.current = mentionedPersonaId;
+
     // Créer une nouvelle conversation si nécessaire
     if (!currentConversationId && messages.length === 0) {
       const newConv = createConversation(selectedModel);
@@ -488,7 +516,19 @@ export function ChatPage() {
       content,
     };
 
+    // Calculer l'index du message utilisateur avant de l'ajouter
+    const userMessageIndex = messages.length;
+
     setMessages((prev) => [...prev, userMessage]);
+
+    // Si un persona a été mentionné, stocker les métadonnées
+    if (mentionedPersonaId) {
+      setMessageMetadata((prev) => ({
+        ...prev,
+        [userMessageIndex]: { personaId: mentionedPersonaId, timestamp: Date.now() },
+      }));
+      console.log('[ChatPage] 📝 Métadonnées ajoutées pour le message utilisateur à l\'index', userMessageIndex);
+    }
 
     try {
       console.log('[ChatPage] 📤 Envoi du message au backend');
@@ -603,9 +643,11 @@ export function ChatPage() {
   const handleClearChat = () => {
     if (confirm('Voulez-vous vraiment effacer toute la conversation ?')) {
       setMessages([]);
+      setMessageMetadata({});
       setStreamingMessage('');
       setIsGenerating(false);
       currentStreamIdRef.current = null;
+      currentMentionedPersonaIdRef.current = undefined;
       setRegenerationCounts(new Map());
     }
   };
@@ -1105,6 +1147,12 @@ export function ChatPage() {
                 (occ) => occ.messageIndex === index
               );
 
+              // Récupérer le persona mentionné pour ce message
+              const metadata = messageMetadata[index];
+              const mentionedPersona = metadata?.personaId
+                ? personas.find((p) => p.id === metadata.personaId)
+                : undefined;
+
               return (
                 <ChatMessage
                   key={index}
@@ -1119,6 +1167,7 @@ export function ChatPage() {
                   activeGlobalIndex={currentSearchIndex}
                   syntaxTheme={chatSettings.syntaxTheme}
                   showLineNumbers={chatSettings.showLineNumbers}
+                  mentionedPersona={mentionedPersona}
                 />
               );
             })}
@@ -1133,6 +1182,11 @@ export function ChatPage() {
                 isStreaming={true}
                 syntaxTheme={chatSettings.syntaxTheme}
                 showLineNumbers={chatSettings.showLineNumbers}
+                mentionedPersona={
+                  currentMentionedPersonaIdRef.current
+                    ? personas.find((p) => p.id === currentMentionedPersonaIdRef.current)
+                    : undefined
+                }
               />
             )}
 

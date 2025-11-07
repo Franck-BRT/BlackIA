@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { OllamaMessage } from '@blackia/ollama';
 
+export interface MessageMetadata {
+  personaId?: string; // Persona utilisé via @mention pour ce message spécifique
+  timestamp?: number;
+}
+
 export interface Conversation {
   id: string;
   title: string;
@@ -12,6 +17,7 @@ export interface Conversation {
   tagIds?: string[]; // Tags optionnels
   personaId?: string; // Persona global appliqué à toute la conversation
   isFavorite?: boolean; // Favori
+  messageMetadata?: Record<number, MessageMetadata>; // Métadonnées par index de message
 }
 
 export interface Folder {

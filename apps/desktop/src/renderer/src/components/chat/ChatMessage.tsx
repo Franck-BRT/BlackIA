@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { User, Bot, RefreshCw, Copy, Check, Edit2, X } from 'lucide-react';
 import type { OllamaMessage } from '@blackia/ollama';
+import type { Persona } from '../../types/persona';
+import { PERSONA_COLOR_CLASSES } from '../../types/persona';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import './markdown-styles.css';
 
@@ -17,6 +19,7 @@ interface ChatMessageProps {
   activeGlobalIndex?: number;
   syntaxTheme?: string;
   showLineNumbers?: boolean;
+  mentionedPersona?: Persona; // Persona utilisé via @mention pour ce message
 }
 
 export function ChatMessage({
@@ -32,6 +35,7 @@ export function ChatMessage({
   activeGlobalIndex,
   syntaxTheme,
   showLineNumbers,
+  mentionedPersona,
 }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
@@ -109,6 +113,23 @@ export function ChatMessage({
               isUser ? 'bg-blue-500/10' : 'bg-white/5'
             } ${isEditing ? 'flex-1' : ''}`}
           >
+            {/* Badge du persona @mention */}
+            {mentionedPersona && (
+              <div className="mb-2 flex items-center gap-2 pb-2 border-b border-white/10">
+                <div
+                  className={`w-5 h-5 rounded-lg bg-gradient-to-br ${
+                    PERSONA_COLOR_CLASSES[mentionedPersona.color]?.gradient || 'from-purple-500 to-pink-500'
+                  } flex items-center justify-center text-xs`}
+                >
+                  {mentionedPersona.avatar}
+                </div>
+                <span className="text-xs text-purple-400 font-medium">
+                  {mentionedPersona.name}
+                </span>
+                <span className="text-xs text-white/40">(@mention)</span>
+              </div>
+            )}
+
             {isEditing && isUser ? (
               <div className="flex flex-col gap-2">
                 <textarea
