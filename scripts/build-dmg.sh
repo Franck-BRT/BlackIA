@@ -228,6 +228,18 @@ fi
 
 success "Build electron-builder terminé"
 
+# Signature ad-hoc pour macOS Sequoia
+if [ "$SIGN" = false ]; then
+    log "Application de la signature ad-hoc pour macOS Sequoia..."
+    APP_PATH="$RELEASE_DIR/mac-arm64/BlackIA.app"
+    if [ -d "$APP_PATH" ]; then
+        codesign --force --deep --sign - "$APP_PATH" 2>&1 | grep -v "replacing existing signature" || true
+        success "Signature ad-hoc appliquée"
+    else
+        warning "Application non trouvée à $APP_PATH"
+    fi
+fi
+
 # Trouver le DMG créé
 echo ""
 log "Recherche du DMG créé..."
