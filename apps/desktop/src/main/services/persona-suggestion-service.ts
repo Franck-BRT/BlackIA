@@ -136,14 +136,10 @@ export class PersonaSuggestionService {
   async deleteKeyword(id: string) {
     try {
       const db = getDatabase();
-      // Vérifier si c'est un keyword par défaut
+      // Vérifier que le keyword existe
       const keyword = await this.getKeywordById(id);
       if (!keyword) {
         throw new Error('Keyword not found');
-      }
-
-      if (keyword.isDefault) {
-        throw new Error('Cannot delete default keyword');
       }
 
       await db

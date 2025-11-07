@@ -443,24 +443,20 @@ export function PersonaSuggestionsSettings() {
                       <PowerOff className="w-4 h-4 text-gray-400" />
                     )}
                   </button>
-                  {!keyword.isDefault && (
-                    <>
-                      <button
-                        onClick={() => startEdit(keyword)}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                        title="Modifier"
-                      >
-                        <Edit2 className="w-4 h-4 text-blue-600" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteKeyword(keyword.id)}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                        title="Supprimer"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-600" />
-                      </button>
-                    </>
-                  )}
+                  <button
+                    onClick={() => startEdit(keyword)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                    title="Modifier"
+                  >
+                    <Edit2 className="w-4 h-4 text-blue-600" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteKeyword(keyword.id)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                    title="Supprimer"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                  </button>
                 </div>
               </div>
             </div>
