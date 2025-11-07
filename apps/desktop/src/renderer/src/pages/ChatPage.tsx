@@ -55,7 +55,8 @@ export function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentStreamIdRef = useRef<string | null>(null);
   const previousMessagesLengthRef = useRef<number>(0);
-  const currentMentionedPersonaIdRef = useRef<string | undefined>(undefined);
+  const currentMentionedPersonaIdRef = useRef<string | undefined>(undefined); // Legacy
+  const currentMentionedPersonaIdsRef = useRef<string[] | undefined>(undefined); // Pour @mention multiple
 
   // Hook pour gérer les conversations
   const {
@@ -219,16 +220,17 @@ export function ChatPage() {
               // L'index du message assistant sera prev.length
               const assistantMessageIndex = prev.length;
 
-              // Si un persona a été mentionné pour cette requête, ajouter les métadonnées
-              if (currentMentionedPersonaIdRef.current) {
+              // Si des personas ont été mentionnés pour cette requête, ajouter les métadonnées
+              if (currentMentionedPersonaIdsRef.current && currentMentionedPersonaIdsRef.current.length > 0) {
                 setMessageMetadata((prevMetadata) => ({
                   ...prevMetadata,
                   [assistantMessageIndex]: {
-                    personaId: currentMentionedPersonaIdRef.current,
+                    personaId: currentMentionedPersonaIdsRef.current[0], // Legacy
+                    personaIds: currentMentionedPersonaIdsRef.current,
                     timestamp: Date.now(),
                   },
                 }));
-                console.log('[ChatPage] 📝 Métadonnées ajoutées pour le message assistant à l\'index', assistantMessageIndex);
+                console.log('[ChatPage] 📝 Métadonnées ajoutées pour le message assistant à l\'index', assistantMessageIndex, 'personas:', currentMentionedPersonaIdsRef.current);
               }
 
               return newMessages;
@@ -237,7 +239,8 @@ export function ChatPage() {
           });
           setIsGenerating(false);
           currentStreamIdRef.current = null;
-          currentMentionedPersonaIdRef.current = undefined; // Réinitialiser
+          currentMentionedPersonaIdRef.current = undefined; // Réinitialiser (legacy)
+          currentMentionedPersonaIdsRef.current = undefined; // Réinitialiser
         }
       } else {
         console.log('[ChatPage] ⚠️ StreamId ne correspond pas, chunk ignoré');
@@ -320,6 +323,7 @@ export function ChatPage() {
     setIsGenerating(false);
     currentStreamIdRef.current = null;
     currentMentionedPersonaIdRef.current = undefined;
+    currentMentionedPersonaIdsRef.current = undefined;
     previousMessagesLengthRef.current = 0;
     setRegenerationCounts(new Map());
 
@@ -495,16 +499,17 @@ export function ChatPage() {
     }
   };
 
-  const handleSendMessage = async (content: string, mentionedPersonaId?: string, includeMentionFewShots: boolean = false) => {
-    console.log('[ChatPage] 📥 handleSendMessage reçu:', { mentionedPersonaId, includeMentionFewShots });
+  const handleSendMessage = async (content: string, mentionedPersonaIds?: string[], includeMentionFewShots: boolean = false) => {
+    console.log('[ChatPage] 📥 handleSendMessage reçu:', { mentionedPersonaIds, includeMentionFewShots });
 
     if (!selectedModel) {
       alert('Veuillez sélectionner un modèle');
       return;
     }
 
-    // Stocker le mentionedPersonaId dans le ref pour l'utiliser dans les listeners
-    currentMentionedPersonaIdRef.current = mentionedPersonaId;
+    // Stocker les mentionedPersonaIds dans le ref pour l'utiliser dans les listeners
+    currentMentionedPersonaIdsRef.current = mentionedPersonaIds;
+    currentMentionedPersonaIdRef.current = mentionedPersonaIds?.[0]; // Legacy
 
     // Créer une nouvelle conversation si nécessaire
     if (!currentConversationId && messages.length === 0) {
@@ -523,13 +528,17 @@ export function ChatPage() {
 
     setMessages((prev) => [...prev, userMessage]);
 
-    // Si un persona a été mentionné, stocker les métadonnées
-    if (mentionedPersonaId) {
+    // Si des personas ont été mentionnés, stocker les métadonnées
+    if (mentionedPersonaIds && mentionedPersonaIds.length > 0) {
       setMessageMetadata((prev) => ({
         ...prev,
-        [userMessageIndex]: { personaId: mentionedPersonaId, timestamp: Date.now() },
+        [userMessageIndex]: {
+          personaId: mentionedPersonaIds[0], // Legacy: premier persona
+          personaIds: mentionedPersonaIds, // Nouveau: tableau de tous les personas
+          timestamp: Date.now(),
+        },
       }));
-      console.log('[ChatPage] 📝 Métadonnées ajoutées pour le message utilisateur à l\'index', userMessageIndex);
+      console.log('[ChatPage] 📝 Métadonnées ajoutées pour le message utilisateur à l\'index', userMessageIndex, 'personas:', mentionedPersonaIds);
     }
 
     try {
@@ -537,15 +546,18 @@ export function ChatPage() {
       console.log('[ChatPage] 📋 Settings:', chatSettings);
       console.log('[ChatPage] 👤 Persona global:', currentPersona?.name || 'aucun');
 
-      // Déterminer quel persona utiliser
-      // Priorité: Persona mentionné (@mention) > Persona global > Aucun
-      const mentionedPersona = mentionedPersonaId ? personas.find(p => p.id === mentionedPersonaId) : null;
-      const personaToUse = mentionedPersona || currentPersona;
+      // Déterminer quels personas utiliser
+      // Priorité: Personas mentionnés (@mention) > Persona global > Aucun
+      const mentionedPersonas = mentionedPersonaIds
+        ? mentionedPersonaIds.map(id => personas.find(p => p.id === id)).filter((p): p is Persona => p !== undefined)
+        : [];
 
-      if (mentionedPersona) {
-        console.log('[ChatPage] 📧 Persona mentionné (@mention):', mentionedPersona.name);
-        // Incrémenter le compteur d'utilisation pour @mention
-        incrementPersonaUsage(mentionedPersona.id);
+      const personasToUse = mentionedPersonas.length > 0 ? mentionedPersonas : (currentPersona ? [currentPersona] : []);
+
+      if (mentionedPersonas.length > 0) {
+        console.log('[ChatPage] 📧 Personas mentionnés (@mention):', mentionedPersonas.map(p => p.name).join(', '));
+        // Incrémenter le compteur d'utilisation pour tous les @mentions
+        mentionedPersonas.forEach(p => incrementPersonaUsage(p.id));
       } else if (currentPersona) {
         // Incrémenter le compteur d'utilisation pour persona global
         incrementPersonaUsage(currentPersona.id);
@@ -554,40 +566,55 @@ export function ChatPage() {
       // Construire la liste des messages avec le system prompt
       const messagesToSend: OllamaMessage[] = [];
 
-      // Priorité 1: System prompt du persona (mentionné ou global)
+      // Priorité 1: System prompt des personas (mentionnés ou global)
       // Priorité 2: System prompt des settings
       let systemPromptToUse = '';
 
-      if (personaToUse?.systemPrompt) {
-        systemPromptToUse = personaToUse.systemPrompt;
-        console.log('[ChatPage] 📝 Utilisation du system prompt du persona:', personaToUse.name);
+      if (personasToUse.length > 0) {
+        // Combiner les system prompts de tous les personas
+        if (personasToUse.length === 1) {
+          systemPromptToUse = personasToUse[0].systemPrompt || '';
+          console.log('[ChatPage] 📝 Utilisation du system prompt du persona:', personasToUse[0].name);
+        } else {
+          // Plusieurs personas: combiner leurs prompts
+          const combinedPrompts = personasToUse
+            .filter(p => p.systemPrompt)
+            .map((p, index) => {
+              return `[Rôle ${index + 1}: ${p.name}]\n${p.systemPrompt}`;
+            })
+            .join('\n\n---\n\n');
+
+          systemPromptToUse = `Vous devez combiner les perspectives de plusieurs rôles pour répondre. Voici les rôles à adopter :\n\n${combinedPrompts}\n\nRépondez en intégrant les perspectives de tous ces rôles.`;
+          console.log('[ChatPage] 📝 Combinaison des system prompts de', personasToUse.length, 'personas:', personasToUse.map(p => p.name).join(', '));
+        }
 
         // Ajouter les few-shots si demandé
+        // Pour personas mentionnés: utiliser includeMentionFewShots
         // Pour persona global: utiliser chatSettings.includeFewShots
-        // Pour @mention: utiliser includeMentionFewShots
-        const shouldIncludeFewShots = mentionedPersona
+        const shouldIncludeFewShots = mentionedPersonas.length > 0
           ? includeMentionFewShots
           : chatSettings.includeFewShots;
 
-        console.log('[ChatPage] 🔍 Vérification few-shots:', {
-          mentionedPersona: mentionedPersona?.name,
-          includeMentionFewShots,
-          'chatSettings.includeFewShots': chatSettings.includeFewShots,
-          shouldIncludeFewShots,
-          'personaToUse.fewShotExamples?.length': personaToUse.fewShotExamples?.length,
-        });
+        if (shouldIncludeFewShots) {
+          // Combiner les few-shots de tous les personas
+          const allFewShots = personasToUse
+            .filter(p => p.fewShotExamples && p.fewShotExamples.length > 0)
+            .flatMap(p => p.fewShotExamples || []);
 
-        if (shouldIncludeFewShots && personaToUse.fewShotExamples?.length) {
-          const fewShotsText = personaToUse.fewShotExamples
-            .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
-            .join('\n\n');
-          systemPromptToUse += '\n\nExemples:\n' + fewShotsText;
-          console.log(
-            '[ChatPage] 📚 Few-shots ajoutés:',
-            personaToUse.fewShotExamples.length,
-            'exemples',
-            mentionedPersona ? '(@mention)' : '(global)'
-          );
+          if (allFewShots.length > 0) {
+            const fewShotsText = allFewShots
+              .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
+              .join('\n\n');
+            systemPromptToUse += '\n\nExemples:\n' + fewShotsText;
+            console.log(
+              '[ChatPage] 📚 Few-shots ajoutés:',
+              allFewShots.length,
+              'exemples de',
+              personasToUse.length,
+              'personas',
+              mentionedPersonas.length > 0 ? '(@mention)' : '(global)'
+            );
+          }
         }
       } else if (chatSettings.systemPrompt.trim()) {
         systemPromptToUse = chatSettings.systemPrompt;
@@ -603,24 +630,27 @@ export function ChatPage() {
 
       messagesToSend.push(...messages, userMessage);
 
-      // Déterminer les paramètres à utiliser (persona ou settings)
-      const temperature = personaToUse?.temperature ?? chatSettings.temperature;
-      const maxTokens = personaToUse?.maxTokens ?? chatSettings.maxTokens;
+      // Déterminer les paramètres à utiliser (premier persona ou settings)
+      const firstPersona = personasToUse[0];
+      const temperature = firstPersona?.temperature ?? chatSettings.temperature;
+      const maxTokens = firstPersona?.maxTokens ?? chatSettings.maxTokens;
 
       // Déterminer le modèle à utiliser
-      // Priorité: Modèle du persona mentionné > Modèle du persona global > Modèle sélectionné
+      // Priorité: Modèle du premier persona mentionné > Modèle du persona global > Modèle sélectionné
       let modelToUse = selectedModel;
-      if (personaToUse?.model) {
-        modelToUse = personaToUse.model;
+      if (firstPersona?.model) {
+        modelToUse = firstPersona.model;
         if (modelToUse !== selectedModel) {
           console.log(
-            '[ChatPage] 🔄 Utilisation du modèle du persona:',
+            '[ChatPage] 🔄 Utilisation du modèle du premier persona:',
+            firstPersona.name,
+            '→',
             modelToUse,
             '(au lieu de',
             selectedModel + ')'
           );
-          if (mentionedPersona) {
-            console.log('[ChatPage] 💡 @mention utilise automatiquement le modèle configuré du persona');
+          if (mentionedPersonas.length > 0) {
+            console.log('[ChatPage] 💡 @mention utilise automatiquement le modèle configuré du premier persona');
           }
         }
       }
@@ -692,6 +722,7 @@ export function ChatPage() {
       setIsGenerating(false);
       currentStreamIdRef.current = null;
       currentMentionedPersonaIdRef.current = undefined;
+      currentMentionedPersonaIdsRef.current = undefined;
       setRegenerationCounts(new Map());
     }
   };
@@ -1191,11 +1222,13 @@ export function ChatPage() {
                 (occ) => occ.messageIndex === index
               );
 
-              // Récupérer le persona mentionné pour ce message
+              // Récupérer les personas mentionnés pour ce message
               const metadata = messageMetadata[index];
-              const mentionedPersona = metadata?.personaId
-                ? personas.find((p) => p.id === metadata.personaId)
-                : undefined;
+              const mentionedPersonas = metadata?.personaIds
+                ? metadata.personaIds.map(id => personas.find((p) => p.id === id)).filter((p): p is Persona => p !== undefined)
+                : (metadata?.personaId
+                    ? [personas.find((p) => p.id === metadata.personaId)].filter((p): p is Persona => p !== undefined)
+                    : undefined);
 
               return (
                 <ChatMessage
@@ -1211,7 +1244,7 @@ export function ChatPage() {
                   activeGlobalIndex={currentSearchIndex}
                   syntaxTheme={chatSettings.syntaxTheme}
                   showLineNumbers={chatSettings.showLineNumbers}
-                  mentionedPersona={mentionedPersona}
+                  mentionedPersonas={mentionedPersonas}
                 />
               );
             })}
@@ -1226,9 +1259,9 @@ export function ChatPage() {
                 isStreaming={true}
                 syntaxTheme={chatSettings.syntaxTheme}
                 showLineNumbers={chatSettings.showLineNumbers}
-                mentionedPersona={
-                  currentMentionedPersonaIdRef.current
-                    ? personas.find((p) => p.id === currentMentionedPersonaIdRef.current)
+                mentionedPersonas={
+                  currentMentionedPersonaIdsRef.current
+                    ? currentMentionedPersonaIdsRef.current.map(id => personas.find((p) => p.id === id)).filter((p): p is Persona => p !== undefined)
                     : undefined
                 }
               />

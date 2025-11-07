@@ -4,7 +4,7 @@ import { PersonaMentionDropdown } from './PersonaMentionDropdown';
 import type { Persona } from '../../types/persona';
 
 interface ChatInputProps {
-  onSend: (message: string, personaId?: string, includeFewShots?: boolean) => void;
+  onSend: (message: string, personaIds?: string[], includeFewShots?: boolean) => void;
   onStop?: () => void;
   disabled?: boolean;
   isGenerating?: boolean;
@@ -23,21 +23,49 @@ export function ChatInput({
   const [message, setMessage] = useState('');
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
-  const [selectedPersonaId, setSelectedPersonaId] = useState<string | undefined>();
+  const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([]);
   const [includeMentionFewShots, setIncludeMentionFewShots] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number }>({ top: -420, left: 0 });
+  const [currentMentionPosition, setCurrentMentionPosition] = useState<number>(0); // Position du curseur lors de @mention
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  /**
+   * Extrait tous les @mentions du texte et retourne les IDs des personas correspondants
+   */
+  const extractMentionsFromText = (text: string): string[] => {
+    // Pattern pour matcher @PersonaName (alphanumérique + espaces + accents)
+    const mentionPattern = /@([a-zA-ZÀ-ÿ0-9\s&]+?)(?=\s|$|@)/g;
+    const matches = text.matchAll(mentionPattern);
+    const mentionedIds: string[] = [];
+
+    for (const match of matches) {
+      const mentionedName = match[1].trim();
+      // Chercher le persona par nom (case insensitive)
+      const persona = personas.find(p => p.name.toLowerCase() === mentionedName.toLowerCase());
+      if (persona && !mentionedIds.includes(persona.id)) {
+        mentionedIds.push(persona.id);
+      }
+    }
+
+    return mentionedIds;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim() && !disabled && !isGenerating) {
-      console.log('[ChatInput] 📤 Envoi du message avec personaId:', selectedPersonaId, 'includeFewShots:', includeMentionFewShots);
+      // Extraire tous les @mentions du texte
+      const mentionedIds = extractMentionsFromText(message);
 
-      // Si un persona a été sélectionné via @mention, on l'envoie avec le message
-      onSend(message.trim(), selectedPersonaId, selectedPersonaId ? includeMentionFewShots : false);
+      // Combiner avec les personas sélectionnés manuellement (via autocomplete)
+      const allPersonaIds = [...new Set([...selectedPersonaIds, ...mentionedIds])];
+
+      console.log('[ChatInput] 📤 Envoi du message avec personas:', allPersonaIds, 'includeFewShots:', includeMentionFewShots);
+
+      // Envoyer le message avec tous les personas mentionnés
+      onSend(message.trim(), allPersonaIds.length > 0 ? allPersonaIds : undefined, allPersonaIds.length > 0 ? includeMentionFewShots : false);
       setMessage('');
-      setSelectedPersonaId(undefined);
+      setSelectedPersonaIds([]);
       setIncludeMentionFewShots(false);
       setShowMentionDropdown(false);
       setMentionQuery('');
@@ -107,39 +135,63 @@ export function ChatInput({
     const newMessage = e.target.value;
     setMessage(newMessage);
 
-    // Détecter @mention au début du message
-    if (newMessage.startsWith('@')) {
-      // Si un persona était déjà sélectionné et qu'on retape @, on le réinitialise
-      if (selectedPersonaId) {
-        setSelectedPersonaId(undefined);
+    // Détecter @mention n'importe où dans le message
+    const cursorPosition = e.target.selectionStart || 0;
+    const textBeforeCursor = newMessage.substring(0, cursorPosition);
+
+    // Chercher le dernier @ avant le curseur
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex !== -1) {
+      // Vérifier qu'il n'y a pas d'espace entre @ et le curseur (sinon la mention est terminée)
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+
+      if (!textAfterAt.includes(' ')) {
+        // On est en train de taper une mention
+        setCurrentMentionPosition(lastAtIndex);
+
+        // Calculer la position du dropdown
+        const position = calculateDropdownPosition();
+        setDropdownPosition(position);
+
+        setShowMentionDropdown(true);
+        setMentionQuery(textAfterAt);
+      } else {
+        setShowMentionDropdown(false);
+        setMentionQuery('');
       }
-
-      // Calculer la position du dropdown
-      const position = calculateDropdownPosition();
-      setDropdownPosition(position);
-
-      setShowMentionDropdown(true);
-      setMentionQuery(newMessage.slice(1)); // Extraire la requête après @
     } else {
       setShowMentionDropdown(false);
       setMentionQuery('');
-      // NE PAS réinitialiser selectedPersonaId ici - il reste actif jusqu'à l'envoi
     }
   };
 
   const handlePersonaSelect = (persona: Persona) => {
     console.log('[ChatInput] 📧 Persona sélectionné via @mention:', persona.name, persona.id);
 
-    // Remplacer @query par le message sans @mention
-    const messageWithoutMention = message.replace(/^@[^\s]*/, '').trim();
-    setMessage(messageWithoutMention);
-    setSelectedPersonaId(persona.id);
+    // Insérer le nom du persona à la position du @ dans le texte
+    const beforeMention = message.substring(0, currentMentionPosition);
+    const afterCursor = message.substring(textareaRef.current?.selectionStart || message.length);
+
+    // Construire le nouveau message avec @PersonaName
+    const newMessage = `${beforeMention}@${persona.name} ${afterCursor}`;
+    setMessage(newMessage);
+
+    // Ajouter le persona à la liste des personas sélectionnés
+    if (!selectedPersonaIds.includes(persona.id)) {
+      setSelectedPersonaIds([...selectedPersonaIds, persona.id]);
+    }
+
     setShowMentionDropdown(false);
     setMentionQuery('');
 
-    // Refocus sur le textarea
+    // Refocus sur le textarea et positionner le curseur après la mention
     if (textareaRef.current) {
+      const newCursorPosition = beforeMention.length + persona.name.length + 2; // +2 pour @ et espace
       textareaRef.current.focus();
+      setTimeout(() => {
+        textareaRef.current?.setSelectionRange(newCursorPosition, newCursorPosition);
+      }, 0);
     }
   };
 
@@ -156,29 +208,14 @@ export function ChatInput({
     }
   }, [message]);
 
-  // Debug: Logger quand le persona sélectionné change
-  useEffect(() => {
-    if (selectedPersonaId) {
-      console.log('[ChatInput] 🔍 selectedPersonaId changé:', selectedPersonaId);
-      console.log('[ChatInput] 📋 Nombre de personas disponibles:', personas.length);
-    }
-  }, [selectedPersonaId, personas]);
+  // Trouver les personas sélectionnés pour l'affichage
+  const selectedPersonas = selectedPersonaIds
+    .map(id => personas.find(p => p.id === id))
+    .filter((p): p is Persona => p !== undefined);
 
-  // Trouver le persona sélectionné pour l'afficher
-  const selectedPersona = selectedPersonaId
-    ? personas.find(p => p.id === selectedPersonaId)
-    : undefined;
-
-  // Debug: Logger si le persona est trouvé
-  useEffect(() => {
-    if (selectedPersonaId) {
-      console.log('[ChatInput] 🎭 Persona trouvé pour affichage:', selectedPersona?.name || 'NON TROUVÉ');
-      console.log('[ChatInput] 📚 État includeMentionFewShots:', includeMentionFewShots);
-      console.log('[ChatInput] 📋 Few-shot examples du persona:', selectedPersona?.fewShotExamples);
-      console.log('[ChatInput] 🔢 Nombre de few-shots:', selectedPersona?.fewShotExamples?.length || 0);
-      console.log('[ChatInput] ✅ Checkbox devrait apparaître:', !!(selectedPersona?.fewShotExamples && selectedPersona.fewShotExamples.length > 0));
-    }
-  }, [selectedPersona, selectedPersonaId, includeMentionFewShots]);
+  // Vérifier si au moins un persona sélectionné a des few-shots
+  const hasAnyFewShots = selectedPersonas.some(p => p.fewShotExamples && p.fewShotExamples.length > 0);
+  const totalFewShots = selectedPersonas.reduce((sum, p) => sum + (p.fewShotExamples?.length || 0), 0);
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="glass-card rounded-2xl p-4 relative">
@@ -193,29 +230,38 @@ export function ChatInput({
         />
       )}
 
-      {/* Badge du persona sélectionné */}
-      {selectedPersona && (
+      {/* Badges des personas sélectionnés */}
+      {selectedPersonas.length > 0 && (
         <div className="mb-2 flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-purple-400">Persona sélectionné :</span>
-            <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-purple-500/20">
-              <span>{selectedPersona.avatar}</span>
-              <span className="font-medium">{selectedPersona.name}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedPersonaId(undefined);
-                  setIncludeMentionFewShots(false);
-                }}
-                className="ml-1 text-white/60 hover:text-white transition-colors"
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-purple-400">
+              {selectedPersonas.length === 1 ? 'Persona sélectionné :' : 'Personas sélectionnés :'}
+            </span>
+            {selectedPersonas.map((persona) => (
+              <div
+                key={persona.id}
+                className="flex items-center gap-2 px-2 py-1 rounded-lg bg-purple-500/20"
               >
-                ✕
-              </button>
-            </div>
+                <span>{persona.avatar}</span>
+                <span className="font-medium">{persona.name}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPersonaIds(selectedPersonaIds.filter(id => id !== persona.id));
+                    if (selectedPersonaIds.length === 1) {
+                      setIncludeMentionFewShots(false);
+                    }
+                  }}
+                  className="ml-1 text-white/60 hover:text-white transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
           </div>
 
-          {/* Checkbox pour les few-shots si le persona en a */}
-          {selectedPersona.fewShotExamples && selectedPersona.fewShotExamples.length > 0 && (
+          {/* Checkbox pour les few-shots si au moins un persona en a */}
+          {hasAnyFewShots && (
             <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer hover:text-white/80 transition-colors">
               <input
                 type="checkbox"
@@ -228,7 +274,7 @@ export function ChatInput({
                 className="w-3.5 h-3.5 rounded border-white/20 bg-white/5 checked:bg-purple-500"
               />
               <span>
-                Inclure les exemples ({selectedPersona.fewShotExamples.length} exemples)
+                Inclure les exemples ({totalFewShots} exemples au total)
               </span>
             </label>
           )}

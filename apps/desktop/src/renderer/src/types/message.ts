@@ -8,8 +8,15 @@ export interface MessageWithMetadata extends OllamaMessage {
   /**
    * ID du persona utilisé pour générer ce message (mention @persona)
    * Uniquement pour les messages individuels, différent du persona global de la conversation
+   * @deprecated Utilisez personaIds pour supporter les mentions multiples
    */
   personaId?: string;
+
+  /**
+   * IDs des personas utilisés pour générer ce message (mentions @persona multiples)
+   * Pour un seul persona, le tableau contient un seul élément
+   */
+  personaIds?: string[];
 
   /**
    * Timestamp de création du message

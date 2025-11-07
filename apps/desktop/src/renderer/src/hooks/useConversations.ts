@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import type { OllamaMessage } from '@blackia/ollama';
 
 export interface MessageMetadata {
-  personaId?: string; // Persona utilisé via @mention pour ce message spécifique
+  personaId?: string; // Persona utilisé via @mention pour ce message spécifique (legacy)
+  personaIds?: string[]; // Personas utilisés via @mention multiples
   timestamp?: number;
 }
 

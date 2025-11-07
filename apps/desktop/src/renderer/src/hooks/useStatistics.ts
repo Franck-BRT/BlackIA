@@ -141,16 +141,20 @@ export function useStatistics(conversations: Conversation[], personas: Persona[]
         }
 
         // Stats personas : @mention (depuis les métadonnées)
-        if (conv.messageMetadata && conv.messageMetadata[msgIndex]?.personaId) {
-          const personaId = conv.messageMetadata[msgIndex].personaId!;
+        const metadata = conv.messageMetadata?.[msgIndex];
+        const mentionedPersonaIds = metadata?.personaIds || (metadata?.personaId ? [metadata.personaId] : []);
 
-          // Incrémenter le compteur de @mention
-          const mentionCount = personaMentionUsages.get(personaId) || 0;
-          personaMentionUsages.set(personaId, mentionCount + 1);
+        if (mentionedPersonaIds.length > 0) {
+          // Plusieurs personas mentionnés ou un seul
+          mentionedPersonaIds.forEach(personaId => {
+            // Incrémenter le compteur de @mention
+            const mentionCount = personaMentionUsages.get(personaId) || 0;
+            personaMentionUsages.set(personaId, mentionCount + 1);
 
-          // Compter les messages générés avec ce persona
-          const msgCount = personaMessageCounts.get(personaId) || 0;
-          personaMessageCounts.set(personaId, msgCount + 1);
+            // Compter les messages générés avec ce persona
+            const msgCount = personaMessageCounts.get(personaId) || 0;
+            personaMessageCounts.set(personaId, msgCount + 1);
+          });
         } else if (conv.personaId) {
           // Si persona global et pas de @mention, compter comme message du persona global
           const msgCount = personaMessageCounts.get(conv.personaId) || 0;

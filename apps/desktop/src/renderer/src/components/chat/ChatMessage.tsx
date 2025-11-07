@@ -19,7 +19,8 @@ interface ChatMessageProps {
   activeGlobalIndex?: number;
   syntaxTheme?: string;
   showLineNumbers?: boolean;
-  mentionedPersona?: Persona; // Persona utilisé via @mention pour ce message
+  mentionedPersona?: Persona; // Persona utilisé via @mention pour ce message (legacy)
+  mentionedPersonas?: Persona[]; // Personas utilisés via @mention multiples
 }
 
 export function ChatMessage({
@@ -36,7 +37,10 @@ export function ChatMessage({
   syntaxTheme,
   showLineNumbers,
   mentionedPersona,
+  mentionedPersonas,
 }: ChatMessageProps) {
+  // Utiliser mentionedPersonas si disponible, sinon fallback sur mentionedPersona
+  const personasToDisplay = mentionedPersonas || (mentionedPersona ? [mentionedPersona] : []);
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
   const isAssistant = message.role === 'assistant';
@@ -113,19 +117,28 @@ export function ChatMessage({
               isUser ? 'bg-blue-500/10' : 'bg-white/5'
             } ${isEditing ? 'flex-1' : ''}`}
           >
-            {/* Badge du persona @mention */}
-            {mentionedPersona && (
-              <div className="mb-2 flex items-center gap-2 pb-2 border-b border-white/10">
-                <div
-                  className={`w-5 h-5 rounded-lg bg-gradient-to-br ${
-                    PERSONA_COLOR_CLASSES[mentionedPersona.color]?.gradient || 'from-purple-500 to-pink-500'
-                  } flex items-center justify-center text-xs`}
-                >
-                  {mentionedPersona.avatar}
-                </div>
-                <span className="text-xs text-purple-400 font-medium">
-                  {mentionedPersona.name}
-                </span>
+            {/* Badges des personas @mention */}
+            {personasToDisplay.length > 0 && (
+              <div className="mb-2 flex flex-wrap items-center gap-2 pb-2 border-b border-white/10">
+                {personasToDisplay.map((persona, index) => (
+                  <React.Fragment key={persona.id}>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`w-5 h-5 rounded-lg bg-gradient-to-br ${
+                          PERSONA_COLOR_CLASSES[persona.color]?.gradient || 'from-purple-500 to-pink-500'
+                        } flex items-center justify-center text-xs`}
+                      >
+                        {persona.avatar}
+                      </div>
+                      <span className="text-xs text-purple-400 font-medium">
+                        {persona.name}
+                      </span>
+                    </div>
+                    {index < personasToDisplay.length - 1 && (
+                      <span className="text-xs text-white/20">+</span>
+                    )}
+                  </React.Fragment>
+                ))}
                 <span className="text-xs text-white/40">(@mention)</span>
               </div>
             )}
