@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { PersonaAvatarPicker } from './PersonaAvatarPicker';
 import { FewShotManager } from './FewShotManager';
-import { TagSelector } from '../shared/TagSelector';
+import { TagSelector } from '../chat/TagSelector';
+import { TagModal } from '../chat/TagModal';
 import { useModels } from '../../hooks/useModels';
+import { useTags } from '../../hooks/useTags';
 import type { PersonaFormData, PersonaColor } from '../../types/persona';
 import { PERSONA_CATEGORIES, PERSONA_COLORS, PERSONA_COLOR_CLASSES } from '../../types/persona';
 
@@ -20,6 +22,7 @@ export function PersonaForm({
   submitLabel = 'Créer',
 }: PersonaFormProps) {
   const { models, loading: modelsLoading, error: modelsError } = useModels();
+  const { tags, createTag } = useTags();
 
   // Debug: afficher l'état des modèles
   console.log('[PersonaForm] Models:', models);
@@ -41,6 +44,20 @@ export function PersonaForm({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+
+  const handleToggleTag = (tagId: string) => {
+    if (formData.tags.includes(tagId)) {
+      setFormData({ ...formData, tags: formData.tags.filter((id) => id !== tagId) });
+    } else {
+      setFormData({ ...formData, tags: [...formData.tags, tagId] });
+    }
+  };
+
+  const handleCreateTag = (name: string, color: string, icon?: string) => {
+    const newTag = createTag(name, color, icon);
+    setFormData({ ...formData, tags: [...formData.tags, newTag.id] });
+  };
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -77,6 +94,7 @@ export function PersonaForm({
   };
 
   return (
+    <>
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Avatar */}
       <div>
@@ -270,10 +288,14 @@ export function PersonaForm({
       {/* Tags */}
       <div>
         <label className="block text-sm font-medium mb-3">Tags</label>
-        <TagSelector
-          selectedTagIds={formData.tags}
-          onChange={(tagIds) => setFormData({ ...formData, tags: tagIds })}
-        />
+        <div className="glass-card rounded-lg overflow-hidden">
+          <TagSelector
+            availableTags={tags}
+            selectedTagIds={formData.tags}
+            onToggleTag={handleToggleTag}
+            onCreateTag={() => setIsTagModalOpen(true)}
+          />
+        </div>
       </div>
 
       {/* Few-Shot Examples */}
@@ -299,5 +321,14 @@ export function PersonaForm({
         </button>
       </div>
     </form>
+
+    {/* Tag Modal */}
+    <TagModal
+      isOpen={isTagModalOpen}
+      onClose={() => setIsTagModalOpen(false)}
+      onSave={handleCreateTag}
+      title="Créer un nouveau tag"
+    />
+  </>
   );
 }
