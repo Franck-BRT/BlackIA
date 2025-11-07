@@ -133,9 +133,6 @@ export function SettingsPage() {
               onRenameFolder={renameFolder}
               onChangeFolderColor={changeFolderColor}
               onDeleteFolder={deleteFolder}
-              tags={tags}
-              onUpdateTag={updateTag}
-              onDeleteTag={deleteTag}
               conversations={conversations}
             />
           )}
