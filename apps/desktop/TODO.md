@@ -56,6 +56,10 @@
 - [ ] Mode sombre/clair/auto
 - [ ] Personnalisation des couleurs de l'interface
 - [ ] **Thèmes alternatifs et option de désactivation de la transparence**
+  - [x] ✅ Optimisation GPU : Désactivation complète des backdrop-filter quand animations OFF
+  - [x] ✅ Optimisation GPU : Suppression de la transition globale sur tous les éléments (*)
+  - [x] ✅ Réduction de l'intensité des blur (2xl→lg, xl→md) pour réduire la charge GPU
+  - [x] ✅ Fix: "tile memory limits exceeded" - glassmorphism désactivé avec animations OFF
   - [ ] Créer un thème solide (sans glassmorphism) pour améliorer la lisibilité
   - [ ] Option dans les paramètres pour choisir entre thème transparent et solide
   - [ ] Améliorer la lisibilité des menus superposés (dropdowns, modals)

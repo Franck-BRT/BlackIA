@@ -38,10 +38,10 @@
   }
 }
 
-/* Glassmorphism utilities */
+/* Glassmorphism utilities - Optimisés pour réduire la charge GPU */
 @layer utilities {
   .glass {
-    @apply backdrop-blur-xl bg-white/5 border border-white/10;
+    @apply backdrop-blur-md bg-white/5 border border-white/10;
   }
 
   .glass-sm {
@@ -53,11 +53,11 @@
   }
 
   .glass-lg {
-    @apply backdrop-blur-xl bg-white/10 border border-white/20;
+    @apply backdrop-blur-lg bg-white/10 border border-white/20;
   }
 
   .glass-card {
-    @apply backdrop-blur-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/20 shadow-2xl;
+    @apply backdrop-blur-lg bg-gradient-to-br from-white/10 to-white/5 border border-white/20 shadow-2xl;
   }
 
   .glass-hover {
@@ -65,11 +65,11 @@
   }
 
   .glass-sidebar {
-    @apply backdrop-blur-2xl bg-black/40 border-r border-white/10;
+    @apply backdrop-blur-lg bg-black/40 border-r border-white/10;
   }
 
   .glass-nav {
-    @apply backdrop-blur-xl bg-black/30 border-b border-white/10;
+    @apply backdrop-blur-md bg-black/30 border-b border-white/10;
   }
 }
 
@@ -87,8 +87,9 @@
   @apply bg-white/10 rounded-full hover:bg-white/20;
 }
 
-/* Smooth transitions */
-* {
+/* Smooth transitions - appliquées sélectivement pour éviter la surcharge GPU */
+/* NOTE: Ne pas utiliser * { transition } car cela crée une charge GPU énorme */
+button, a, input, select, textarea {
   @apply transition-colors duration-200;
 }
 
@@ -140,25 +141,31 @@
 
 /* ===== Appearance Settings CSS ===== */
 
-/* Glass effect variations based on user settings */
+/* Glass effect variations based on user settings - Optimisé pour GPU */
 .glass-subtle .glass,
 .glass-subtle .glass-card,
-.glass-subtle .glass-lg {
+.glass-subtle .glass-lg,
+.glass-subtle .glass-sidebar,
+.glass-subtle .glass-nav {
   backdrop-filter: blur(4px);
   background-color: rgba(255, 255, 255, 0.03);
 }
 
 .glass-medium .glass,
 .glass-medium .glass-card,
-.glass-medium .glass-lg {
-  backdrop-filter: blur(12px);
+.glass-medium .glass-lg,
+.glass-medium .glass-sidebar,
+.glass-medium .glass-nav {
+  backdrop-filter: blur(8px);
   background-color: rgba(255, 255, 255, 0.05);
 }
 
 .glass-intense .glass,
 .glass-intense .glass-card,
-.glass-intense .glass-lg {
-  backdrop-filter: blur(40px);
+.glass-intense .glass-lg,
+.glass-intense .glass-sidebar,
+.glass-intense .glass-nav {
+  backdrop-filter: blur(16px);
   background-color: rgba(255, 255, 255, 0.12);
 }
 
@@ -193,6 +200,19 @@
 .no-animations * {
   animation-duration: 0s !important;
   transition-duration: 0s !important;
+}
+
+/* CRITIQUE: Désactiver aussi backdrop-filter pour réduire la charge GPU */
+.no-animations .glass,
+.no-animations .glass-sm,
+.no-animations .glass-md,
+.no-animations .glass-lg,
+.no-animations .glass-card,
+.no-animations .glass-sidebar,
+.no-animations .glass-nav {
+  backdrop-filter: none !important;
+  background-color: rgba(0, 0, 0, 0.85) !important; /* Fallback opaque */
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
 
 /* Reduced motion for accessibility */
