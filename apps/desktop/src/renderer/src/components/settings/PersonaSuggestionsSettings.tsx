@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Power, PowerOff, RefreshCw, Info, Search, Edit2, X, Check } from 'lucide-react';
 import { useSettings } from '../../contexts/SettingsContext';
 import { usePersonaSuggestions } from '../../hooks/usePersonaSuggestions';
-import { PERSONA_CATEGORIES } from '../../types/persona';
 import type { PersonaSuggestionKeywordParsed } from '../../types/persona-suggestion';
 
 export function PersonaSuggestionsSettings() {
-  const { settings, updatePersonaSuggestionSettings } = useSettings();
+  const { settings, updatePersonaSuggestionSettings, getAllCategories } = useSettings();
+  const categories = getAllCategories();
   const {
     keywords,
     loading,
@@ -308,17 +308,17 @@ export function PersonaSuggestionsSettings() {
               Catégories associées
             </label>
             <div className="flex flex-wrap gap-2">
-              {PERSONA_CATEGORIES.map((category) => (
+              {categories.map((category) => (
                 <button
-                  key={category}
-                  onClick={() => toggleCategory(category)}
+                  key={category.id}
+                  onClick={() => toggleCategory(category.name)}
                   className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                    formCategories.includes(category)
+                    formCategories.includes(category.name)
                       ? 'bg-purple-600 text-white'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                 >
-                  {category}
+                  {category.icon} {category.name}
                 </button>
               ))}
             </div>
