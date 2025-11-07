@@ -10,18 +10,6 @@ import { initDatabase, runMigrations } from './database/client';
 
 // __dirname and __filename are available in CommonJS mode
 
-// Workaround pour macOS Sequoia: désactiver le network service watcher qui cause des crashes
-// https://github.com/electron/electron/issues/43211
-// Approche plus complète pour éviter les crashes avec SCNetworkReachabilityGetFlags
-if (process.platform === 'darwin') {
-  // Désactiver le monitoring réseau qui crash sur Sequoia
-  app.commandLine.appendSwitch('disable-features', 'NetworkService,NetworkServiceInProcess');
-  app.commandLine.appendSwitch('disable-background-networking');
-  app.commandLine.appendSwitch('disable-domain-reliability');
-  // Empêcher le NetworkConfigWatcher de démarrer
-  process.env.ELECTRON_DISABLE_REACHABILITY = '1';
-}
-
 // Development mode detection
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 

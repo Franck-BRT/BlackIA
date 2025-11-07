@@ -1,7 +1,7 @@
 appId: com.blackroomtech.blackia
 productName: BlackIA
 copyright: Copyright © 2025 Black Room Technologies
-electronVersion: 28.1.0
+electronVersion: 33.2.0
 directories:
   buildResources: resources
   output: release
