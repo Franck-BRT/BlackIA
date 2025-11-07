@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PersonaAvatarPicker } from './PersonaAvatarPicker';
 import { FewShotManager } from './FewShotManager';
+import { useModels } from '../../hooks/useModels';
 import type { PersonaFormData, PersonaColor } from '../../types/persona';
 import { PERSONA_CATEGORIES, PERSONA_COLORS, PERSONA_COLOR_CLASSES } from '../../types/persona';
 
@@ -17,6 +18,8 @@ export function PersonaForm({
   onCancel,
   submitLabel = 'Créer',
 }: PersonaFormProps) {
+  const { models, loading: modelsLoading } = useModels();
+
   const [formData, setFormData] = useState<PersonaFormData>({
     name: initialData?.name || '',
     description: initialData?.description || '',
@@ -189,15 +192,31 @@ export function PersonaForm({
       {/* Modèle préféré */}
       <div>
         <label className="block text-sm font-medium mb-2">Modèle préféré (optionnel)</label>
-        <input
-          type="text"
+        <select
           value={formData.model}
           onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-          placeholder="Ex: llama3, codellama, mistral..."
           className="w-full px-4 py-2 glass-card rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-        />
+          disabled={modelsLoading}
+        >
+          <option value="">Aucun (utiliser le modèle par défaut)</option>
+          {modelsLoading ? (
+            <option disabled>Chargement des modèles...</option>
+          ) : models.length === 0 ? (
+            <option disabled>Aucun modèle disponible</option>
+          ) : (
+            models.map((model) => (
+              <option key={model.name} value={model.name}>
+                {model.name}
+              </option>
+            ))
+          )}
+        </select>
         <p className="text-sm text-muted-foreground mt-1">
-          Laissez vide pour utiliser le modèle par défaut du Chat
+          {modelsLoading
+            ? 'Chargement des modèles Ollama...'
+            : models.length === 0
+              ? 'Aucun modèle Ollama détecté. Installez des modèles avec Ollama.'
+              : 'Sélectionnez un modèle spécifique ou laissez vide pour utiliser le modèle par défaut'}
         </p>
       </div>
 
