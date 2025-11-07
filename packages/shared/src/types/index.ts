@@ -135,6 +135,7 @@ export type SettingsSection =
   | 'workflows'
   | 'prompts'
   | 'personas'
+  | 'tags'
   | 'appearance'
   | 'interface'
   | 'notifications'

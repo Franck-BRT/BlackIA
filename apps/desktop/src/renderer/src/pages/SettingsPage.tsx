@@ -6,6 +6,7 @@ import {
   Workflow,
   FileText,
   User,
+  Tag,
   FolderOpen,
   Globe,
   Bell,
@@ -15,6 +16,7 @@ import {
   Info,
 } from 'lucide-react';
 import { ChatSettings } from '../components/settings/ChatSettings';
+import { TagsSettings } from '../components/settings/TagsSettings';
 import { KeyboardShortcutsSettings } from '../components/settings/KeyboardShortcutsSettings';
 import { AppearanceSettings } from '../components/settings/AppearanceSettings';
 import { InterfaceSection } from '../components/settings/InterfaceSection';
@@ -36,6 +38,7 @@ const navItems: NavItem[] = [
   { icon: Workflow, label: 'Workflows', section: 'workflows' },
   { icon: FileText, label: 'Prompts', section: 'prompts' },
   { icon: User, label: 'Personas', section: 'personas' },
+  { icon: Tag, label: 'Tags', section: 'tags' },
   { icon: Palette, label: 'Apparence', section: 'appearance' },
   { icon: Eye, label: 'Interface', section: 'interface' },
   { icon: Bell, label: 'Notifications', section: 'notifications' },
@@ -137,6 +140,14 @@ export function SettingsPage() {
           {activeSection === 'workflows' && <PlaceholderSection title="Workflows" />}
           {activeSection === 'prompts' && <PlaceholderSection title="Prompts" />}
           {activeSection === 'personas' && <PlaceholderSection title="Personas" />}
+          {activeSection === 'tags' && (
+            <TagsSettings
+              tags={tags}
+              onUpdateTag={updateTag}
+              onDeleteTag={deleteTag}
+              conversations={conversations}
+            />
+          )}
           {activeSection === 'appearance' && <AppearanceSettings />}
           {activeSection === 'interface' && <InterfaceSection />}
           {activeSection === 'notifications' && <PlaceholderSection title="Notifications" />}
