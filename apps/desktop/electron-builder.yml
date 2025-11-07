@@ -9,70 +9,18 @@ mac:
   category: public.app-category.developer-tools
   target:
     - target: dmg
-      arch: [arm64, x64]
-    - target: zip
       arch: [arm64]
-  # L'icône sera générée via scripts/generate-icons.sh
-  # Si absente, electron-builder utilisera une icône par défaut
-  # icon: resources/icon.icns
-  # Pour build de test sans signature (définir CSC_IDENTITY_AUTO_DISCOVERY=false)
   identity: null
-  # hardenedRuntime et entitlements désactivés pour builds non signés
-  # hardenedRuntime: true
-  # gatekeeperAssess: false
-  # entitlements: resources/entitlements.mac.plist
-  # entitlementsInherit: resources/entitlements.mac.plist
 
 dmg:
   sign: false
-  title: "${productName} ${version}"
-  background: null
-  contents:
-    - x: 410
-      y: 150
-      type: link
-      path: /Applications
-    - x: 130
-      y: 150
-      type: file
 
 files:
-  - from: dist
-    filter:
-      - '**/*'
-  - '!**/*.map'
-  # Inclure les packages workspace nécessaires
-  - from: ../../packages/ollama/dist
-    to: node_modules/@blackia/ollama/dist
-    filter:
-      - '**/*'
-  - from: ../../packages/ollama
-    to: node_modules/@blackia/ollama
-    filter:
-      - package.json
-  - from: ../../packages/shared/src
-    to: node_modules/@blackia/shared/src
-    filter:
-      - '**/*'
-  - from: ../../packages/shared
-    to: node_modules/@blackia/shared
-    filter:
-      - package.json
-  - from: ../../packages/ui/src
-    to: node_modules/@blackia/ui/src
-    filter:
-      - '**/*'
-  - from: ../../packages/ui
-    to: node_modules/@blackia/ui
-    filter:
-      - package.json
+  - dist
+  - package.json
+  - node_modules
 
-# Désactiver asar pour éviter les problèmes avec les modules natifs
 asar: false
-
-# afterSign désactivé pour les builds de test
-# Décommenter pour notarisation en production
-# afterSign: scripts/notarize.js
 
 publish:
   provider: github
