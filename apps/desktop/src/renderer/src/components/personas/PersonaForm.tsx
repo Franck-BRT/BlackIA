@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { PersonaAvatarPicker } from './PersonaAvatarPicker';
 import { FewShotManager } from './FewShotManager';
-import { TagSelector } from '../chat/TagSelector';
+import { TagDropdownSelector } from '../shared/TagDropdownSelector';
 import { TagModal } from '../chat/TagModal';
 import { useModels } from '../../hooks/useModels';
 import { useTags } from '../../hooks/useTags';
@@ -288,14 +288,12 @@ export function PersonaForm({
       {/* Tags */}
       <div>
         <label className="block text-sm font-medium mb-3">Tags</label>
-        <div className="glass-card rounded-lg overflow-hidden">
-          <TagSelector
-            availableTags={tags}
-            selectedTagIds={formData.tags}
-            onToggleTag={handleToggleTag}
-            onCreateTag={() => setIsTagModalOpen(true)}
-          />
-        </div>
+        <TagDropdownSelector
+          availableTags={tags}
+          selectedTagIds={formData.tags}
+          onToggleTag={handleToggleTag}
+          onCreateTag={() => setIsTagModalOpen(true)}
+        />
       </div>
 
       {/* Few-Shot Examples */}
