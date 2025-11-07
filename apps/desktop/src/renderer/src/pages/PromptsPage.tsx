@@ -1,12 +1,16 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Star, Filter, FileDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { usePrompts } from '../hooks/usePrompts';
 import { PromptList } from '../components/prompts/PromptList';
 import { PromptModal } from '../components/prompts/PromptModal';
 import { PromptImportExport } from '../components/prompts/PromptImportExport';
+import { PromptVariablesModal } from '../components/prompts/PromptVariablesModal';
+import { extractVariables } from '../types/prompt';
 import type { Prompt, PromptFormData, CreatePromptData } from '../types/prompt';
 
 export function PromptsPage() {
+  const navigate = useNavigate();
   const {
     prompts,
     loading,
@@ -16,15 +20,20 @@ export function PromptsPage() {
     deletePrompt,
     duplicatePrompt,
     toggleFavorite,
+    incrementUsage,
   } = usePrompts();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  // État pour le modal
+  // État pour le modal d'édition
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
+
+  // État pour le modal de variables
+  const [isVariablesModalOpen, setIsVariablesModalOpen] = useState(false);
+  const [usingPrompt, setUsingPrompt] = useState<Prompt | null>(null);
 
   // État pour import/export
   const [showImportExport, setShowImportExport] = useState(false);
@@ -143,9 +152,30 @@ export function PromptsPage() {
   };
 
   const handleUse = (prompt: Prompt) => {
-    // TODO: Implémenter l'utilisation du prompt
-    console.log('Use prompt:', prompt);
-    alert('Fonctionnalité "Utiliser" à venir prochainement !');
+    // Vérifier si le prompt contient des variables
+    const variables = extractVariables(prompt.content);
+
+    if (variables.length > 0) {
+      // Ouvrir le modal pour remplir les variables
+      setUsingPrompt(prompt);
+      setIsVariablesModalOpen(true);
+    } else {
+      // Pas de variables, utiliser directement
+      navigateToChat(prompt.content, prompt);
+    }
+  };
+
+  const navigateToChat = (filledPrompt: string, prompt: Prompt) => {
+    // Incrémenter le compteur d'utilisation
+    incrementUsage(prompt.id);
+
+    // Naviguer vers le chat avec le prompt pré-rempli
+    navigate('/chat', {
+      state: {
+        prefillMessage: filledPrompt,
+        promptName: prompt.name,
+      },
+    });
   };
 
   // Importer des prompts depuis un fichier JSON
@@ -346,6 +376,19 @@ export function PromptsPage() {
         title={editingPrompt ? 'Éditer le Prompt' : 'Nouveau Prompt'}
         submitLabel={editingPrompt ? 'Sauvegarder' : 'Créer'}
       />
+
+      {/* Modal de saisie des variables */}
+      {usingPrompt && (
+        <PromptVariablesModal
+          isOpen={isVariablesModalOpen}
+          onClose={() => {
+            setIsVariablesModalOpen(false);
+            setUsingPrompt(null);
+          }}
+          onSubmit={(filledPrompt) => navigateToChat(filledPrompt, usingPrompt)}
+          prompt={usingPrompt}
+        />
+      )}
     </div>
   );
 }

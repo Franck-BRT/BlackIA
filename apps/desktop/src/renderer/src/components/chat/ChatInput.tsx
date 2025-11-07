@@ -12,6 +12,8 @@ interface ChatInputProps {
   isGenerating?: boolean;
   placeholder?: string;
   personas?: Persona[]; // Liste des personas pour l'autocomplete @mention
+  initialMessage?: string; // Message à pré-remplir
+  onMessageChange?: () => void; // Callback quand le message change
 }
 
 export function ChatInput({
@@ -21,8 +23,10 @@ export function ChatInput({
   isGenerating,
   placeholder = 'Tapez votre message...',
   personas = [],
+  initialMessage = '',
+  onMessageChange,
 }: ChatInputProps) {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(initialMessage);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([]);
@@ -182,6 +186,11 @@ export function ChatInput({
     const newMessage = e.target.value;
     setMessage(newMessage);
 
+    // Appeler le callback si le message a changé (pour nettoyer le prefillMessage)
+    if (onMessageChange && newMessage !== initialMessage) {
+      onMessageChange();
+    }
+
     // Détecter @mention n'importe où dans le message
     const cursorPosition = e.target.selectionStart || 0;
     const textBeforeCursor = newMessage.substring(0, cursorPosition);
@@ -282,6 +291,13 @@ export function ChatInput({
     setShowSuggestions(false);
     setSuggestedPersonas([]);
   };
+
+  // Gérer le message initial pré-rempli
+  useEffect(() => {
+    if (initialMessage) {
+      setMessage(initialMessage);
+    }
+  }, [initialMessage]);
 
   // Auto-resize textarea
   useEffect(() => {
