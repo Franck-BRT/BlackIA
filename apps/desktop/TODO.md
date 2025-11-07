@@ -55,6 +55,12 @@
 - [ ] Synchronisation cloud (optionnel)
 - [ ] Mode sombre/clair/auto
 - [ ] Personnalisation des couleurs de l'interface
+- [ ] **Thèmes alternatifs et option de désactivation de la transparence**
+  - [ ] Créer un thème solide (sans glassmorphism) pour améliorer la lisibilité
+  - [ ] Option dans les paramètres pour choisir entre thème transparent et solide
+  - [ ] Améliorer la lisibilité des menus superposés (dropdowns, modals)
+  - [ ] Problème identifié : glassmorphism réduit la lisibilité sur certains éléments
+  - [ ] Envisager des variantes : opacité réglable, mode haute lisibilité
 
 ## Notes
 
