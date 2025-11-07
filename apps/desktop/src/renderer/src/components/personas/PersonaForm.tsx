@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PersonaAvatarPicker } from './PersonaAvatarPicker';
 import { FewShotManager } from './FewShotManager';
+import { TagSelector } from '../shared/TagSelector';
 import { useModels } from '../../hooks/useModels';
 import type { PersonaFormData, PersonaColor } from '../../types/persona';
 import { PERSONA_CATEGORIES, PERSONA_COLORS, PERSONA_COLOR_CLASSES } from '../../types/persona';
@@ -39,7 +40,6 @@ export function PersonaForm({
     tags: initialData?.tags || [],
   });
 
-  const [tagInput, setTagInput] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = (): boolean => {
@@ -74,23 +74,6 @@ export function PersonaForm({
     if (validate()) {
       onSubmit(formData);
     }
-  };
-
-  const addTag = () => {
-    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
-      setFormData({
-        ...formData,
-        tags: [...formData.tags, tagInput.trim()],
-      });
-      setTagInput('');
-    }
-  };
-
-  const removeTag = (tagToRemove: string) => {
-    setFormData({
-      ...formData,
-      tags: formData.tags.filter((tag) => tag !== tagToRemove),
-    });
   };
 
   return (
@@ -286,48 +269,11 @@ export function PersonaForm({
 
       {/* Tags */}
       <div>
-        <label className="block text-sm font-medium mb-2">Tags</label>
-        <div className="flex gap-2 mb-2">
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                addTag();
-              }
-            }}
-            placeholder="Ajouter un tag..."
-            className="flex-1 px-4 py-2 glass-card rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-          />
-          <button
-            type="button"
-            onClick={addTag}
-            className="px-4 py-2 glass-card rounded-lg hover:glass-lg transition-all"
-          >
-            Ajouter
-          </button>
-        </div>
-        {formData.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {formData.tags.map((tag) => (
-              <span
-                key={tag}
-                className="px-3 py-1 glass-card rounded-lg text-sm flex items-center gap-2"
-              >
-                {tag}
-                <button
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  className="text-red-400 hover:text-red-300"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
+        <label className="block text-sm font-medium mb-3">Tags</label>
+        <TagSelector
+          selectedTagIds={formData.tags}
+          onChange={(tagIds) => setFormData({ ...formData, tags: tagIds })}
+        />
       </div>
 
       {/* Few-Shot Examples */}

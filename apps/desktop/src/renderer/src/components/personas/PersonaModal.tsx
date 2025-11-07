@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { PersonaForm } from './PersonaForm';
+import { useTags } from '../../hooks/useTags';
+import { migrateTagsToIds } from '../../utils/tagMigration';
 import type { Persona, PersonaFormData } from '../../types/persona';
 
 interface PersonaModalProps {
@@ -20,6 +22,7 @@ export function PersonaModal({
   title,
   submitLabel,
 }: PersonaModalProps) {
+  const { tags, createTag } = useTags();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Fermer avec Escape
@@ -75,7 +78,8 @@ export function PersonaModal({
         avatar: persona.avatar,
         color: persona.color as any,
         category: persona.category || undefined,
-        tags: JSON.parse(persona.tags || '[]'),
+        // Migrer les anciens tags (noms) vers le nouveau format (IDs)
+        tags: migrateTagsToIds(JSON.parse(persona.tags || '[]'), tags, createTag),
       }
     : undefined;
 
