@@ -10,6 +10,12 @@ import { initDatabase, runMigrations } from './database/client';
 
 // __dirname and __filename are available in CommonJS mode
 
+// Workaround pour macOS Sequoia: désactiver le network service watcher qui cause des crashes
+// https://github.com/electron/electron/issues/43211
+if (process.platform === 'darwin') {
+  app.commandLine.appendSwitch('disable-features', 'NetworkService');
+}
+
 // Development mode detection
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
