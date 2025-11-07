@@ -215,6 +215,19 @@ button, a, input, select, textarea {
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
 
+/* Désactivation complète du glassmorphism */
+.no-glassmorphism .glass,
+.no-glassmorphism .glass-sm,
+.no-glassmorphism .glass-md,
+.no-glassmorphism .glass-lg,
+.no-glassmorphism .glass-card,
+.no-glassmorphism .glass-sidebar,
+.no-glassmorphism .glass-nav {
+  backdrop-filter: none !important;
+  background-color: rgba(0, 0, 0, 0.9) !important; /* Background solide et opaque */
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
 /* Reduced motion for accessibility */
 .reduce-motion *,
 .reduce-motion *::before,

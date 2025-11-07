@@ -165,6 +165,7 @@ export interface AppearanceSettings {
   fontSize: 'small' | 'medium' | 'large';
   density: 'compact' | 'comfortable' | 'spacious';
   glassEffect: 'subtle' | 'medium' | 'intense';
+  enableGlassmorphism: boolean; // Active/désactive complètement le glassmorphism
   animations: boolean;
   accentColor: 'purple' | 'blue' | 'pink' | 'green' | 'orange';
   borderRadius: 'sharp' | 'medium' | 'round';
