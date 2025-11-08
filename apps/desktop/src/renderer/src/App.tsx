@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { useApplyAppearance } from './hooks/useApplyAppearance';
 import { Layout } from './components/Layout';
@@ -64,7 +64,7 @@ function AppContent() {
   useApplyAppearance();
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <RouteLogger />
       <Layout>
         <Routes>
@@ -79,7 +79,7 @@ function AppContent() {
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </Layout>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
