@@ -123,6 +123,7 @@ const defaultSettings: AppSettings = {
     language: 'fr',
     autoSave: true,
     notifications: true,
+    startupPage: 'home',
   },
   appearance: {
     fontSize: 'medium',

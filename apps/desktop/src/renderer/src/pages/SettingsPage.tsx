@@ -191,6 +191,27 @@ export function SettingsPage() {
 
 // Section Général
 function GeneralSettings() {
+  const { settings, updateSettings } = useSettings();
+
+  const startupPageOptions: { value: AppModule; label: string }[] = [
+    { value: 'home', label: 'Accueil' },
+    { value: 'chat', label: 'Chat' },
+    { value: 'workflows', label: 'Workflows' },
+    { value: 'prompts', label: 'Prompts' },
+    { value: 'personas', label: 'Personas' },
+    { value: 'projects', label: 'Projets' },
+    { value: 'logs', label: 'Logs' },
+  ];
+
+  const handleStartupPageChange = (page: AppModule) => {
+    updateSettings({
+      general: {
+        ...settings.general,
+        startupPage: page,
+      },
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -201,8 +222,33 @@ function GeneralSettings() {
       </div>
 
       <div className="glass-card rounded-xl p-6 space-y-6">
-        {/* Version */}
+        {/* Page de démarrage */}
         <div>
+          <h3 className="text-lg font-semibold mb-4">Démarrage</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Page d'ouverture au démarrage
+              </label>
+              <select
+                value={settings.general.startupPage}
+                onChange={(e) => handleStartupPageChange(e.target.value as AppModule)}
+                className="w-full px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              >
+                {startupPageOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground mt-2">
+                Choisissez la page qui s'ouvrira au lancement de l'application
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-white/10 pt-6">
           <h3 className="text-lg font-semibold mb-4">Informations</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
