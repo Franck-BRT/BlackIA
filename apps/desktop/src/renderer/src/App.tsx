@@ -1,6 +1,6 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { SettingsProvider } from './contexts/SettingsContext';
+import { HashRouter, Routes, Route } from 'react-router-dom';
+import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { useApplyAppearance } from './hooks/useApplyAppearance';
 import { Layout } from './components/Layout';
 import { HomePage } from './pages/HomePage';
@@ -12,15 +12,45 @@ import { ProjectsPage } from './pages/ProjectsPage';
 import { LogsPage } from './pages/LogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
+// Map des composants de pages (défini en dehors pour éviter les re-créations)
+const PAGE_COMPONENTS: Record<string, React.ComponentType> = {
+  'home': HomePage,
+  'chat': ChatPage,
+  'workflows': WorkflowsPage,
+  'prompts': PromptsPage,
+  'personas': PersonasPage,
+  'projects': ProjectsPage,
+  'logs': LogsPage,
+  'settings': SettingsPage,
+};
+
+// Composant qui rend la page de démarrage configurée
+function StartupPage() {
+  const { settings } = useSettings();
+
+  // Vérification de sécurité
+  if (!settings || !settings.general) {
+    return <HomePage />;
+  }
+
+  const startupPage = settings.general.startupPage || 'home';
+
+  // Obtenir le composant correspondant
+  const PageComponent = PAGE_COMPONENTS[startupPage] || HomePage;
+
+  return <PageComponent />;
+}
+
 function AppContent() {
   // Applique les paramètres d'apparence au DOM
   useApplyAppearance();
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Layout>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<StartupPage />} />
+          <Route path="/home" element={<HomePage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/workflows" element={<WorkflowsPage />} />
           <Route path="/prompts" element={<PromptsPage />} />
@@ -30,7 +60,7 @@ function AppContent() {
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </Layout>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

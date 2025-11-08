@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Trash2, Settings, Menu, Search, BarChart3, User } from 'lucide-react';
 import { ChatMessage } from '../components/chat/ChatMessage';
 import { ChatInput } from '../components/chat/ChatInput';
@@ -26,8 +27,12 @@ import type { Persona } from '../types/persona';
 import { PERSONA_COLOR_CLASSES } from '../types/persona';
 
 export function ChatPage() {
+  const location = useLocation();
   const [messages, setMessages] = useState<OllamaMessage[]>([]);
   const [messageMetadata, setMessageMetadata] = useState<Record<number, MessageMetadata>>({});
+  const [prefillMessage, setPrefillMessage] = useState<string>('');
+  const [prefillPersonaId, setPrefillPersonaId] = useState<string | undefined>(undefined);
+  const [prefillIncludeFewShots, setPrefillIncludeFewShots] = useState<boolean>(false);
   const [selectedModel, setSelectedModel] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
@@ -146,6 +151,23 @@ export function ChatPage() {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  // Gérer le pré-remplissage depuis un prompt
+  useEffect(() => {
+    const state = location.state as {
+      prefillMessage?: string;
+      promptName?: string;
+      personaId?: string;
+      includeFewShots?: boolean;
+    } | null;
+    if (state?.prefillMessage) {
+      setPrefillMessage(state.prefillMessage);
+      setPrefillPersonaId(state.personaId);
+      setPrefillIncludeFewShots(state.includeFewShots || false);
+      // Nettoyer le state pour éviter de re-remplir lors de la navigation suivante
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   useEffect(() => {
     scrollToBottom();
@@ -1286,6 +1308,14 @@ export function ChatPage() {
                   : 'Sélectionnez d\'abord un modèle...'
               }
               personas={personas}
+              initialMessage={prefillMessage}
+              onMessageChange={() => {
+                setPrefillMessage('');
+                setPrefillPersonaId(undefined);
+                setPrefillIncludeFewShots(false);
+              }}
+              prefillPersonaId={prefillPersonaId}
+              prefillIncludeFewShots={prefillIncludeFewShots}
             />
           </div>
         </div>

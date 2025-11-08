@@ -58,6 +58,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getCategories: () => ipcRenderer.invoke('personas:getCategories'),
   },
 
+  // Prompts API
+  prompts: {
+    getAll: () => ipcRenderer.invoke('prompts:getAll'),
+    getById: (id: string) => ipcRenderer.invoke('prompts:getById', id),
+    create: (data: any) => ipcRenderer.invoke('prompts:create', data),
+    update: (id: string, data: any) => ipcRenderer.invoke('prompts:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('prompts:delete', id),
+    search: (query: string) => ipcRenderer.invoke('prompts:search', query),
+    filterByCategory: (category: string) => ipcRenderer.invoke('prompts:filterByCategory', category),
+    getFavorites: () => ipcRenderer.invoke('prompts:getFavorites'),
+    toggleFavorite: (id: string) => ipcRenderer.invoke('prompts:toggleFavorite', id),
+    incrementUsage: (id: string) => ipcRenderer.invoke('prompts:incrementUsage', id),
+    duplicate: (id: string) => ipcRenderer.invoke('prompts:duplicate', id),
+    getCategories: () => ipcRenderer.invoke('prompts:getCategories'),
+  },
+
   // Tags API
   tags: {
     getSynced: () => ipcRenderer.invoke('tags:getSynced'),
@@ -164,6 +180,21 @@ export interface ElectronAPI {
   };
 
   personas: {
+    getAll: () => Promise<any>;
+    getById: (id: string) => Promise<any>;
+    create: (data: any) => Promise<any>;
+    update: (id: string, data: any) => Promise<any>;
+    delete: (id: string) => Promise<any>;
+    search: (query: string) => Promise<any>;
+    filterByCategory: (category: string) => Promise<any>;
+    getFavorites: () => Promise<any>;
+    toggleFavorite: (id: string) => Promise<any>;
+    incrementUsage: (id: string) => Promise<any>;
+    duplicate: (id: string) => Promise<any>;
+    getCategories: () => Promise<any>;
+  };
+
+  prompts: {
     getAll: () => Promise<any>;
     getById: (id: string) => Promise<any>;
     create: (data: any) => Promise<any>;

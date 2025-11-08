@@ -1,9 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Square } from 'lucide-react';
 import { PersonaMentionDropdown } from './PersonaMentionDropdown';
+import { PromptMentionDropdown } from './PromptMentionDropdown';
+import { PromptVariablesModal } from '../prompts/PromptVariablesModal';
 import type { Persona } from '../../types/persona';
+import type { Prompt } from '../../types/prompt';
+import { extractVariables, replaceVariables } from '../../types/prompt';
 import { useSettings } from '../../contexts/SettingsContext';
 import { usePersonaSuggestions } from '../../hooks/usePersonaSuggestions';
+import { usePrompts } from '../../hooks/usePrompts';
 
 interface ChatInputProps {
   onSend: (message: string, personaIds?: string[], includeFewShots?: boolean) => void;
@@ -12,6 +17,10 @@ interface ChatInputProps {
   isGenerating?: boolean;
   placeholder?: string;
   personas?: Persona[]; // Liste des personas pour l'autocomplete @mention
+  initialMessage?: string; // Message à pré-remplir
+  onMessageChange?: () => void; // Callback quand le message change
+  prefillPersonaId?: string; // Persona pré-sélectionné depuis un prompt
+  prefillIncludeFewShots?: boolean; // Inclure les few-shots du persona pré-sélectionné
 }
 
 export function ChatInput({
@@ -21,8 +30,12 @@ export function ChatInput({
   isGenerating,
   placeholder = 'Tapez votre message...',
   personas = [],
+  initialMessage = '',
+  onMessageChange,
+  prefillPersonaId,
+  prefillIncludeFewShots = false,
 }: ChatInputProps) {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState(initialMessage);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<string[]>([]);
@@ -31,12 +44,21 @@ export function ChatInput({
   const [currentMentionPosition, setCurrentMentionPosition] = useState<number>(0); // Position du curseur lors de @mention
   const [suggestedPersonas, setSuggestedPersonas] = useState<Persona[]>([]); // Suggestions intelligentes
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // États pour les prompts
+  const [showPromptDropdown, setShowPromptDropdown] = useState(false);
+  const [promptQuery, setPromptQuery] = useState('');
+  const [currentPromptPosition, setCurrentPromptPosition] = useState<number>(0); // Position du curseur lors de /prompt
+  const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
+  const [showPromptVariablesModal, setShowPromptVariablesModal] = useState(false);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Charger les paramètres et keywords de suggestions
   const { settings } = useSettings();
   const { keywords: allKeywords } = usePersonaSuggestions();
+  const { prompts } = usePrompts();
 
   // Filtrer uniquement les keywords actifs si nécessaire
   const activeKeywords = settings.personaSuggestions.showOnlyActive
@@ -103,12 +125,24 @@ export function ChatInput({
       const mentionedIds = extractMentionsFromText(message);
 
       // Combiner avec les personas sélectionnés manuellement (via autocomplete)
-      const allPersonaIds = [...new Set([...selectedPersonaIds, ...mentionedIds])];
+      let allPersonaIds = [...new Set([...selectedPersonaIds, ...mentionedIds])];
 
-      console.log('[ChatInput] 📤 Envoi du message avec personas:', allPersonaIds, 'includeFewShots:', includeMentionFewShots);
+      // Ajouter le persona pré-sélectionné depuis un prompt s'il existe
+      if (prefillPersonaId && !allPersonaIds.includes(prefillPersonaId)) {
+        allPersonaIds = [prefillPersonaId, ...allPersonaIds];
+      }
+
+      // Utiliser prefillIncludeFewShots si un persona est pré-sélectionné, sinon utiliser includeMentionFewShots
+      const shouldIncludeFewShots = prefillPersonaId ? prefillIncludeFewShots : includeMentionFewShots;
+
+      console.log('[ChatInput] 📤 Envoi du message avec personas:', allPersonaIds, 'includeFewShots:', shouldIncludeFewShots);
 
       // Envoyer le message avec tous les personas mentionnés
-      onSend(message.trim(), allPersonaIds.length > 0 ? allPersonaIds : undefined, allPersonaIds.length > 0 ? includeMentionFewShots : false);
+      onSend(
+        message.trim(),
+        allPersonaIds.length > 0 ? allPersonaIds : undefined,
+        allPersonaIds.length > 0 ? shouldIncludeFewShots : false
+      );
       setMessage('');
       setSelectedPersonaIds([]);
       setIncludeMentionFewShots(false);
@@ -139,8 +173,8 @@ export function ChatInput({
       return;
     }
 
-    // Si le dropdown de mention est ouvert, ne pas intercepter Enter (laissé au dropdown)
-    if (showMentionDropdown) {
+    // Si le dropdown de mention ou de prompt est ouvert, ne pas intercepter Enter (laissé au dropdown)
+    if (showMentionDropdown || showPromptDropdown) {
       return;
     }
 
@@ -182,19 +216,30 @@ export function ChatInput({
     const newMessage = e.target.value;
     setMessage(newMessage);
 
-    // Détecter @mention n'importe où dans le message
+    // Appeler le callback si le message a changé (pour nettoyer le prefillMessage)
+    if (onMessageChange && newMessage !== initialMessage) {
+      onMessageChange();
+    }
+
+    // Détecter @mention et /prompt n'importe où dans le message
     const cursorPosition = e.target.selectionStart || 0;
     const textBeforeCursor = newMessage.substring(0, cursorPosition);
 
     // Chercher le dernier @ avant le curseur
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    // Chercher le dernier / avant le curseur
+    const lastSlashIndex = textBeforeCursor.lastIndexOf('/');
 
-    if (lastAtIndex !== -1) {
+    // Déterminer lequel est le plus récent
+    const isAtMention = lastAtIndex > lastSlashIndex;
+    const isPromptMention = lastSlashIndex > lastAtIndex;
+
+    if (isAtMention && lastAtIndex !== -1) {
       // Vérifier qu'il n'y a pas d'espace entre @ et le curseur (sinon la mention est terminée)
       const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
 
-      if (!textAfterAt.includes(' ')) {
-        // On est en train de taper une mention
+      if (!textAfterAt.includes(' ') && !textAfterAt.includes('/')) {
+        // On est en train de taper une mention de persona
         setCurrentMentionPosition(lastAtIndex);
 
         // Calculer la position du dropdown
@@ -203,19 +248,44 @@ export function ChatInput({
 
         setShowMentionDropdown(true);
         setMentionQuery(textAfterAt);
+        setShowPromptDropdown(false);
+        setPromptQuery('');
         setShowSuggestions(false); // Masquer les suggestions quand on tape @
       } else {
         setShowMentionDropdown(false);
         setMentionQuery('');
       }
+    } else if (isPromptMention && lastSlashIndex !== -1) {
+      // Vérifier qu'il n'y a pas d'espace entre / et le curseur (sinon le prompt est terminé)
+      const textAfterSlash = textBeforeCursor.substring(lastSlashIndex + 1);
+
+      if (!textAfterSlash.includes(' ') && !textAfterSlash.includes('@')) {
+        // On est en train de taper une mention de prompt
+        setCurrentPromptPosition(lastSlashIndex);
+
+        // Calculer la position du dropdown
+        const position = calculateDropdownPosition();
+        setDropdownPosition(position);
+
+        setShowPromptDropdown(true);
+        setPromptQuery(textAfterSlash);
+        setShowMentionDropdown(false);
+        setMentionQuery('');
+        setShowSuggestions(false); // Masquer les suggestions quand on tape /
+      } else {
+        setShowPromptDropdown(false);
+        setPromptQuery('');
+      }
     } else {
       setShowMentionDropdown(false);
       setMentionQuery('');
+      setShowPromptDropdown(false);
+      setPromptQuery('');
 
       // Suggestions intelligentes : analyser le texte après un court délai
       // Seulement si le message dépasse le seuil minimum de caractères et pas de @mention active
       const minChars = settings.personaSuggestions.minCharacters;
-      if (settings.personaSuggestions.enabled && newMessage.length >= minChars && !newMessage.includes('@')) {
+      if (settings.personaSuggestions.enabled && newMessage.length >= minChars && !newMessage.includes('@') && !newMessage.includes('/')) {
         const suggestions = suggestPersonasFromText(newMessage);
         if (suggestions.length > 0) {
           setSuggestedPersonas(suggestions);
@@ -263,6 +333,73 @@ export function ChatInput({
     setMentionQuery('');
   };
 
+  const handlePromptSelect = (prompt: Prompt) => {
+    console.log('[ChatInput] 📄 Prompt sélectionné:', prompt.name);
+
+    // Vérifier si le prompt a des variables
+    const variables = extractVariables(prompt.content);
+
+    if (variables.length > 0) {
+      // Afficher le modal pour remplir les variables
+      setSelectedPrompt(prompt);
+      setShowPromptDropdown(false);
+      setPromptQuery('');
+      setShowPromptVariablesModal(true);
+    } else {
+      // Insérer directement le prompt sans variables
+      insertPromptIntoMessage(prompt.content, prompt);
+    }
+  };
+
+  const insertPromptIntoMessage = (filledContent: string, prompt: Prompt, personaId?: string, includeFewShots?: boolean) => {
+    // Insérer le contenu du prompt à la position du / dans le texte
+    const beforePrompt = message.substring(0, currentPromptPosition);
+    const afterCursor = message.substring(textareaRef.current?.selectionStart || message.length);
+
+    // Construire le nouveau message avec le contenu du prompt
+    const newMessage = `${beforePrompt}${filledContent}${afterCursor}`;
+    setMessage(newMessage);
+
+    // Si le prompt a un persona par défaut ou si un persona a été sélectionné
+    if (personaId && !selectedPersonaIds.includes(personaId)) {
+      setSelectedPersonaIds([...selectedPersonaIds, personaId]);
+      setIncludeMentionFewShots(includeFewShots || false);
+    } else if (prompt.defaultPersonaId && !selectedPersonaIds.includes(prompt.defaultPersonaId)) {
+      setSelectedPersonaIds([...selectedPersonaIds, prompt.defaultPersonaId]);
+      setIncludeMentionFewShots(prompt.defaultIncludeFewShots || false);
+    }
+
+    setShowPromptDropdown(false);
+    setPromptQuery('');
+    setShowPromptVariablesModal(false);
+    setSelectedPrompt(null);
+
+    // Refocus sur le textarea
+    if (textareaRef.current) {
+      const newCursorPosition = beforePrompt.length + filledContent.length;
+      textareaRef.current.focus();
+      setTimeout(() => {
+        textareaRef.current?.setSelectionRange(newCursorPosition, newCursorPosition);
+      }, 0);
+    }
+  };
+
+  const handlePromptVariablesSubmit = (filledPrompt: string, personaId?: string, includeFewShots?: boolean) => {
+    if (selectedPrompt) {
+      insertPromptIntoMessage(filledPrompt, selectedPrompt, personaId, includeFewShots);
+    }
+  };
+
+  const handleClosePromptDropdown = () => {
+    setShowPromptDropdown(false);
+    setPromptQuery('');
+  };
+
+  const handleClosePromptVariablesModal = () => {
+    setShowPromptVariablesModal(false);
+    setSelectedPrompt(null);
+  };
+
   const handleAcceptSuggestion = (persona: Persona) => {
     // Ajouter le persona aux personas sélectionnés
     if (!selectedPersonaIds.includes(persona.id)) {
@@ -282,6 +419,13 @@ export function ChatInput({
     setShowSuggestions(false);
     setSuggestedPersonas([]);
   };
+
+  // Gérer le message initial pré-rempli
+  useEffect(() => {
+    if (initialMessage) {
+      setMessage(initialMessage);
+    }
+  }, [initialMessage]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -310,6 +454,28 @@ export function ChatInput({
           onSelect={handlePersonaSelect}
           onClose={handleCloseMentionDropdown}
           position={dropdownPosition}
+        />
+      )}
+
+      {/* Dropdown de mention /prompt */}
+      {showPromptDropdown && (
+        <PromptMentionDropdown
+          prompts={prompts}
+          searchQuery={promptQuery}
+          onSelect={handlePromptSelect}
+          onClose={handleClosePromptDropdown}
+          position={dropdownPosition}
+        />
+      )}
+
+      {/* Modal pour remplir les variables du prompt */}
+      {showPromptVariablesModal && selectedPrompt && (
+        <PromptVariablesModal
+          isOpen={showPromptVariablesModal}
+          onClose={handleClosePromptVariablesModal}
+          onSubmit={handlePromptVariablesSubmit}
+          prompt={selectedPrompt}
+          personas={personas}
         />
       )}
 
@@ -434,7 +600,8 @@ export function ChatInput({
       <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
         <span>↵ Entrée pour envoyer</span>
         <span>⇧ + ↵ pour nouvelle ligne</span>
-        <span>@ ou Ctrl+Space pour mentionner un persona</span>
+        <span>@ pour mentionner un persona</span>
+        <span>/ pour insérer un prompt</span>
       </div>
     </form>
   );

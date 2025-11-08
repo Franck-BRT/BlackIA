@@ -160,6 +160,7 @@ export interface GeneralSettings {
   language: string;
   autoSave: boolean;
   notifications: boolean;
+  startupPage: AppModule;
 }
 
 // Appearance settings

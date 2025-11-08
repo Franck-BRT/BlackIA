@@ -99,6 +99,36 @@ export const personaSuggestionKeywords = sqliteTable('persona_suggestion_keyword
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+/**
+ * Table Prompts
+ * Bibliothèque de prompts réutilisables avec support de variables
+ */
+export const prompts = sqliteTable('prompts', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  content: text('content').notNull(), // Le texte du prompt avec variables {{variable}}
+
+  // Variables
+  variables: text('variables').notNull().default('[]'), // JSON array de noms de variables
+
+  // Apparence
+  icon: text('icon').notNull().default('📝'), // Emoji ou icône
+  color: text('color').notNull().default('purple'), // purple, blue, pink, green, orange
+
+  // Organisation
+  category: text('category'), // Développement, Écriture, etc.
+  tags: text('tags').notNull().default('[]'), // JSON array
+
+  // Métadonnées
+  isFavorite: integer('is_favorite', { mode: 'boolean' }).notNull().default(false),
+  usageCount: integer('usage_count').notNull().default(0),
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 // Types inférés pour TypeScript
 export type Persona = typeof personas.$inferSelect;
 export type NewPersona = typeof personas.$inferInsert;
@@ -110,3 +140,5 @@ export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 export type PersonaSuggestionKeyword = typeof personaSuggestionKeywords.$inferSelect;
 export type NewPersonaSuggestionKeyword = typeof personaSuggestionKeywords.$inferInsert;
+export type Prompt = typeof prompts.$inferSelect;
+export type NewPrompt = typeof prompts.$inferInsert;

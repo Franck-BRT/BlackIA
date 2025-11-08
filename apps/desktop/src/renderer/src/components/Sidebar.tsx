@@ -20,7 +20,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { icon: Home, label: 'Accueil', path: '/' },
+  { icon: Home, label: 'Accueil', path: '/home' },
   { icon: MessageSquare, label: 'Chat', path: '/chat' },
   { icon: Workflow, label: 'Workflows', path: '/workflows' },
   { icon: FileText, label: 'Prompts', path: '/prompts' },

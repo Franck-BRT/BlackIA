@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Edit, Copy, Trash2, Play } from 'lucide-react';
+import { Star, Edit, Copy, Trash2, Play, Download } from 'lucide-react';
 import type { Persona } from '../../types/persona';
 import { PERSONA_COLOR_CLASSES } from '../../types/persona';
 import { useTags } from '../../hooks/useTags';
@@ -49,6 +49,26 @@ export function PersonaCard({
     .map(resolveTagName)
     .filter((name): name is string => name !== null);
 
+  // Fonction pour exporter ce persona
+  const handleExport = () => {
+    try {
+      const jsonData = JSON.stringify([persona], null, 2);
+      const blob = new Blob([jsonData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `persona-${persona.name.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('[PersonaCard] Error exporting persona:', error);
+      alert('Erreur lors de l\'export du persona');
+    }
+  };
+
   return (
     <div className="glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative">
       {/* Header avec avatar et actions */}
@@ -73,6 +93,14 @@ export function PersonaCard({
               <Star className="w-4 h-4" fill={persona.isFavorite ? 'currentColor' : 'none'} />
             </button>
           )}
+
+          <button
+            onClick={handleExport}
+            className="p-2 rounded-lg hover:glass-lg transition-all text-muted-foreground hover:text-green-400"
+            title="Exporter ce persona"
+          >
+            <Download className="w-4 h-4" />
+          </button>
 
           {onEdit && (
             <button
