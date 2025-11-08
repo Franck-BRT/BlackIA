@@ -487,6 +487,45 @@ function registerWorkflowHandlers() {
     }
   });
 
+  // Exécuter un workflow
+  ipcMain.handle('workflows:execute', async (_event, workflowId: string, inputs: Record<string, unknown>) => {
+    try {
+      const { WorkflowExecutionEngine } = await import('./services/workflow-execution-engine');
+
+      // Récupérer le workflow
+      const workflow = await WorkflowService.getById(workflowId);
+      if (!workflow) {
+        return { success: false, error: 'Workflow not found' };
+      }
+
+      // Parser les nodes et edges
+      const parsedWorkflow = {
+        id: workflow.id,
+        name: workflow.name,
+        nodes: JSON.parse(workflow.nodes),
+        edges: JSON.parse(workflow.edges),
+      };
+
+      // Créer et exécuter le workflow
+      const engine = new WorkflowExecutionEngine(parsedWorkflow, (nodeId, status) => {
+        // Envoyer les événements de progression
+        _event.sender.send('workflow:progress', { nodeId, status });
+      });
+
+      const result = await engine.execute(inputs);
+
+      // Incrémenter le compteur d'utilisation
+      if (result.success) {
+        await WorkflowService.incrementUsage(workflowId);
+      }
+
+      return { success: true, data: result };
+    } catch (error) {
+      console.error('[Workflows] Error in execute:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
   console.log('[IPC] Workflow handlers registered');
 }
 

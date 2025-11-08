@@ -89,6 +89,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     incrementUsage: (id: string) => ipcRenderer.invoke('workflows:incrementUsage', id),
     duplicate: (id: string) => ipcRenderer.invoke('workflows:duplicate', id),
     getCategories: () => ipcRenderer.invoke('workflows:getCategories'),
+    execute: (id: string, inputs: Record<string, any>) => ipcRenderer.invoke('workflows:execute', id, inputs),
+    onProgress: (callback: (data: { nodeId: string; status: string }) => void) => {
+      ipcRenderer.on('workflow:progress', (_event, data) => callback(data));
+    },
+    removeProgressListener: () => {
+      ipcRenderer.removeAllListeners('workflow:progress');
+    },
   },
 
   // Tags API
@@ -240,6 +247,9 @@ export interface ElectronAPI {
     incrementUsage: (id: string) => Promise<any>;
     duplicate: (id: string) => Promise<any>;
     getCategories: () => Promise<any>;
+    execute: (id: string, inputs: Record<string, any>) => Promise<any>;
+    onProgress: (callback: (data: { nodeId: string; status: string }) => void) => void;
+    removeProgressListener: () => void;
   };
 
   tags: {

@@ -3,6 +3,7 @@ import { Plus, Search, Star, Layers, Filter, X } from 'lucide-react';
 import { useWorkflows, type ParsedWorkflow } from '../hooks/useWorkflows';
 import { WorkflowList } from '../components/workflows/WorkflowList';
 import { WorkflowModal } from '../components/workflows/WorkflowModal';
+import { WorkflowExecutionPanel } from '../components/workflows/WorkflowExecutionPanel';
 
 export function WorkflowsPage() {
   const {
@@ -23,6 +24,7 @@ export function WorkflowsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'favorites' | 'templates'>('all');
   const [filteredWorkflows, setFilteredWorkflows] = useState<ParsedWorkflow[]>([]);
+  const [executingWorkflow, setExecutingWorkflow] = useState<ParsedWorkflow | null>(null);
 
   // Gestion du filtre et de la recherche
   useState(() => {
@@ -80,8 +82,10 @@ export function WorkflowsPage() {
   };
 
   const handleExecuteWorkflow = async (id: string) => {
-    // TODO: Implémenter l'exécution
-    console.log('Execute workflow:', id);
+    const workflow = workflows.find((w) => w.id === id);
+    if (workflow) {
+      setExecutingWorkflow(workflow);
+    }
   };
 
   const displayedWorkflows = searchQuery || activeFilter !== 'all' ? filteredWorkflows : workflows;
@@ -232,6 +236,15 @@ export function WorkflowsPage() {
           workflow={selectedWorkflow}
           title={selectedWorkflow ? 'Modifier le workflow' : 'Nouveau Workflow'}
         />
+
+        {/* Execution Panel */}
+        {executingWorkflow && (
+          <WorkflowExecutionPanel
+            workflowId={executingWorkflow.id}
+            workflowName={executingWorkflow.name}
+            onClose={() => setExecutingWorkflow(null)}
+          />
+        )}
       </div>
     </div>
   );
