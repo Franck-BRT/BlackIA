@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { User } from 'lucide-react';
 import type { Prompt, PromptFormData, PromptColor } from '../../types/prompt';
 import { PROMPT_CATEGORIES, PROMPT_COLORS, SUGGESTED_PROMPT_ICONS, extractVariables } from '../../types/prompt';
+import { usePersonas } from '../../hooks/usePersonas';
+import { PERSONA_COLOR_CLASSES } from '../../types/persona';
 
 interface PromptFormProps {
   prompt?: Prompt | null;
@@ -15,6 +18,8 @@ export function PromptForm({
   onCancel,
   submitLabel = 'Créer',
 }: PromptFormProps) {
+  const { personas } = usePersonas();
+
   const [formData, setFormData] = useState<PromptFormData>({
     name: '',
     description: '',
@@ -24,9 +29,15 @@ export function PromptForm({
     color: 'purple',
     category: undefined,
     tags: [],
+    defaultPersonaId: undefined,
+    defaultIncludeFewShots: false,
   });
 
   const [tagInput, setTagInput] = useState('');
+
+  // Trouver le persona sélectionné
+  const selectedPersona = personas.find((p) => p.id === formData.defaultPersonaId);
+  const hasFewShots = selectedPersona?.fewShotExamples && selectedPersona.fewShotExamples.length > 0;
 
   // Initialiser le formulaire si on édite un prompt
   useEffect(() => {
@@ -53,6 +64,8 @@ export function PromptForm({
         color: prompt.color,
         category: prompt.category || undefined,
         tags,
+        defaultPersonaId: prompt.defaultPersonaId || undefined,
+        defaultIncludeFewShots: prompt.defaultIncludeFewShots || false,
       });
     }
   }, [prompt]);
@@ -241,6 +254,69 @@ export function PromptForm({
                 </button>
               </span>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Persona par défaut */}
+      <div className="p-4 glass-card rounded-xl">
+        <label className="block text-sm font-medium mb-3 flex items-center gap-2">
+          <User className="w-4 h-4" />
+          Persona par défaut (optionnel)
+        </label>
+        <select
+          value={formData.defaultPersonaId || ''}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              defaultPersonaId: e.target.value || undefined,
+              // Réinitialiser few-shots si aucun persona
+              defaultIncludeFewShots: e.target.value ? formData.defaultIncludeFewShots : false,
+            })
+          }
+          className="w-full px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+        >
+          <option value="">Aucun persona</option>
+          {personas.map((persona) => (
+            <option key={persona.id} value={persona.id}>
+              {persona.avatar} {persona.name} - {persona.category}
+            </option>
+          ))}
+        </select>
+
+        {/* Checkbox pour inclure les few-shots par défaut */}
+        {formData.defaultPersonaId && hasFewShots && (
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="defaultIncludeFewShots"
+              checked={formData.defaultIncludeFewShots}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  defaultIncludeFewShots: e.target.checked,
+                })
+              }
+              className="w-4 h-4 rounded accent-purple-500"
+            />
+            <label htmlFor="defaultIncludeFewShots" className="text-sm text-muted-foreground cursor-pointer">
+              Inclure les {selectedPersona?.fewShotExamples?.length} exemples few-shot par défaut
+            </label>
+          </div>
+        )}
+
+        {/* Affichage du persona sélectionné */}
+        {selectedPersona && (
+          <div className="mt-3 p-3 glass-card rounded-lg flex items-center gap-3">
+            <div
+              className={`w-10 h-10 rounded-xl bg-gradient-to-br ${PERSONA_COLOR_CLASSES[selectedPersona.color]} flex items-center justify-center text-xl`}
+            >
+              {selectedPersona.avatar}
+            </div>
+            <div className="flex-1">
+              <div className="text-sm font-medium">{selectedPersona.name}</div>
+              <div className="text-xs text-muted-foreground">{selectedPersona.description}</div>
+            </div>
           </div>
         )}
       </div>

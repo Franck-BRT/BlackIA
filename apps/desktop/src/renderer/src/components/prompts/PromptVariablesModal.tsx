@@ -23,7 +23,12 @@ export function PromptVariablesModal({
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
   const [includeFewShots, setIncludeFewShots] = useState(false);
+  const [useDefaultPersona, setUseDefaultPersona] = useState(true);
   const variables = extractVariables(prompt.content);
+
+  // Vérifier si le prompt a un persona par défaut
+  const hasDefaultPersona = !!prompt.defaultPersonaId;
+  const defaultPersona = personas.find((p) => p.id === prompt.defaultPersonaId);
 
   // Trouver le persona sélectionné
   const selectedPersona = personas.find((p) => p.id === selectedPersonaId);
@@ -37,10 +42,19 @@ export function PromptVariablesModal({
         initialValues[v] = '';
       });
       setVariableValues(initialValues);
-      setSelectedPersonaId('');
-      setIncludeFewShots(false);
+
+      // Initialiser avec le persona par défaut si disponible
+      if (prompt.defaultPersonaId) {
+        setSelectedPersonaId(prompt.defaultPersonaId);
+        setIncludeFewShots(prompt.defaultIncludeFewShots || false);
+        setUseDefaultPersona(true);
+      } else {
+        setSelectedPersonaId('');
+        setIncludeFewShots(false);
+        setUseDefaultPersona(false);
+      }
     }
-  }, [isOpen, prompt.id]);
+  }, [isOpen, prompt.id, prompt.defaultPersonaId, prompt.defaultIncludeFewShots]);
 
   if (!isOpen) return null;
 
@@ -114,18 +128,54 @@ export function PromptVariablesModal({
               <User className="w-4 h-4" />
               Utiliser avec un persona (optionnel)
             </label>
-            <select
-              value={selectedPersonaId}
-              onChange={(e) => setSelectedPersonaId(e.target.value)}
-              className="w-full px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/50"
-            >
-              <option value="">Aucun persona</option>
-              {personas.map((persona) => (
-                <option key={persona.id} value={persona.id}>
-                  {persona.avatar} {persona.name} - {persona.category}
-                </option>
-              ))}
-            </select>
+
+            {/* Checkbox pour utiliser le persona par défaut */}
+            {hasDefaultPersona && defaultPersona && (
+              <div className="mb-3 p-3 glass-card rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id="useDefaultPersona"
+                    checked={useDefaultPersona}
+                    onChange={(e) => {
+                      setUseDefaultPersona(e.target.checked);
+                      if (e.target.checked) {
+                        setSelectedPersonaId(prompt.defaultPersonaId || '');
+                        setIncludeFewShots(prompt.defaultIncludeFewShots || false);
+                      } else {
+                        setSelectedPersonaId('');
+                        setIncludeFewShots(false);
+                      }
+                    }}
+                    className="w-4 h-4 rounded accent-green-500"
+                  />
+                  <label htmlFor="useDefaultPersona" className="text-sm font-medium cursor-pointer">
+                    Utiliser le persona par défaut : {defaultPersona.avatar} {defaultPersona.name}
+                  </label>
+                </div>
+                {useDefaultPersona && (
+                  <div className="text-xs text-muted-foreground ml-6">
+                    Few-shots {prompt.defaultIncludeFewShots ? 'activés' : 'désactivés'} par défaut
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Sélection manuelle du persona (si pas de défaut ou décoché) */}
+            {(!hasDefaultPersona || !useDefaultPersona) && (
+              <select
+                value={selectedPersonaId}
+                onChange={(e) => setSelectedPersonaId(e.target.value)}
+                className="w-full px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/50"
+              >
+                <option value="">Aucun persona</option>
+                {personas.map((persona) => (
+                  <option key={persona.id} value={persona.id}>
+                    {persona.avatar} {persona.name} - {persona.category}
+                  </option>
+                ))}
+              </select>
+            )}
 
             {/* Checkbox pour inclure les few-shots */}
             {selectedPersonaId && hasFewShots && (

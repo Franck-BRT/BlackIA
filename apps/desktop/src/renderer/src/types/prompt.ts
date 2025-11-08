@@ -20,6 +20,10 @@ export interface Prompt {
   category?: string | null;
   tags: string; // JSON array
 
+  // Persona par défaut
+  defaultPersonaId?: string | null;
+  defaultIncludeFewShots: boolean;
+
   // Métadonnées
   isFavorite: boolean;
   usageCount: number;
@@ -40,6 +44,8 @@ export interface PromptFormData {
   color: PromptColor;
   category?: string;
   tags: string[];
+  defaultPersonaId?: string;
+  defaultIncludeFewShots: boolean;
 }
 
 export interface CreatePromptData {
@@ -51,6 +57,8 @@ export interface CreatePromptData {
   color: PromptColor;
   category?: string;
   tags: string; // JSON string
+  defaultPersonaId?: string;
+  defaultIncludeFewShots: boolean;
   isFavorite?: boolean;
 }
 
@@ -63,6 +71,8 @@ export interface UpdatePromptData {
   color?: PromptColor;
   category?: string | null;
   tags?: string;
+  defaultPersonaId?: string | null;
+  defaultIncludeFewShots?: boolean;
   isFavorite?: boolean;
 }
 
