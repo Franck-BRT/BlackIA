@@ -17,14 +17,15 @@ function AppContent() {
   useApplyAppearance();
   const { settings } = useSettings();
 
-  // Déterminer la route de démarrage depuis les settings
-  const startupRoute = settings.general.startupPage === 'home' ? '/' : `/${settings.general.startupPage}`;
+  // Déterminer la route de démarrage depuis les settings (défaut: home)
+  const startupPage = settings.general.startupPage || 'home';
+  const startupRoute = startupPage === 'home' ? '/' : `/${startupPage}`;
 
   return (
     <BrowserRouter>
       <Layout>
         <Routes>
-          <Route path="/" element={settings.general.startupPage === 'home' ? <HomePage /> : <Navigate to={startupRoute} replace />} />
+          <Route path="/" element={startupPage === 'home' ? <HomePage /> : <Navigate to={startupRoute} replace />} />
           <Route path="/home" element={<HomePage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/workflows" element={<WorkflowsPage />} />

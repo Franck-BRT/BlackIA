@@ -191,7 +191,7 @@ export function SettingsPage() {
 
 // Section Général
 function GeneralSettings() {
-  const { settings, updateSettings } = useSettings();
+  const { settings, updateGeneralSettings } = useSettings();
 
   const startupPageOptions: { value: AppModule; label: string }[] = [
     { value: 'home', label: 'Accueil' },
@@ -204,11 +204,8 @@ function GeneralSettings() {
   ];
 
   const handleStartupPageChange = (page: AppModule) => {
-    updateSettings({
-      general: {
-        ...settings.general,
-        startupPage: page,
-      },
+    updateGeneralSettings({
+      startupPage: page,
     });
   };
 
@@ -231,7 +228,7 @@ function GeneralSettings() {
                 Page d'ouverture au démarrage
               </label>
               <select
-                value={settings.general.startupPage}
+                value={settings.general.startupPage || 'home'}
                 onChange={(e) => handleStartupPageChange(e.target.value as AppModule)}
                 className="w-full px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
               >
