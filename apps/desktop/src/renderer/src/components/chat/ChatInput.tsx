@@ -14,6 +14,8 @@ interface ChatInputProps {
   personas?: Persona[]; // Liste des personas pour l'autocomplete @mention
   initialMessage?: string; // Message à pré-remplir
   onMessageChange?: () => void; // Callback quand le message change
+  prefillPersonaId?: string; // Persona pré-sélectionné depuis un prompt
+  prefillIncludeFewShots?: boolean; // Inclure les few-shots du persona pré-sélectionné
 }
 
 export function ChatInput({
@@ -25,6 +27,8 @@ export function ChatInput({
   personas = [],
   initialMessage = '',
   onMessageChange,
+  prefillPersonaId,
+  prefillIncludeFewShots = false,
 }: ChatInputProps) {
   const [message, setMessage] = useState(initialMessage);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
@@ -107,12 +111,24 @@ export function ChatInput({
       const mentionedIds = extractMentionsFromText(message);
 
       // Combiner avec les personas sélectionnés manuellement (via autocomplete)
-      const allPersonaIds = [...new Set([...selectedPersonaIds, ...mentionedIds])];
+      let allPersonaIds = [...new Set([...selectedPersonaIds, ...mentionedIds])];
 
-      console.log('[ChatInput] 📤 Envoi du message avec personas:', allPersonaIds, 'includeFewShots:', includeMentionFewShots);
+      // Ajouter le persona pré-sélectionné depuis un prompt s'il existe
+      if (prefillPersonaId && !allPersonaIds.includes(prefillPersonaId)) {
+        allPersonaIds = [prefillPersonaId, ...allPersonaIds];
+      }
+
+      // Utiliser prefillIncludeFewShots si un persona est pré-sélectionné, sinon utiliser includeMentionFewShots
+      const shouldIncludeFewShots = prefillPersonaId ? prefillIncludeFewShots : includeMentionFewShots;
+
+      console.log('[ChatInput] 📤 Envoi du message avec personas:', allPersonaIds, 'includeFewShots:', shouldIncludeFewShots);
 
       // Envoyer le message avec tous les personas mentionnés
-      onSend(message.trim(), allPersonaIds.length > 0 ? allPersonaIds : undefined, allPersonaIds.length > 0 ? includeMentionFewShots : false);
+      onSend(
+        message.trim(),
+        allPersonaIds.length > 0 ? allPersonaIds : undefined,
+        allPersonaIds.length > 0 ? shouldIncludeFewShots : false
+      );
       setMessage('');
       setSelectedPersonaIds([]);
       setIncludeMentionFewShots(false);

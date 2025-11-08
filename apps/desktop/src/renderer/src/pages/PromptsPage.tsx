@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Star, Filter, FileDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { usePrompts } from '../hooks/usePrompts';
+import { usePersonas } from '../hooks/usePersonas';
 import { PromptList } from '../components/prompts/PromptList';
 import { PromptModal } from '../components/prompts/PromptModal';
 import { PromptImportExport } from '../components/prompts/PromptImportExport';
@@ -22,6 +23,8 @@ export function PromptsPage() {
     toggleFavorite,
     incrementUsage,
   } = usePrompts();
+
+  const { personas } = usePersonas();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -165,7 +168,12 @@ export function PromptsPage() {
     }
   };
 
-  const navigateToChat = (filledPrompt: string, prompt: Prompt) => {
+  const navigateToChat = (
+    filledPrompt: string,
+    prompt: Prompt,
+    personaId?: string,
+    includeFewShots?: boolean
+  ) => {
     // Incrémenter le compteur d'utilisation
     incrementUsage(prompt.id);
 
@@ -174,6 +182,8 @@ export function PromptsPage() {
       state: {
         prefillMessage: filledPrompt,
         promptName: prompt.name,
+        personaId,
+        includeFewShots,
       },
     });
   };
@@ -385,8 +395,11 @@ export function PromptsPage() {
             setIsVariablesModalOpen(false);
             setUsingPrompt(null);
           }}
-          onSubmit={(filledPrompt) => navigateToChat(filledPrompt, usingPrompt)}
+          onSubmit={(filledPrompt, personaId, includeFewShots) =>
+            navigateToChat(filledPrompt, usingPrompt, personaId, includeFewShots)
+          }
           prompt={usingPrompt}
+          personas={personas}
         />
       )}
     </div>

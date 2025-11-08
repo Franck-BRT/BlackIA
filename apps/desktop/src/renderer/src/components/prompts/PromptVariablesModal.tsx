@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles } from 'lucide-react';
+import { X, Sparkles, User } from 'lucide-react';
 import type { Prompt } from '../../types/prompt';
+import type { Persona } from '../../types/persona';
 import { extractVariables, replaceVariables } from '../../types/prompt';
+import { PERSONA_COLOR_CLASSES } from '../../types/persona';
 
 interface PromptVariablesModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (filledPrompt: string) => void;
+  onSubmit: (filledPrompt: string, personaId?: string, includeFewShots?: boolean) => void;
   prompt: Prompt;
+  personas: Persona[];
 }
 
 export function PromptVariablesModal({
@@ -15,9 +18,16 @@ export function PromptVariablesModal({
   onClose,
   onSubmit,
   prompt,
+  personas,
 }: PromptVariablesModalProps) {
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
+  const [includeFewShots, setIncludeFewShots] = useState(false);
   const variables = extractVariables(prompt.content);
+
+  // Trouver le persona sélectionné
+  const selectedPersona = personas.find((p) => p.id === selectedPersonaId);
+  const hasFewShots = selectedPersona?.fewShotExamples && selectedPersona.fewShotExamples.length > 0;
 
   // Initialiser les valeurs vides
   useEffect(() => {
@@ -27,6 +37,8 @@ export function PromptVariablesModal({
         initialValues[v] = '';
       });
       setVariableValues(initialValues);
+      setSelectedPersonaId('');
+      setIncludeFewShots(false);
     }
   }, [isOpen, prompt.id]);
 
@@ -44,13 +56,21 @@ export function PromptVariablesModal({
 
     // Remplacer les variables dans le prompt
     const filledPrompt = replaceVariables(prompt.content, variableValues);
-    onSubmit(filledPrompt);
+    onSubmit(
+      filledPrompt,
+      selectedPersonaId || undefined,
+      selectedPersonaId && includeFewShots ? true : false
+    );
     onClose();
   };
 
   const handleSkip = () => {
     // Utiliser le prompt sans remplir les variables
-    onSubmit(prompt.content);
+    onSubmit(
+      prompt.content,
+      selectedPersonaId || undefined,
+      selectedPersonaId && includeFewShots ? true : false
+    );
     onClose();
   };
 
@@ -88,6 +108,58 @@ export function PromptVariablesModal({
 
         {/* Formulaire des variables */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Sélection du persona */}
+          <div className="mb-6 p-4 glass-card rounded-xl">
+            <label className="block text-sm font-medium mb-3 flex items-center gap-2">
+              <User className="w-4 h-4" />
+              Utiliser avec un persona (optionnel)
+            </label>
+            <select
+              value={selectedPersonaId}
+              onChange={(e) => setSelectedPersonaId(e.target.value)}
+              className="w-full px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/50"
+            >
+              <option value="">Aucun persona</option>
+              {personas.map((persona) => (
+                <option key={persona.id} value={persona.id}>
+                  {persona.avatar} {persona.name} - {persona.category}
+                </option>
+              ))}
+            </select>
+
+            {/* Checkbox pour inclure les few-shots */}
+            {selectedPersonaId && hasFewShots && (
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="includeFewShots"
+                  checked={includeFewShots}
+                  onChange={(e) => setIncludeFewShots(e.target.checked)}
+                  className="w-4 h-4 rounded accent-green-500"
+                />
+                <label htmlFor="includeFewShots" className="text-sm text-muted-foreground cursor-pointer">
+                  Inclure les {selectedPersona?.fewShotExamples?.length} exemples few-shot
+                </label>
+              </div>
+            )}
+
+            {/* Affichage du persona sélectionné */}
+            {selectedPersona && (
+              <div className="mt-3 p-3 glass-card rounded-lg flex items-center gap-3">
+                <div
+                  className={`w-10 h-10 rounded-xl bg-gradient-to-br ${PERSONA_COLOR_CLASSES[selectedPersona.color]} flex items-center justify-center text-xl`}
+                >
+                  {selectedPersona.avatar}
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium">{selectedPersona.name}</div>
+                  <div className="text-xs text-muted-foreground">{selectedPersona.description}</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Variables */}
           {variables.map((variable) => (
             <div key={variable}>
               <label className="block text-sm font-medium mb-2">

@@ -31,6 +31,8 @@ export function ChatPage() {
   const [messages, setMessages] = useState<OllamaMessage[]>([]);
   const [messageMetadata, setMessageMetadata] = useState<Record<number, MessageMetadata>>({});
   const [prefillMessage, setPrefillMessage] = useState<string>('');
+  const [prefillPersonaId, setPrefillPersonaId] = useState<string | undefined>(undefined);
+  const [prefillIncludeFewShots, setPrefillIncludeFewShots] = useState<boolean>(false);
   const [selectedModel, setSelectedModel] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
@@ -152,9 +154,16 @@ export function ChatPage() {
 
   // Gérer le pré-remplissage depuis un prompt
   useEffect(() => {
-    const state = location.state as { prefillMessage?: string; promptName?: string } | null;
+    const state = location.state as {
+      prefillMessage?: string;
+      promptName?: string;
+      personaId?: string;
+      includeFewShots?: boolean;
+    } | null;
     if (state?.prefillMessage) {
       setPrefillMessage(state.prefillMessage);
+      setPrefillPersonaId(state.personaId);
+      setPrefillIncludeFewShots(state.includeFewShots || false);
       // Nettoyer le state pour éviter de re-remplir lors de la navigation suivante
       window.history.replaceState({}, document.title);
     }
@@ -1300,7 +1309,13 @@ export function ChatPage() {
               }
               personas={personas}
               initialMessage={prefillMessage}
-              onMessageChange={() => setPrefillMessage('')}
+              onMessageChange={() => {
+                setPrefillMessage('');
+                setPrefillPersonaId(undefined);
+                setPrefillIncludeFewShots(false);
+              }}
+              prefillPersonaId={prefillPersonaId}
+              prefillIncludeFewShots={prefillIncludeFewShots}
             />
           </div>
         </div>
