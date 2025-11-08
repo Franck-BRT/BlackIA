@@ -32,6 +32,7 @@ export function WorkflowExecutionPanel({
   const [result, setResult] = useState<ExecutionResult | null>(null);
   const [inputs, setInputs] = useState<Record<string, string>>({ input: '' });
   const [currentNode, setCurrentNode] = useState<string | null>(null);
+  const [aiStreams, setAiStreams] = useState<Record<string, string>>({});
 
   useEffect(() => {
     // Écouter les événements de progression
@@ -39,8 +40,26 @@ export function WorkflowExecutionPanel({
       setCurrentNode(data.nodeId);
     });
 
+    // Écouter les événements de streaming AI
+    window.electronAPI.workflows.onAIStream((data) => {
+      if (data.error) {
+        // En cas d'erreur, afficher l'erreur
+        setAiStreams((prev) => ({
+          ...prev,
+          [data.nodeId]: `[Erreur] ${data.error}`,
+        }));
+      } else if (data.fullText) {
+        // Mettre à jour le texte complet pour ce node
+        setAiStreams((prev) => ({
+          ...prev,
+          [data.nodeId]: data.fullText,
+        }));
+      }
+    });
+
     return () => {
       window.electronAPI.workflows.removeProgressListener();
+      window.electronAPI.workflows.removeAIStreamListener();
     };
   }, []);
 
@@ -48,6 +67,7 @@ export function WorkflowExecutionPanel({
     setIsExecuting(true);
     setResult(null);
     setCurrentNode(null);
+    setAiStreams({});
 
     try {
       const response = await window.electronAPI.workflows.execute(workflowId, inputs);
@@ -145,6 +165,30 @@ export function WorkflowExecutionPanel({
               <span className="text-blue-400">
                 Exécution du nœud: <strong>{currentNode}</strong>
               </span>
+            </div>
+          )}
+
+          {/* AI Streaming Responses */}
+          {Object.keys(aiStreams).length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
+                <Loader2 className="animate-spin text-purple-400" size={16} />
+                Réponses IA en temps réel
+              </h3>
+              {Object.entries(aiStreams).map(([nodeId, text]) => (
+                <div
+                  key={nodeId}
+                  className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/30"
+                >
+                  <div className="text-xs text-purple-400 font-medium mb-2">
+                    Node: {nodeId}
+                  </div>
+                  <div className="text-sm text-gray-200 whitespace-pre-wrap">
+                    {text}
+                    <span className="inline-block w-2 h-4 bg-purple-400 ml-1 animate-pulse" />
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 

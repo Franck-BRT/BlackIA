@@ -96,6 +96,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     removeProgressListener: () => {
       ipcRenderer.removeAllListeners('workflow:progress');
     },
+    onAIStream: (callback: (data: { nodeId: string; chunk?: string; fullText?: string; done: boolean; error?: string }) => void) => {
+      ipcRenderer.on('workflow:aiStream', (_event, data) => callback(data));
+    },
+    removeAIStreamListener: () => {
+      ipcRenderer.removeAllListeners('workflow:aiStream');
+    },
   },
 
   // Tags API

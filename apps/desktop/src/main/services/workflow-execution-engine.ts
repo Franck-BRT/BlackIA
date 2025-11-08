@@ -1,4 +1,6 @@
 import { ExecutionContext } from './workflow-execution-context';
+import { OllamaClient } from '@blackia/ollama';
+import type { WebContents } from 'electron';
 
 /**
  * WorkflowExecutionEngine - Moteur d'exécution de workflows
@@ -47,11 +49,23 @@ export class WorkflowExecutionEngine {
   private workflow: Workflow;
   private context: ExecutionContext;
   private onProgress?: (nodeId: string, status: string) => void;
+  private eventSender?: WebContents;
+  private ollamaClient: OllamaClient;
 
-  constructor(workflow: Workflow, onProgress?: (nodeId: string, status: string) => void) {
+  constructor(
+    workflow: Workflow,
+    onProgress?: (nodeId: string, status: string) => void,
+    eventSender?: WebContents
+  ) {
     this.workflow = workflow;
     this.context = new ExecutionContext();
     this.onProgress = onProgress;
+    this.eventSender = eventSender;
+    this.ollamaClient = new OllamaClient({
+      baseUrl: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
+      timeout: 120000,
+      mode: 'local',
+    });
   }
 
   /**
@@ -200,21 +214,92 @@ export class WorkflowExecutionEngine {
     // Interpoler le prompt avec les variables du contexte
     const promptTemplate = node.data.promptTemplate as string || '';
     const interpolatedPrompt = this.context.interpolate(promptTemplate);
+    const model = (node.data.model as string) || 'llama3.2:latest';
+    const temperature = (node.data.temperature as number) ?? 0.7;
+    const maxTokens = (node.data.maxTokens as number) || 2000;
 
-    this.context.log(node.id, 'info', 'AI Prompt node', {
+    this.context.log(node.id, 'info', 'AI Prompt node starting', {
       template: promptTemplate,
       interpolated: interpolatedPrompt,
+      model,
+      temperature,
     });
 
-    // TODO: Intégration avec Ollama pour génération IA
-    // Pour l'instant, on simule une réponse
-    const mockResponse = `AI Response for: ${interpolatedPrompt}`;
+    try {
+      // Vérifier la disponibilité d'Ollama
+      const isAvailable = await this.ollamaClient.isAvailable();
 
-    this.context.setVariable(`ai_${node.id}`, mockResponse);
-    this.context.setVariable('lastValue', mockResponse);
+      if (!isAvailable) {
+        throw new Error('Ollama is not available. Please ensure Ollama is running.');
+      }
 
-    // Ajouter un délai pour simuler le traitement
-    await new Promise(resolve => setTimeout(resolve, 500));
+      let fullResponse = '';
+
+      // Utiliser le streaming avec Ollama
+      await this.ollamaClient.chatStream(
+        {
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: interpolatedPrompt,
+            },
+          ],
+          options: {
+            temperature,
+            num_predict: maxTokens,
+          },
+        },
+        (chunk) => {
+          // Accumuler la réponse
+          const content = chunk.message?.content || '';
+          fullResponse += content;
+
+          // Envoyer l'event de streaming au renderer si disponible
+          if (this.eventSender) {
+            this.eventSender.send('workflow:aiStream', {
+              nodeId: node.id,
+              chunk: content,
+              fullText: fullResponse,
+              done: chunk.done,
+            });
+          }
+
+          // Log de progression
+          if (chunk.done) {
+            this.context.log(node.id, 'success', 'AI generation completed', {
+              tokensGenerated: chunk.eval_count,
+              duration: chunk.total_duration,
+            });
+          }
+        }
+      );
+
+      // Stocker la réponse complète dans le contexte
+      this.context.setVariable(`ai_${node.id}`, fullResponse);
+      this.context.setVariable('lastValue', fullResponse);
+
+      this.context.log(node.id, 'info', 'AI response stored', {
+        responseLength: fullResponse.length,
+      });
+
+    } catch (error) {
+      this.context.log(node.id, 'error', `AI generation failed: ${String(error)}`);
+
+      // En cas d'erreur, utiliser une réponse de fallback
+      const fallbackResponse = `[AI Error: ${String(error)}] - Fallback response for: ${interpolatedPrompt}`;
+      this.context.setVariable(`ai_${node.id}`, fallbackResponse);
+      this.context.setVariable('lastValue', fallbackResponse);
+
+      // Envoyer l'erreur au renderer
+      if (this.eventSender) {
+        this.eventSender.send('workflow:aiStream', {
+          nodeId: node.id,
+          error: String(error),
+          done: true,
+        });
+      }
+    }
   }
 
   private async executeConditionNode(node: WorkflowNode): Promise<void> {

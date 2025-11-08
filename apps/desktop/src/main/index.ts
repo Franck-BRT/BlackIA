@@ -506,11 +506,15 @@ function registerWorkflowHandlers() {
         edges: JSON.parse(workflow.edges),
       };
 
-      // Créer et exécuter le workflow
-      const engine = new WorkflowExecutionEngine(parsedWorkflow, (nodeId, status) => {
-        // Envoyer les événements de progression
-        _event.sender.send('workflow:progress', { nodeId, status });
-      });
+      // Créer et exécuter le workflow avec streaming AI
+      const engine = new WorkflowExecutionEngine(
+        parsedWorkflow,
+        (nodeId, status) => {
+          // Envoyer les événements de progression
+          _event.sender.send('workflow:progress', { nodeId, status });
+        },
+        _event.sender // Passer le sender pour les events de streaming AI
+      );
 
       const result = await engine.execute(inputs);
 
