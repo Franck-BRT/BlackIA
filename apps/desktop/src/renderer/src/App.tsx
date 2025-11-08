@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { useApplyAppearance } from './hooks/useApplyAppearance';
 import { Layout } from './components/Layout';
@@ -46,6 +46,17 @@ function StartupPage() {
   return <PageComponent />;
 }
 
+// Composant pour logger la route actuelle
+function RouteLogger() {
+  const location = useLocation();
+
+  useEffect(() => {
+    console.log('[RouteLogger] Current route:', location.pathname);
+  }, [location]);
+
+  return null;
+}
+
 function AppContent() {
   console.log('[AppContent] Component mounted');
 
@@ -54,6 +65,7 @@ function AppContent() {
 
   return (
     <BrowserRouter>
+      <RouteLogger />
       <Layout>
         <Routes>
           <Route path="/" element={<StartupPage />} />
