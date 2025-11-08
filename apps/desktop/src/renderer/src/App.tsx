@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
+import React from 'react';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { useApplyAppearance } from './hooks/useApplyAppearance';
 import { Layout } from './components/Layout';
@@ -26,19 +26,14 @@ const PAGE_COMPONENTS: Record<string, React.ComponentType> = {
 
 // Composant qui rend la page de démarrage configurée
 function StartupPage() {
-  console.log('[StartupPage] Component mounted');
-
   const { settings } = useSettings();
-  console.log('[StartupPage] Settings received:', settings?.general);
 
   // Vérification de sécurité
   if (!settings || !settings.general) {
-    console.log('[StartupPage] Settings not available, defaulting to HomePage');
     return <HomePage />;
   }
 
   const startupPage = settings.general.startupPage || 'home';
-  console.log('[StartupPage] Rendering startup page:', startupPage);
 
   // Obtenir le composant correspondant
   const PageComponent = PAGE_COMPONENTS[startupPage] || HomePage;
@@ -46,26 +41,12 @@ function StartupPage() {
   return <PageComponent />;
 }
 
-// Composant pour logger la route actuelle
-function RouteLogger() {
-  const location = useLocation();
-
-  useEffect(() => {
-    console.log('[RouteLogger] Current route:', location.pathname);
-  }, [location]);
-
-  return null;
-}
-
 function AppContent() {
-  console.log('[AppContent] Component mounted');
-
   // Applique les paramètres d'apparence au DOM
   useApplyAppearance();
 
   return (
     <HashRouter>
-      <RouteLogger />
       <Layout>
         <Routes>
           <Route path="/" element={<StartupPage />} />
