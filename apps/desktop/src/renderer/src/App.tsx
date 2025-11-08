@@ -26,7 +26,10 @@ const PAGE_COMPONENTS: Record<string, React.ComponentType> = {
 
 // Composant qui rend la page de démarrage configurée
 function StartupPage() {
+  console.log('[StartupPage] Component mounted');
+
   const { settings } = useSettings();
+  console.log('[StartupPage] Settings received:', settings?.general);
 
   // Vérification de sécurité
   if (!settings || !settings.general) {
@@ -44,6 +47,8 @@ function StartupPage() {
 }
 
 function AppContent() {
+  console.log('[AppContent] Component mounted');
+
   // Applique les paramètres d'apparence au DOM
   useApplyAppearance();
 
