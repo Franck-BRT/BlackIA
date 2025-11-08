@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { useApplyAppearance } from './hooks/useApplyAppearance';
 import { Layout } from './components/Layout';
@@ -12,20 +12,41 @@ import { ProjectsPage } from './pages/ProjectsPage';
 import { LogsPage } from './pages/LogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
+// Composant qui rend la page de démarrage configurée
+function StartupPage() {
+  const { settings } = useSettings();
+  const startupPage = settings.general.startupPage || 'home';
+
+  switch (startupPage) {
+    case 'chat':
+      return <ChatPage />;
+    case 'workflows':
+      return <WorkflowsPage />;
+    case 'prompts':
+      return <PromptsPage />;
+    case 'personas':
+      return <PersonasPage />;
+    case 'projects':
+      return <ProjectsPage />;
+    case 'logs':
+      return <LogsPage />;
+    case 'settings':
+      return <SettingsPage />;
+    case 'home':
+    default:
+      return <HomePage />;
+  }
+}
+
 function AppContent() {
   // Applique les paramètres d'apparence au DOM
   useApplyAppearance();
-  const { settings } = useSettings();
-
-  // Déterminer la route de démarrage depuis les settings (défaut: home)
-  const startupPage = settings.general.startupPage || 'home';
-  const startupRoute = startupPage === 'home' ? '/' : `/${startupPage}`;
 
   return (
     <BrowserRouter>
       <Layout>
         <Routes>
-          <Route path="/" element={startupPage === 'home' ? <HomePage /> : <Navigate to={startupRoute} replace />} />
+          <Route path="/" element={<StartupPage />} />
           <Route path="/home" element={<HomePage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/workflows" element={<WorkflowsPage />} />
