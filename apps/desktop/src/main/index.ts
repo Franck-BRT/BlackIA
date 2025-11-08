@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import { registerOllamaHandlers } from './ollama-handlers';
 import { PersonaService } from './services/persona-service';
 import { PromptService } from './services/prompt-service';
+import { WorkflowService } from './services/workflow-service';
 import { syncPersonaTags } from './services/tag-sync-service';
 import { personaSuggestionService } from './services/persona-suggestion-service';
 import './handlers/persona-suggestion-handlers';
@@ -98,6 +99,18 @@ app.whenReady().then(async () => {
       console.warn('[App] ⚠️  WARNING: No prompts found!');
     }
 
+    // Initialiser le service workflows
+    console.log('[App] Initializing WorkflowService...');
+    await WorkflowService.initialize();
+    console.log('[App] ✅ WorkflowService initialized');
+
+    // Vérifier que les workflows sont chargés
+    const workflows = await WorkflowService.getAll();
+    console.log(`[App] ✅ ${workflows.length} workflows loaded`);
+    if (workflows.length === 0) {
+      console.warn('[App] ⚠️  WARNING: No workflows found!');
+    }
+
     // Synchroniser les tags des personas avec le système global
     console.log('[App] Syncing persona tags...');
     await syncPersonaTags();
@@ -114,6 +127,7 @@ app.whenReady().then(async () => {
     registerOllamaHandlers();
     registerPersonaHandlers();
     registerPromptHandlers();
+    registerWorkflowHandlers();
     registerTagSyncHandlers();
     console.log('[App] ✅ IPC handlers registered');
 
@@ -308,6 +322,172 @@ function registerPersonaHandlers() {
   });
 
   console.log('[IPC] Persona handlers registered');
+}
+
+// ============================================================================
+// WORKFLOW IPC HANDLERS
+// ============================================================================
+
+function registerWorkflowHandlers() {
+  // Récupère tous les workflows
+  ipcMain.handle('workflows:getAll', async () => {
+    try {
+      const workflows = await WorkflowService.getAll();
+      return { success: true, data: workflows };
+    } catch (error) {
+      console.error('[Workflows] Error in getAll:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Récupère un workflow par ID
+  ipcMain.handle('workflows:getById', async (_event, id: string) => {
+    try {
+      const workflow = await WorkflowService.getById(id);
+      if (!workflow) {
+        return { success: false, error: 'Workflow not found' };
+      }
+      return { success: true, data: workflow };
+    } catch (error) {
+      console.error('[Workflows] Error in getById:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Crée un nouveau workflow
+  ipcMain.handle('workflows:create', async (_event, data) => {
+    try {
+      const workflow = await WorkflowService.create(data);
+      return { success: true, data: workflow };
+    } catch (error) {
+      console.error('[Workflows] Error in create:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Met à jour un workflow
+  ipcMain.handle('workflows:update', async (_event, id: string, data) => {
+    try {
+      const workflow = await WorkflowService.update(id, data);
+      if (!workflow) {
+        return { success: false, error: 'Workflow not found' };
+      }
+      return { success: true, data: workflow };
+    } catch (error) {
+      console.error('[Workflows] Error in update:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Supprime un workflow
+  ipcMain.handle('workflows:delete', async (_event, id: string) => {
+    try {
+      const success = await WorkflowService.delete(id);
+      if (!success) {
+        return { success: false, error: 'Workflow not found' };
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('[Workflows] Error in delete:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Recherche des workflows
+  ipcMain.handle('workflows:search', async (_event, query: string) => {
+    try {
+      const workflows = await WorkflowService.search(query);
+      return { success: true, data: workflows };
+    } catch (error) {
+      console.error('[Workflows] Error in search:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Filtre par catégorie
+  ipcMain.handle('workflows:filterByCategory', async (_event, category: string) => {
+    try {
+      const workflows = await WorkflowService.filterByCategory(category);
+      return { success: true, data: workflows };
+    } catch (error) {
+      console.error('[Workflows] Error in filterByCategory:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Récupère les favoris
+  ipcMain.handle('workflows:getFavorites', async () => {
+    try {
+      const workflows = await WorkflowService.getFavorites();
+      return { success: true, data: workflows };
+    } catch (error) {
+      console.error('[Workflows] Error in getFavorites:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Récupère les templates
+  ipcMain.handle('workflows:getTemplates', async () => {
+    try {
+      const workflows = await WorkflowService.getTemplates();
+      return { success: true, data: workflows };
+    } catch (error) {
+      console.error('[Workflows] Error in getTemplates:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Toggle favori
+  ipcMain.handle('workflows:toggleFavorite', async (_event, id: string) => {
+    try {
+      const workflow = await WorkflowService.toggleFavorite(id);
+      if (!workflow) {
+        return { success: false, error: 'Workflow not found' };
+      }
+      return { success: true, data: workflow };
+    } catch (error) {
+      console.error('[Workflows] Error in toggleFavorite:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Incrémente le compteur d'utilisation
+  ipcMain.handle('workflows:incrementUsage', async (_event, id: string) => {
+    try {
+      await WorkflowService.incrementUsage(id);
+      return { success: true };
+    } catch (error) {
+      console.error('[Workflows] Error in incrementUsage:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Duplique un workflow
+  ipcMain.handle('workflows:duplicate', async (_event, id: string) => {
+    try {
+      const workflow = await WorkflowService.duplicate(id);
+      if (!workflow) {
+        return { success: false, error: 'Workflow not found' };
+      }
+      return { success: true, data: workflow };
+    } catch (error) {
+      console.error('[Workflows] Error in duplicate:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // Récupère les catégories
+  ipcMain.handle('workflows:getCategories', async () => {
+    try {
+      const categories = await WorkflowService.getCategories();
+      return { success: true, data: categories };
+    } catch (error) {
+      console.error('[Workflows] Error in getCategories:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  console.log('[IPC] Workflow handlers registered');
 }
 
 // ============================================================================

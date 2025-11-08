@@ -74,6 +74,23 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getCategories: () => ipcRenderer.invoke('prompts:getCategories'),
   },
 
+  // Workflows API
+  workflows: {
+    getAll: () => ipcRenderer.invoke('workflows:getAll'),
+    getById: (id: string) => ipcRenderer.invoke('workflows:getById', id),
+    create: (data: any) => ipcRenderer.invoke('workflows:create', data),
+    update: (id: string, data: any) => ipcRenderer.invoke('workflows:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('workflows:delete', id),
+    search: (query: string) => ipcRenderer.invoke('workflows:search', query),
+    filterByCategory: (category: string) => ipcRenderer.invoke('workflows:filterByCategory', category),
+    getFavorites: () => ipcRenderer.invoke('workflows:getFavorites'),
+    getTemplates: () => ipcRenderer.invoke('workflows:getTemplates'),
+    toggleFavorite: (id: string) => ipcRenderer.invoke('workflows:toggleFavorite', id),
+    incrementUsage: (id: string) => ipcRenderer.invoke('workflows:incrementUsage', id),
+    duplicate: (id: string) => ipcRenderer.invoke('workflows:duplicate', id),
+    getCategories: () => ipcRenderer.invoke('workflows:getCategories'),
+  },
+
   // Tags API
   tags: {
     getSynced: () => ipcRenderer.invoke('tags:getSynced'),
@@ -203,6 +220,22 @@ export interface ElectronAPI {
     search: (query: string) => Promise<any>;
     filterByCategory: (category: string) => Promise<any>;
     getFavorites: () => Promise<any>;
+    toggleFavorite: (id: string) => Promise<any>;
+    incrementUsage: (id: string) => Promise<any>;
+    duplicate: (id: string) => Promise<any>;
+    getCategories: () => Promise<any>;
+  };
+
+  workflows: {
+    getAll: () => Promise<any>;
+    getById: (id: string) => Promise<any>;
+    create: (data: any) => Promise<any>;
+    update: (id: string, data: any) => Promise<any>;
+    delete: (id: string) => Promise<any>;
+    search: (query: string) => Promise<any>;
+    filterByCategory: (category: string) => Promise<any>;
+    getFavorites: () => Promise<any>;
+    getTemplates: () => Promise<any>;
     toggleFavorite: (id: string) => Promise<any>;
     incrementUsage: (id: string) => Promise<any>;
     duplicate: (id: string) => Promise<any>;

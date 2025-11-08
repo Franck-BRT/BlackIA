@@ -129,6 +129,37 @@ export const prompts = sqliteTable('prompts', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+/**
+ * Table Workflows
+ * Workflows d'automatisation avec éditeur visuel (ReactFlow)
+ */
+export const workflows = sqliteTable('workflows', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+
+  // Données du workflow (ReactFlow)
+  nodes: text('nodes').notNull().default('[]'), // JSON array de WorkflowNode
+  edges: text('edges').notNull().default('[]'), // JSON array de WorkflowEdge
+
+  // Apparence
+  icon: text('icon').notNull().default('🔄'), // Emoji ou icône
+  color: text('color').notNull().default('purple'), // purple, blue, pink, green, orange
+
+  // Organisation
+  category: text('category'), // Automation, Data Processing, etc.
+  tags: text('tags').notNull().default('[]'), // JSON array
+
+  // Métadonnées
+  isFavorite: integer('is_favorite', { mode: 'boolean' }).notNull().default(false),
+  usageCount: integer('usage_count').notNull().default(0),
+  isTemplate: integer('is_template', { mode: 'boolean' }).notNull().default(false), // Template système
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 // Types inférés pour TypeScript
 export type Persona = typeof personas.$inferSelect;
 export type NewPersona = typeof personas.$inferInsert;
@@ -142,3 +173,5 @@ export type PersonaSuggestionKeyword = typeof personaSuggestionKeywords.$inferSe
 export type NewPersonaSuggestionKeyword = typeof personaSuggestionKeywords.$inferInsert;
 export type Prompt = typeof prompts.$inferSelect;
 export type NewPrompt = typeof prompts.$inferInsert;
+export type Workflow = typeof workflows.$inferSelect;
+export type NewWorkflow = typeof workflows.$inferInsert;
