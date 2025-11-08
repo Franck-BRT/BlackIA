@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Edit, Copy, Trash2, FileText, Variable } from 'lucide-react';
+import { Star, Edit, Copy, Trash2, FileText, Variable, Download } from 'lucide-react';
 import type { Prompt } from '../../types/prompt';
 import { PROMPT_COLOR_CLASSES, extractVariables } from '../../types/prompt';
 
@@ -33,6 +33,26 @@ export function PromptCard({
   // Extraire les variables
   const variables = extractVariables(prompt.content);
 
+  // Fonction pour exporter ce prompt
+  const handleExport = () => {
+    try {
+      const jsonData = JSON.stringify([prompt], null, 2);
+      const blob = new Blob([jsonData], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `prompt-${prompt.name.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('[PromptCard] Error exporting prompt:', error);
+      alert('Erreur lors de l\'export du prompt');
+    }
+  };
+
   return (
     <div className="glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative">
       {/* Header avec icône et actions */}
@@ -57,6 +77,14 @@ export function PromptCard({
               <Star className="w-4 h-4" fill={prompt.isFavorite ? 'currentColor' : 'none'} />
             </button>
           )}
+
+          <button
+            onClick={handleExport}
+            className="p-2 rounded-lg hover:glass-lg transition-all text-muted-foreground hover:text-green-400"
+            title="Exporter ce prompt"
+          >
+            <Download className="w-4 h-4" />
+          </button>
 
           {onEdit && (
             <button
