@@ -109,7 +109,9 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
           label: 'Analyser les besoins',
           promptTemplate:
             "Analyse les besoins suivants pour créer un persona IA : {{input}}. Identifie le domaine d'expertise, le style de communication souhaité, et les critères de qualité à respecter.",
+          model: 'llama3.2:latest',
           temperature: 0.7,
+          maxTokens: 1000,
         },
       },
       {
@@ -129,8 +131,10 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
         data: {
           label: 'Créer système prompt',
           promptTemplate:
-            "Basé sur l'analyse suivante : {{analysis}}, crée un système prompt unique et optimisé pour un persona IA. Sois créatif et varie les approches.",
+            "Basé sur l'analyse suivante : {{lastValue}}, crée un système prompt unique et optimisé pour un persona IA. Sois créatif et varie les approches.",
+          model: 'llama3.2:latest',
           temperature: 0.8,
+          maxTokens: 2000,
         },
       },
       {
@@ -140,8 +144,10 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
         data: {
           label: 'Comparer et noter',
           promptTemplate:
-            'Compare les 3 variations de personas suivantes : {{variations}}. Note chacune sur 10 selon la clarté, la pertinence et la qualité. Retourne la meilleure avec sa note.',
+            'Compare les variations de personas suivantes : {{lastValue}}. Note chacune sur 10 selon la clarté, la pertinence et la qualité. Retourne la meilleure avec sa note au format "Score: X/10".',
+          model: 'llama3.2:latest',
           temperature: 0.3,
+          maxTokens: 1500,
         },
       },
       {
@@ -170,8 +176,10 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
         data: {
           label: 'Affiner et réessayer',
           promptTemplate:
-            'Le persona précédent a obtenu {{score}}/10. Améliore-le en gardant ses points forts et en corrigeant ses faiblesses.',
+            'Le persona précédent a obtenu une note insuffisante. Améliore la proposition suivante en gardant ses points forts et en corrigeant ses faiblesses: {{lastValue}}',
+          model: 'llama3.2:latest',
           temperature: 0.6,
+          maxTokens: 2000,
         },
       },
     ]),
@@ -218,6 +226,7 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
           label: 'Résumer le contenu',
           promptTemplate:
             'Résume le document suivant de manière concise en gardant les informations essentielles : {{input}}',
+          model: 'llama3.2:latest',
           temperature: 0.5,
           maxTokens: 500,
         },
@@ -228,8 +237,10 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
         position: { x: 250, y: 350 },
         data: {
           label: 'Extraire les points clés',
-          promptTemplate: 'Extrais 5 points clés du résumé suivant sous forme de liste : {{summary}}',
+          promptTemplate: 'Extrais 5 points clés du résumé suivant sous forme de liste : {{lastValue}}',
+          model: 'llama3.2:latest',
           temperature: 0.3,
+          maxTokens: 300,
         },
       },
       {
@@ -290,7 +301,9 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
         data: {
           label: 'Brainstorming',
           promptTemplate: "Génère 5 angles d'approche créatifs pour le sujet suivant : {{input}}",
+          model: 'llama3.2:latest',
           temperature: 0.9,
+          maxTokens: 800,
         },
       },
       {
@@ -299,8 +312,10 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
         position: { x: 200, y: 310 },
         data: {
           label: 'Rédaction initiale',
-          promptTemplate: 'Rédige un article complet en suivant cet angle : {{angles}}. Minimum 500 mots.',
+          promptTemplate: 'Rédige un article complet en suivant cet angle : {{lastValue}}. Minimum 500 mots.',
+          model: 'llama3.2:latest',
           temperature: 0.7,
+          maxTokens: 3000,
         },
       },
       {
@@ -310,8 +325,10 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
         data: {
           label: 'Amélioration du style',
           promptTemplate:
-            "Améliore le style de ce texte pour le rendre plus engageant et professionnel : {{draft}}",
+            "Améliore le style de ce texte pour le rendre plus engageant et professionnel : {{lastValue}}",
+          model: 'llama3.2:latest',
           temperature: 0.6,
+          maxTokens: 3000,
         },
       },
       {
