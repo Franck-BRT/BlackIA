@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { useApplyAppearance } from './hooks/useApplyAppearance';
@@ -28,19 +28,17 @@ const PAGE_COMPONENTS: Record<string, React.ComponentType> = {
 function StartupPage() {
   const { settings } = useSettings();
 
-  // Mémoriser le composant de page basé sur les settings
-  const PageComponent = useMemo(() => {
-    // Vérification de sécurité
-    if (!settings || !settings.general) {
-      console.log('[StartupPage] Settings not available, defaulting to HomePage');
-      return HomePage;
-    }
+  // Vérification de sécurité
+  if (!settings || !settings.general) {
+    console.log('[StartupPage] Settings not available, defaulting to HomePage');
+    return <HomePage />;
+  }
 
-    const startupPage = settings.general.startupPage || 'home';
-    console.log('[StartupPage] Rendering startup page:', startupPage);
+  const startupPage = settings.general.startupPage || 'home';
+  console.log('[StartupPage] Rendering startup page:', startupPage);
 
-    return PAGE_COMPONENTS[startupPage] || HomePage;
-  }, [settings]);
+  // Obtenir le composant correspondant
+  const PageComponent = PAGE_COMPONENTS[startupPage] || HomePage;
 
   return <PageComponent />;
 }

@@ -371,11 +371,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       if (stored) {
         const parsedStored = JSON.parse(stored);
         // Deep merge pour préserver les nouvelles sections ajoutées dans defaultSettings
-        return deepMergeSettings(defaultSettings, parsedStored);
+        const merged = deepMergeSettings(defaultSettings, parsedStored);
+        console.log('[SettingsProvider] Loaded settings from localStorage:', merged.general);
+        return merged;
       }
     } catch (error) {
-      console.error('Failed to load settings:', error);
+      console.error('[SettingsProvider] Failed to load settings:', error);
     }
+    console.log('[SettingsProvider] Using default settings:', defaultSettings.general);
     return defaultSettings;
   });
 
@@ -389,6 +392,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [settings]);
 
   const updateGeneralSettings = (newSettings: Partial<GeneralSettings>) => {
+    console.log('[SettingsProvider] Updating general settings:', newSettings);
     setSettings((prev) => ({
       ...prev,
       general: { ...prev.general, ...newSettings },
