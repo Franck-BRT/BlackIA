@@ -2,6 +2,7 @@ import React from 'react';
 import { Star, Edit, Copy, Trash2, FileText, Variable, Download } from 'lucide-react';
 import type { Prompt } from '../../types/prompt';
 import { PROMPT_COLOR_CLASSES, extractVariables } from '../../types/prompt';
+import { useTags } from '../../hooks/useTags';
 
 interface PromptCardProps {
   prompt: Prompt;
@@ -21,14 +22,32 @@ export function PromptCard({
   onUse,
 }: PromptCardProps) {
   const colorGradient = PROMPT_COLOR_CLASSES[prompt.color] || PROMPT_COLOR_CLASSES.purple;
+  const { tags: allTags } = useTags();
 
   // Parser les tags JSON
-  let tags: string[] = [];
+  let rawTags: string[] = [];
   try {
-    tags = JSON.parse(prompt.tags);
+    rawTags = JSON.parse(prompt.tags);
   } catch (e) {
     // Ignore parsing errors
   }
+
+  // Fonction pour résoudre un tag (ID ou nom) vers son nom lisible
+  // Retourne null si le tag n'existe pas (pour pouvoir le filtrer)
+  const resolveTagName = (tagValue: string): string | null => {
+    // Si c'est un ID (commence par "tag-"), chercher le nom
+    if (tagValue.startsWith('tag-')) {
+      const tag = allTags.find((t) => t.id === tagValue);
+      return tag ? tag.name : null; // Retourner null si non trouvé
+    }
+    // Sinon, c'est déjà un nom (ancien système)
+    return tagValue;
+  };
+
+  // Résoudre tous les tags et filtrer ceux qui n'existent plus
+  const tags = rawTags
+    .map(resolveTagName)
+    .filter((name): name is string => name !== null);
 
   // Extraire les variables
   const variables = extractVariables(prompt.content);

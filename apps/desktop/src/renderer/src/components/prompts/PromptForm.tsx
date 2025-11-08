@@ -3,7 +3,10 @@ import { User } from 'lucide-react';
 import type { Prompt, PromptFormData, PromptColor } from '../../types/prompt';
 import { PROMPT_CATEGORIES, PROMPT_COLORS, SUGGESTED_PROMPT_ICONS, extractVariables } from '../../types/prompt';
 import { usePersonas } from '../../hooks/usePersonas';
+import { useTags } from '../../hooks/useTags';
 import { PERSONA_COLOR_CLASSES } from '../../types/persona';
+import { TagDropdownSelector } from '../shared/TagDropdownSelector';
+import { TagModal } from '../chat/TagModal';
 
 interface PromptFormProps {
   prompt?: Prompt | null;
@@ -19,6 +22,7 @@ export function PromptForm({
   submitLabel = 'Créer',
 }: PromptFormProps) {
   const { personas } = usePersonas();
+  const { tags, createTag } = useTags();
 
   const [formData, setFormData] = useState<PromptFormData>({
     name: '',
@@ -33,7 +37,7 @@ export function PromptForm({
     defaultIncludeFewShots: false,
   });
 
-  const [tagInput, setTagInput] = useState('');
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
 
   // Trouver le persona sélectionné
   const selectedPersona = personas.find((p) => p.id === formData.defaultPersonaId);
@@ -81,25 +85,22 @@ export function PromptForm({
     onSubmit(formData);
   };
 
-  const addTag = () => {
-    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
-      setFormData({
-        ...formData,
-        tags: [...formData.tags, tagInput.trim()],
-      });
-      setTagInput('');
+  const handleToggleTag = (tagId: string) => {
+    if (formData.tags.includes(tagId)) {
+      setFormData({ ...formData, tags: formData.tags.filter((id) => id !== tagId) });
+    } else {
+      setFormData({ ...formData, tags: [...formData.tags, tagId] });
     }
   };
 
-  const removeTag = (tag: string) => {
-    setFormData({
-      ...formData,
-      tags: formData.tags.filter((t) => t !== tag),
-    });
+  const handleCreateTag = (name: string, color: string, icon?: string) => {
+    const newTag = createTag(name, color, icon);
+    setFormData({ ...formData, tags: [...formData.tags, newTag.id] });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <>
+      <form onSubmit={handleSubmit} className="space-y-6">
       {/* Nom */}
       <div>
         <label className="block text-sm font-medium mb-2">Nom du prompt *</label>
@@ -214,48 +215,13 @@ export function PromptForm({
 
       {/* Tags */}
       <div>
-        <label className="block text-sm font-medium mb-2">Tags</label>
-        <div className="flex gap-2 mb-2">
-          <input
-            type="text"
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                addTag();
-              }
-            }}
-            className="flex-1 px-4 py-2 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-            placeholder="Ajouter un tag..."
-          />
-          <button
-            type="button"
-            onClick={addTag}
-            className="px-4 py-2 glass-card rounded-xl hover:glass-lg transition-all"
-          >
-            Ajouter
-          </button>
-        </div>
-        {formData.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {formData.tags.map((tag) => (
-              <span
-                key={tag}
-                className="px-3 py-1 glass-card rounded-lg text-sm flex items-center gap-2"
-              >
-                #{tag}
-                <button
-                  type="button"
-                  onClick={() => removeTag(tag)}
-                  className="text-red-400 hover:text-red-300"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
+        <label className="block text-sm font-medium mb-3">Tags</label>
+        <TagDropdownSelector
+          availableTags={tags}
+          selectedTagIds={formData.tags}
+          onToggleTag={handleToggleTag}
+          onCreateTag={() => setIsTagModalOpen(true)}
+        />
       </div>
 
       {/* Persona par défaut */}
@@ -338,5 +304,13 @@ export function PromptForm({
         </button>
       </div>
     </form>
+
+    {/* Modal de création de tag */}
+    <TagModal
+      isOpen={isTagModalOpen}
+      onClose={() => setIsTagModalOpen(false)}
+      onCreateTag={handleCreateTag}
+    />
+    </>
   );
 }
