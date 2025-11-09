@@ -129,6 +129,119 @@ export const prompts = sqliteTable('prompts', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+/**
+ * Table Workflows
+ * Workflows d'automatisation avec éditeur visuel (ReactFlow)
+ */
+export const workflows = sqliteTable('workflows', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+
+  // Données du workflow (ReactFlow)
+  nodes: text('nodes').notNull().default('[]'), // JSON array de WorkflowNode
+  edges: text('edges').notNull().default('[]'), // JSON array de WorkflowEdge
+  groups: text('groups').notNull().default('[]'), // JSON array de NodeGroup
+  annotations: text('annotations').notNull().default('[]'), // JSON array de Annotation
+
+  // Apparence
+  icon: text('icon').notNull().default('🔄'), // Emoji ou icône
+  color: text('color').notNull().default('purple'), // purple, blue, pink, green, orange
+
+  // Organisation
+  category: text('category'), // Automation, Data Processing, etc.
+  tags: text('tags').notNull().default('[]'), // JSON array
+
+  // Métadonnées
+  isFavorite: integer('is_favorite', { mode: 'boolean' }).notNull().default(false),
+  usageCount: integer('usage_count').notNull().default(0),
+  isTemplate: integer('is_template', { mode: 'boolean' }).notNull().default(false), // Template système
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+/**
+ * Table WorkflowTemplates
+ * Bibliothèque de templates de workflows réutilisables
+ */
+export const workflowTemplates = sqliteTable('workflow_templates', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+
+  // Données du template
+  nodes: text('nodes').notNull().default('[]'), // JSON array de WorkflowNode
+  edges: text('edges').notNull().default('[]'), // JSON array de WorkflowEdge
+  variables: text('variables'), // JSON object de variables par défaut
+
+  // Apparence
+  icon: text('icon').notNull().default('📋'),
+  thumbnail: text('thumbnail'), // URL ou base64 de l'aperçu
+
+  // Organisation
+  category: text('category').notNull(),
+  tags: text('tags').notNull().default('[]'), // JSON array
+
+  // Métadonnées
+  usageCount: integer('usage_count').notNull().default(0),
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+/**
+ * Table WorkflowVersions
+ * Historique des versions de workflows (Git-like)
+ */
+export const workflowVersions = sqliteTable('workflow_versions', {
+  id: text('id').primaryKey(),
+  workflowId: text('workflow_id')
+    .notNull()
+    .references(() => workflows.id, { onDelete: 'cascade' }),
+  version: text('version').notNull(), // v1, v2, v3, etc.
+  message: text('message').notNull(), // Message de commit
+  author: text('author'),
+
+  // Snapshot complet du workflow à cette version
+  nodes: text('nodes').notNull(),
+  edges: text('edges').notNull(),
+  groups: text('groups').notNull().default('[]'),
+  annotations: text('annotations').notNull().default('[]'),
+  variables: text('variables'), // JSON object
+
+  // Arbre de versions
+  parentId: text('parent_id'), // ID de la version parente
+
+  // Timestamp
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+/**
+ * Table WorkflowVariables
+ * Variables globales et de workflow
+ */
+export const workflowVariables = sqliteTable('workflow_variables', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  value: text('value').notNull(), // JSON serialized value
+  type: text('type', { enum: ['string', 'number', 'boolean', 'object', 'array'] }).notNull(),
+  description: text('description'),
+
+  // Scope
+  scope: text('scope', { enum: ['workflow', 'global', 'environment'] }).notNull(),
+  workflowId: text('workflow_id').references(() => workflows.id, { onDelete: 'cascade' }), // Null si global
+
+  // Sécurité
+  encrypted: integer('encrypted', { mode: 'boolean' }).notNull().default(false),
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 // Types inférés pour TypeScript
 export type Persona = typeof personas.$inferSelect;
 export type NewPersona = typeof personas.$inferInsert;
@@ -142,3 +255,11 @@ export type PersonaSuggestionKeyword = typeof personaSuggestionKeywords.$inferSe
 export type NewPersonaSuggestionKeyword = typeof personaSuggestionKeywords.$inferInsert;
 export type Prompt = typeof prompts.$inferSelect;
 export type NewPrompt = typeof prompts.$inferInsert;
+export type Workflow = typeof workflows.$inferSelect;
+export type NewWorkflow = typeof workflows.$inferInsert;
+export type WorkflowTemplate = typeof workflowTemplates.$inferSelect;
+export type NewWorkflowTemplate = typeof workflowTemplates.$inferInsert;
+export type WorkflowVersion = typeof workflowVersions.$inferSelect;
+export type NewWorkflowVersion = typeof workflowVersions.$inferInsert;
+export type WorkflowVariable = typeof workflowVariables.$inferSelect;
+export type NewWorkflowVariable = typeof workflowVariables.$inferInsert;

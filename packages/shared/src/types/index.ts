@@ -50,11 +50,40 @@ export interface Persona {
   updatedAt: Date;
 }
 
+// Workflow types (compatible avec ReactFlow)
+export type WorkflowNodeType = 'input' | 'output' | 'aiPrompt' | 'condition' | 'loop' | 'transform' | 'switch';
+
+export interface WorkflowNodeData {
+  label?: string;
+  config?: Record<string, unknown>;
+  // Input node
+  inputType?: 'text' | 'file' | 'variable';
+  inputValue?: string;
+  // Output node
+  outputType?: 'text' | 'file' | 'variable';
+  outputFormat?: string;
+  // AI Prompt node
+  promptTemplate?: string;
+  personaId?: string;
+  temperature?: number;
+  maxTokens?: number;
+  // Condition node
+  condition?: string;
+  conditionType?: 'equals' | 'contains' | 'greater' | 'less' | 'regex';
+  // Loop node
+  loopType?: 'forEach' | 'while' | 'count';
+  loopCount?: number;
+  loopCondition?: string;
+  // Transform node
+  transformType?: 'extract' | 'format' | 'merge' | 'split';
+  transformScript?: string;
+}
+
 export interface WorkflowNode {
   id: string;
-  type: 'input' | 'output' | 'aiPrompt' | 'condition' | 'loop' | 'transform';
+  type: WorkflowNodeType;
   position: { x: number; y: number };
-  data: Record<string, unknown>;
+  data: WorkflowNodeData;
 }
 
 export interface WorkflowEdge {
@@ -63,16 +92,42 @@ export interface WorkflowEdge {
   target: string;
   sourceHandle?: string;
   targetHandle?: string;
+  label?: string;
+  animated?: boolean;
 }
 
 export interface Workflow {
   id: string;
   name: string;
-  description?: string;
+  description: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
+  icon?: string;
+  color?: string;
+  category?: string;
+  tags: string[];
+  isFavorite: boolean;
+  usageCount: number;
+  isTemplate: boolean;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Workflow execution types
+export interface WorkflowExecutionResult {
+  success: boolean;
+  outputs: Record<string, unknown>;
+  logs: WorkflowExecutionLog[];
+  error?: string;
+  duration?: number;
+}
+
+export interface WorkflowExecutionLog {
+  nodeId: string;
+  timestamp: Date;
+  type: 'info' | 'warning' | 'error' | 'success';
+  message: string;
+  data?: Record<string, unknown>;
 }
 
 export interface Project {

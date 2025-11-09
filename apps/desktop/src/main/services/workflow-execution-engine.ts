@@ -1,0 +1,389 @@
+import { ExecutionContext } from './workflow-execution-context';
+import { OllamaClient } from '@blackia/ollama';
+import type { WebContents } from 'electron';
+
+/**
+ * WorkflowExecutionEngine - Moteur d'exécution de workflows
+ * Orchestre l'exécution des nœuds et gère le flux de données
+ */
+
+export interface WorkflowNode {
+  id: string;
+  type: 'input' | 'output' | 'aiPrompt' | 'condition' | 'loop' | 'transform' | 'switch';
+  position: { x: number; y: number };
+  data: Record<string, unknown>;
+}
+
+export interface WorkflowEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+  label?: string;
+  animated?: boolean;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+}
+
+export interface ExecutionResult {
+  success: boolean;
+  outputs: Record<string, unknown>;
+  logs: Array<{
+    nodeId: string;
+    timestamp: Date;
+    type: 'info' | 'warning' | 'error' | 'success';
+    message: string;
+    data?: Record<string, unknown>;
+  }>;
+  error?: string;
+  duration: number;
+}
+
+export class WorkflowExecutionEngine {
+  private workflow: Workflow;
+  private context: ExecutionContext;
+  private onProgress?: (nodeId: string, status: string) => void;
+  private eventSender?: WebContents;
+  private ollamaClient: OllamaClient;
+
+  constructor(
+    workflow: Workflow,
+    onProgress?: (nodeId: string, status: string) => void,
+    eventSender?: WebContents
+  ) {
+    this.workflow = workflow;
+    this.context = new ExecutionContext();
+    this.onProgress = onProgress;
+    this.eventSender = eventSender;
+    this.ollamaClient = new OllamaClient({
+      baseUrl: process.env.OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
+      timeout: 120000,
+      mode: 'local',
+    });
+  }
+
+  /**
+   * Exécuter le workflow
+   */
+  async execute(inputs: Record<string, unknown> = {}): Promise<ExecutionResult> {
+    try {
+      // Initialiser le contexte avec les inputs
+      Object.entries(inputs).forEach(([key, value]) => {
+        this.context.setVariable(key, value);
+      });
+
+      this.context.log('workflow', 'info', 'Starting workflow execution', { inputs });
+
+      // Trouver le premier nœud (type 'input')
+      const startNode = this.workflow.nodes.find(n => n.type === 'input');
+      if (!startNode) {
+        throw new Error('No input node found in workflow');
+      }
+
+      // Exécuter depuis le nœud de départ
+      await this.executeNode(startNode);
+
+      // Retourner le résultat
+      const summary = this.context.getSummary();
+
+      return {
+        success: true,
+        outputs: this.context.getAllVariables(),
+        logs: this.context.getLogs(),
+        duration: summary.duration,
+      };
+    } catch (error) {
+      this.context.log('workflow', 'error', `Workflow execution failed: ${String(error)}`);
+
+      return {
+        success: false,
+        outputs: this.context.getAllVariables(),
+        logs: this.context.getLogs(),
+        error: String(error),
+        duration: this.context.getDuration(),
+      };
+    }
+  }
+
+  /**
+   * Exécuter un nœud spécifique
+   */
+  private async executeNode(node: WorkflowNode): Promise<void> {
+    // Éviter les boucles infinies
+    if (this.context.hasNodeExecuted(node.id)) {
+      this.context.log(node.id, 'warning', 'Node already executed, skipping');
+      return;
+    }
+
+    this.context.log(node.id, 'info', `Executing node: ${node.type}`);
+    this.onProgress?.(node.id, 'executing');
+
+    try {
+      // Exécuter la logique du nœud selon son type
+      await this.executeNodeLogic(node);
+
+      // Marquer comme exécuté
+      this.context.markNodeExecuted(node.id);
+      this.context.log(node.id, 'success', 'Node executed successfully');
+      this.onProgress?.(node.id, 'completed');
+
+      // Trouver et exécuter les nœuds suivants
+      await this.executeNextNodes(node);
+
+    } catch (error) {
+      this.context.log(node.id, 'error', `Node execution failed: ${String(error)}`);
+      this.onProgress?.(node.id, 'error');
+      throw error;
+    }
+  }
+
+  /**
+   * Exécuter la logique d'un nœud selon son type
+   */
+  private async executeNodeLogic(node: WorkflowNode): Promise<void> {
+    switch (node.type) {
+      case 'input':
+        await this.executeInputNode(node);
+        break;
+      case 'output':
+        await this.executeOutputNode(node);
+        break;
+      case 'aiPrompt':
+        await this.executeAIPromptNode(node);
+        break;
+      case 'condition':
+        await this.executeConditionNode(node);
+        break;
+      case 'loop':
+        await this.executeLoopNode(node);
+        break;
+      case 'transform':
+        await this.executeTransformNode(node);
+        break;
+      case 'switch':
+        await this.executeSwitchNode(node);
+        break;
+      default:
+        throw new Error(`Unknown node type: ${node.type}`);
+    }
+  }
+
+  /**
+   * Trouver et exécuter les nœuds suivants
+   */
+  private async executeNextNodes(node: WorkflowNode): Promise<void> {
+    const outgoingEdges = this.workflow.edges.filter(e => e.source === node.id);
+
+    for (const edge of outgoingEdges) {
+      const nextNode = this.workflow.nodes.find(n => n.id === edge.target);
+      if (nextNode) {
+        await this.executeNode(nextNode);
+      }
+    }
+  }
+
+  // ============================================================================
+  // Node Executors (implémentation de base)
+  // ============================================================================
+
+  private async executeInputNode(node: WorkflowNode): Promise<void> {
+    // Le nœud input utilise les valeurs passées lors de l'exécution
+    // Si 'input' existe déjà dans le context (passé en paramètre), on l'utilise
+    let inputValue = this.context.getVariable('input');
+
+    // Sinon, on utilise la valeur par défaut du node
+    if (inputValue === undefined) {
+      inputValue = node.data.inputValue || node.data.label || '';
+      this.context.setVariable('input', inputValue);
+    }
+
+    this.context.setVariable(`input_${node.id}`, inputValue);
+    this.context.setVariable('lastValue', inputValue); // Initialiser lastValue
+
+    this.context.log(node.id, 'info', 'Input node executed', {
+      inputValue: String(inputValue).substring(0, 100)
+    });
+  }
+
+  private async executeOutputNode(node: WorkflowNode): Promise<void> {
+    // Le nœud output récupère la dernière valeur et la stocke comme output final
+    const previousValue = this.context.getVariable('lastValue');
+    this.context.setVariable(`output_${node.id}`, previousValue);
+    this.context.setVariable('output', previousValue); // Variable globale 'output'
+
+    this.context.log(node.id, 'info', 'Output captured', {
+      value: previousValue
+    });
+  }
+
+  private async executeAIPromptNode(node: WorkflowNode): Promise<void> {
+    // Interpoler le prompt avec les variables du contexte
+    const promptTemplate = node.data.promptTemplate as string || '';
+    const interpolatedPrompt = this.context.interpolate(promptTemplate);
+    const model = (node.data.model as string) || 'llama3.2:latest';
+    const temperature = (node.data.temperature as number) ?? 0.7;
+    const maxTokens = (node.data.maxTokens as number) || 2000;
+
+    this.context.log(node.id, 'info', 'AI Prompt node starting', {
+      template: promptTemplate,
+      interpolated: interpolatedPrompt,
+      model,
+      temperature,
+    });
+
+    try {
+      // Vérifier la disponibilité d'Ollama
+      const isAvailable = await this.ollamaClient.isAvailable();
+
+      if (!isAvailable) {
+        throw new Error('Ollama is not available. Please ensure Ollama is running.');
+      }
+
+      let fullResponse = '';
+
+      // Utiliser le streaming avec Ollama
+      await this.ollamaClient.chatStream(
+        {
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: interpolatedPrompt,
+            },
+          ],
+          options: {
+            temperature,
+            num_predict: maxTokens,
+          },
+        },
+        (chunk) => {
+          // Accumuler la réponse
+          const content = chunk.message?.content || '';
+          fullResponse += content;
+
+          // Envoyer l'event de streaming au renderer si disponible
+          if (this.eventSender) {
+            this.eventSender.send('workflow:aiStream', {
+              nodeId: node.id,
+              chunk: content,
+              fullText: fullResponse,
+              done: chunk.done,
+            });
+          }
+
+          // Log de progression
+          if (chunk.done) {
+            this.context.log(node.id, 'success', 'AI generation completed', {
+              tokensGenerated: chunk.eval_count,
+              duration: chunk.total_duration,
+            });
+          }
+        }
+      );
+
+      // Stocker la réponse complète dans le contexte
+      this.context.setVariable(`ai_${node.id}`, fullResponse);
+      this.context.setVariable('lastValue', fullResponse);
+
+      this.context.log(node.id, 'info', 'AI response stored', {
+        responseLength: fullResponse.length,
+      });
+
+    } catch (error) {
+      this.context.log(node.id, 'error', `AI generation failed: ${String(error)}`);
+
+      // En cas d'erreur, utiliser une réponse de fallback
+      const fallbackResponse = `[AI Error: ${String(error)}] - Fallback response for: ${interpolatedPrompt}`;
+      this.context.setVariable(`ai_${node.id}`, fallbackResponse);
+      this.context.setVariable('lastValue', fallbackResponse);
+
+      // Envoyer l'erreur au renderer
+      if (this.eventSender) {
+        this.eventSender.send('workflow:aiStream', {
+          nodeId: node.id,
+          error: String(error),
+          done: true,
+        });
+      }
+    }
+  }
+
+  private async executeConditionNode(node: WorkflowNode): Promise<void> {
+    const condition = node.data.condition as string || '';
+    const result = this.context.evaluateCondition(condition);
+
+    this.context.log(node.id, 'info', `Condition evaluated: ${condition} = ${result}`);
+    this.context.setVariable(`condition_${node.id}`, result);
+    this.context.setVariable('lastValue', result);
+
+    // Le prochain nœud sera déterminé par le handle (yes/no)
+  }
+
+  private async executeLoopNode(node: WorkflowNode): Promise<void> {
+    const loopType = node.data.loopType as string || 'count';
+    const loopCount = (node.data.loopCount as number) || 3;
+
+    this.context.log(node.id, 'info', `Loop node: ${loopType} (${loopCount} iterations)`);
+
+    const results: unknown[] = [];
+
+    for (let i = 0; i < loopCount; i++) {
+      this.context.setVariable('loopIndex', i);
+      this.context.setVariable('loopCount', loopCount);
+
+      // Pour chaque itération, on exécute les nœuds enfants
+      // (simplifié pour l'instant)
+      const lastValue = this.context.getVariable('lastValue');
+      results.push(lastValue);
+
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    this.context.setVariable(`loop_${node.id}`, results);
+    this.context.setVariable('lastValue', results);
+  }
+
+  private async executeTransformNode(node: WorkflowNode): Promise<void> {
+    const transformType = node.data.transformType as string || 'format';
+    const lastValue = this.context.getVariable('lastValue');
+
+    this.context.log(node.id, 'info', `Transform: ${transformType}`);
+
+    // Transformation simple selon le type
+    let result = lastValue;
+
+    switch (transformType) {
+      case 'format':
+        result = JSON.stringify(lastValue, null, 2);
+        break;
+      case 'extract':
+        // Extraire les champs si c'est un objet
+        result = typeof lastValue === 'object' ? lastValue : { value: lastValue };
+        break;
+      case 'merge':
+        // Fusionner avec d'autres variables
+        result = { ...this.context.getAllVariables(), transformed: lastValue };
+        break;
+      default:
+        result = lastValue;
+    }
+
+    this.context.setVariable(`transform_${node.id}`, result);
+    this.context.setVariable('lastValue', result);
+  }
+
+  private async executeSwitchNode(node: WorkflowNode): Promise<void> {
+    const switchValue = this.context.getVariable('lastValue');
+
+    this.context.log(node.id, 'info', `Switch on value: ${switchValue}`);
+    this.context.setVariable(`switch_${node.id}`, switchValue);
+
+    // Le prochain nœud sera déterminé par le handle correspondant à la valeur
+  }
+}
