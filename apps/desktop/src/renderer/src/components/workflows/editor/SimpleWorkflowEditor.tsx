@@ -800,6 +800,9 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
               isSelecting={isSelecting}
               selectionStart={selectionStart}
               selectionEnd={selectionEnd}
+              groups={groups}
+              annotations={annotations}
+              executionState={executionState}
               onNodeMouseDown={handleNodeMouseDown}
               onNodeDoubleClick={handleNodeDoubleClick}
               onStartConnection={handleStartConnection}

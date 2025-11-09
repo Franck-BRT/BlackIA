@@ -1,5 +1,5 @@
 import { Trash2 } from 'lucide-react';
-import type { WorkflowNode, WorkflowEdge, Position } from './types';
+import type { WorkflowNode, WorkflowEdge, Position, NodeGroup, Annotation, ExecutionState } from './types';
 import { getBezierPath, getHandlePosition } from './edgeUtils';
 import { getNodeColor, getNodeIcon } from './defaultNodes';
 
@@ -21,6 +21,9 @@ interface WorkflowCanvasProps {
   isSelecting?: boolean;
   selectionStart?: Position;
   selectionEnd?: Position;
+  groups?: NodeGroup[];
+  annotations?: Annotation[];
+  executionState?: ExecutionState;
   onNodeMouseDown: (nodeId: string, e: React.MouseEvent) => void;
   onNodeDoubleClick: (nodeId: string) => void;
   onStartConnection: (nodeId: string, e: React.MouseEvent) => void;
@@ -42,6 +45,9 @@ export function WorkflowCanvas({
   isSelecting = false,
   selectionStart = { x: 0, y: 0 },
   selectionEnd = { x: 0, y: 0 },
+  groups = [],
+  annotations = [],
+  executionState,
   onNodeMouseDown,
   onNodeDoubleClick,
   onStartConnection,
@@ -72,6 +78,47 @@ export function WorkflowCanvas({
 
       {/* Transform group pour zoom et pan */}
       <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
+        {/* Node Groups (en arrière-plan) */}
+        <g className="groups">
+          {groups.map((group) => (
+            <g key={group.id}>
+              <rect
+                x={group.position.x - 10}
+                y={group.position.y - 10}
+                width={group.size.width + 20}
+                height={group.size.height + 20}
+                rx={8}
+                fill={group.color || 'rgba(139, 92, 246, 0.1)'}
+                stroke={group.color || 'rgba(139, 92, 246, 0.3)'}
+                strokeWidth={2}
+                strokeDasharray={group.collapsed ? '5,5' : '0'}
+                className="transition-all"
+              />
+              {/* Group label */}
+              <text
+                x={group.position.x}
+                y={group.position.y - 15}
+                fill="rgba(255, 255, 255, 0.7)"
+                fontSize={12}
+                fontWeight="600"
+              >
+                {group.label}
+              </text>
+              {/* Collapse indicator */}
+              {group.collapsed && (
+                <text
+                  x={group.position.x + group.size.width - 20}
+                  y={group.position.y - 15}
+                  fill="rgba(255, 255, 255, 0.5)"
+                  fontSize={12}
+                >
+                  [collapsed]
+                </text>
+              )}
+            </g>
+          ))}
+        </g>
+
         {/* Edges (connexions) */}
         <g className="edges">
           {edges.map((edge) => {
@@ -273,8 +320,163 @@ export function WorkflowCanvas({
                     className="hover:r-8 transition-all"
                   />
                 </g>
+
+                {/* Debug indicators */}
+                {executionState && (
+                  <>
+                    {/* Breakpoint indicator */}
+                    {executionState.breakpoints.some((bp) => bp.nodeId === node.id && bp.enabled) && (
+                      <g transform={`translate(8, 8)`}>
+                        <circle r={8} fill="#ef4444" stroke="white" strokeWidth={2} />
+                        <text
+                          x={0}
+                          y={0}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fill="white"
+                          fontSize={10}
+                          fontWeight="bold"
+                        >
+                          ●
+                        </text>
+                      </g>
+                    )}
+
+                    {/* Current execution node highlight */}
+                    {executionState.currentNodeId === node.id && (
+                      <>
+                        {/* Glow effect */}
+                        <rect
+                          x={-4}
+                          y={-4}
+                          width={NODE_WIDTH + 8}
+                          height={NODE_HEIGHT + 8}
+                          rx={14}
+                          fill="none"
+                          stroke="#a78bfa"
+                          strokeWidth={3}
+                          className="animate-pulse"
+                          opacity={0.7}
+                        />
+                        {/* Executing badge */}
+                        <g transform={`translate(${NODE_WIDTH / 2}, -20)`}>
+                          <rect
+                            x={-30}
+                            y={-10}
+                            width={60}
+                            height={20}
+                            rx={4}
+                            fill="#8b5cf6"
+                          />
+                          <text
+                            x={0}
+                            y={0}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            fill="white"
+                            fontSize={10}
+                            fontWeight="bold"
+                          >
+                            {executionState.status === 'running' ? '▶ RUNNING' : '⏸ PAUSED'}
+                          </text>
+                        </g>
+                      </>
+                    )}
+
+                    {/* Error indicator */}
+                    {executionState.status === 'error' && executionState.currentNodeId === node.id && (
+                      <g transform={`translate(${NODE_WIDTH - 8}, 8)`}>
+                        <circle r={8} fill="#ef4444" stroke="white" strokeWidth={2} />
+                        <text
+                          x={0}
+                          y={0}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fill="white"
+                          fontSize={12}
+                          fontWeight="bold"
+                        >
+                          ✕
+                        </text>
+                      </g>
+                    )}
+                  </>
+                )}
               </g>
             );
+          })}
+        </g>
+
+        {/* Annotations */}
+        <g className="annotations">
+          {annotations.map((annotation) => {
+            if (annotation.type === 'note' || annotation.type === 'comment') {
+              const width = annotation.size?.width || 200;
+              const height = annotation.size?.height || 100;
+              const bgColor = annotation.color || (annotation.type === 'note' ? '#fef3c7' : '#ddd6fe');
+
+              return (
+                <g key={annotation.id} transform={`translate(${annotation.position.x}, ${annotation.position.y})`}>
+                  {/* Background */}
+                  <rect
+                    width={width}
+                    height={height}
+                    rx={4}
+                    fill={bgColor}
+                    stroke="rgba(0, 0, 0, 0.1)"
+                    strokeWidth={1}
+                    className="cursor-move opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                  {/* Content */}
+                  <foreignObject x={8} y={8} width={width - 16} height={height - 16}>
+                    <div
+                      className="text-gray-800 text-sm p-2 overflow-auto"
+                      style={{ fontSize: annotation.fontSize || 14 }}
+                    >
+                      {annotation.content || 'Empty note'}
+                    </div>
+                  </foreignObject>
+                  {/* Type indicator */}
+                  <text
+                    x={width - 8}
+                    y={height - 8}
+                    textAnchor="end"
+                    fill="rgba(0, 0, 0, 0.3)"
+                    fontSize={10}
+                  >
+                    {annotation.type === 'note' ? '📝' : '💬'}
+                  </text>
+                </g>
+              );
+            } else if (annotation.type === 'arrow') {
+              // Simple arrow annotation
+              const targetX = annotation.position.x + 100;
+              const targetY = annotation.position.y + 100;
+
+              return (
+                <g key={annotation.id}>
+                  <line
+                    x1={annotation.position.x}
+                    y1={annotation.position.y}
+                    x2={targetX}
+                    y2={targetY}
+                    stroke={annotation.color || '#93c5fd'}
+                    strokeWidth={2}
+                    markerEnd="url(#annotation-arrow)"
+                    className="cursor-move"
+                  />
+                  <text
+                    x={annotation.position.x}
+                    y={annotation.position.y - 5}
+                    fill="rgba(255, 255, 255, 0.7)"
+                    fontSize={12}
+                  >
+                    {annotation.content}
+                  </text>
+                </g>
+              );
+            }
+            return null;
           })}
         </g>
 
@@ -294,7 +496,7 @@ export function WorkflowCanvas({
           />
         )}
 
-        {/* Marker pour les flèches */}
+        {/* Markers pour les flèches */}
         <defs>
           <marker
             id="arrowhead"
@@ -305,6 +507,16 @@ export function WorkflowCanvas({
             orient="auto"
           >
             <polygon points="0 0, 10 3, 0 6" fill="rgba(139, 92, 246, 0.5)" />
+          </marker>
+          <marker
+            id="annotation-arrow"
+            markerWidth={10}
+            markerHeight={10}
+            refX={9}
+            refY={3}
+            orient="auto"
+          >
+            <polygon points="0 0, 10 3, 0 6" fill="#93c5fd" />
           </marker>
         </defs>
       </g>
