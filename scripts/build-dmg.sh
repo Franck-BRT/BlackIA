@@ -120,23 +120,7 @@ fi
 
 success "Node.js $(node --version) et pnpm $(pnpm --version) détectés"
 
-# Vérifier/installer les dépendances
-if [ "$SKIP_DEPS" = false ]; then
-    log "Vérification des dépendances npm..."
-    cd "$PROJECT_ROOT"
-
-    if [ ! -d "node_modules" ]; then
-        log "Installation des dépendances..."
-        pnpm install
-    else
-        log "Mise à jour des dépendances si nécessaire..."
-        pnpm install --frozen-lockfile
-    fi
-
-    success "Dépendances prêtes"
-fi
-
-# Nettoyer si demandé
+# Nettoyer si demandé (AVANT de vérifier les dépendances)
 if [ "$CLEAN" = true ]; then
     log "Nettoyage des builds précédents..."
 
@@ -151,7 +135,29 @@ if [ "$CLEAN" = true ]; then
         rm -rf "$RELEASE_DIR" 2>/dev/null || true
     fi
 
+    # Nettoyer aussi les node_modules pour une réinstallation propre
+    log "Nettoyage des node_modules pour réinstallation propre..."
+    rm -rf "$PROJECT_ROOT/node_modules"
+    rm -rf "$PROJECT_ROOT/packages/*/node_modules"
+    rm -rf "$PROJECT_ROOT/apps/*/node_modules"
+
     success "Nettoyage terminé"
+fi
+
+# Vérifier/installer les dépendances
+if [ "$SKIP_DEPS" = false ]; then
+    log "Vérification des dépendances npm..."
+    cd "$PROJECT_ROOT"
+
+    if [ ! -d "node_modules" ]; then
+        log "Installation des dépendances..."
+        pnpm install
+    else
+        log "Mise à jour des dépendances si nécessaire..."
+        pnpm install --frozen-lockfile
+    fi
+
+    success "Dépendances prêtes"
 fi
 
 # Vérifier si l'icône existe, sinon proposer de la générer
