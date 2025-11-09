@@ -192,7 +192,7 @@ describe('WorkflowVersionService', () => {
   });
 
   describe('getHistory', () => {
-    it('should calculate diff between consecutive versions', async () => {
+    it('should calculate detailed diff between consecutive versions', async () => {
       const workflowId = 'workflow-1';
       const versions = [
         {
@@ -218,9 +218,20 @@ describe('WorkflowVersionService', () => {
       const result = await WorkflowVersionService.getHistory(workflowId);
 
       expect(result).toHaveLength(2);
-      expect(result[0].nodesChanged).toBe(0); // Latest version has no diff
-      expect(result[1].nodesChanged).toBe(1); // v1 -> v2 added 1 node
-      expect(result[1].edgesChanged).toBe(1); // v1 -> v2 added 1 edge
+
+      // Latest version has no diff
+      expect(result[0].nodesChanged).toBe(0);
+      expect(result[0].nodesDiff).toEqual({ added: 0, removed: 0, modified: 0, total: 0 });
+
+      // v1 -> v2 added 1 node
+      expect(result[1].nodesChanged).toBe(1);
+      expect(result[1].nodesDiff.added).toBe(1);
+      expect(result[1].nodesDiff.removed).toBe(0);
+      expect(result[1].nodesDiff.modified).toBe(0);
+
+      // v1 -> v2 added 1 edge
+      expect(result[1].edgesChanged).toBe(1);
+      expect(result[1].edgesDiff.added).toBe(1);
     });
   });
 });
@@ -347,6 +358,53 @@ describe('WorkflowVariableService', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].name).toBe('api_key');
+    });
+  });
+
+  describe('validation', () => {
+    it('should throw error when workflow-scoped variable has no workflowId', async () => {
+      const variableData = {
+        name: 'test_var',
+        value: JSON.stringify('value'),
+        type: 'string' as const,
+        scope: 'workflow' as const,
+        workflowId: null, // Invalid: workflow scope requires workflowId
+        encrypted: false,
+      };
+
+      await expect(WorkflowVariableService.create(variableData)).rejects.toThrow(
+        'workflowId is required for workflow-scoped variables'
+      );
+    });
+
+    it('should throw error when global variable has workflowId', async () => {
+      const variableData = {
+        name: 'test_var',
+        value: JSON.stringify('value'),
+        type: 'string' as const,
+        scope: 'global' as const,
+        workflowId: 'workflow-1', // Invalid: global scope should not have workflowId
+        encrypted: false,
+      };
+
+      await expect(WorkflowVariableService.create(variableData)).rejects.toThrow(
+        'workflowId must be null for global-scoped variables'
+      );
+    });
+
+    it('should throw error when variable value is invalid JSON', async () => {
+      const variableData = {
+        name: 'test_var',
+        value: '{invalid json}', // Invalid JSON
+        type: 'string' as const,
+        scope: 'global' as const,
+        workflowId: null,
+        encrypted: false,
+      };
+
+      await expect(WorkflowVariableService.create(variableData)).rejects.toThrow(
+        'Invalid JSON format in value'
+      );
     });
   });
 });

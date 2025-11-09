@@ -1,4 +1,4 @@
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { eq, desc, and, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getDatabase } from '../database/client';
 import {
@@ -19,6 +19,54 @@ import {
  * Service pour les opérations base de données des workflows
  * Gère les templates, versions, et variables avec Drizzle ORM
  */
+
+// ==================== VALIDATION HELPERS ====================
+
+/**
+ * Valide qu'une chaîne est un JSON valide
+ * @throws Error si le JSON est invalide
+ */
+function validateJSON(jsonString: string, fieldName: string): void {
+  try {
+    JSON.parse(jsonString);
+  } catch (error) {
+    throw new Error(
+      `Invalid JSON format in ${fieldName}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+}
+
+/**
+ * Valide les champs JSON d'un template
+ */
+function validateTemplateJSON(data: {
+  nodes: string;
+  edges: string;
+  groups?: string;
+  annotations?: string;
+}): void {
+  validateJSON(data.nodes, 'nodes');
+  validateJSON(data.edges, 'edges');
+  if (data.groups) validateJSON(data.groups, 'groups');
+  if (data.annotations) validateJSON(data.annotations, 'annotations');
+}
+
+/**
+ * Valide les champs JSON d'une version
+ */
+function validateVersionJSON(data: {
+  nodes: string;
+  edges: string;
+  groups?: string;
+  annotations?: string;
+  variables?: string | null;
+}): void {
+  validateJSON(data.nodes, 'nodes');
+  validateJSON(data.edges, 'edges');
+  if (data.groups) validateJSON(data.groups, 'groups');
+  if (data.annotations) validateJSON(data.annotations, 'annotations');
+  if (data.variables) validateJSON(data.variables, 'variables');
+}
 
 // ==================== WORKFLOW TEMPLATES ====================
 
@@ -58,6 +106,9 @@ export const WorkflowTemplateService = {
   async create(
     templateData: Omit<NewWorkflowTemplate, 'id' | 'createdAt' | 'updatedAt' | 'usageCount'>
   ): Promise<WorkflowTemplate> {
+    // Validation JSON avant insertion
+    validateTemplateJSON(templateData);
+
     const db = getDatabase();
     const now = new Date();
 
@@ -77,6 +128,28 @@ export const WorkflowTemplateService = {
    * Met à jour un template
    */
   async update(id: string, updates: Partial<WorkflowTemplate>): Promise<WorkflowTemplate | null> {
+    // Validation JSON si présents dans les mises à jour
+    if (updates.nodes || updates.edges || updates.groups || updates.annotations) {
+      const validationData: any = {};
+      if (updates.nodes) validationData.nodes = updates.nodes;
+      if (updates.edges) validationData.edges = updates.edges;
+      if (updates.groups) validationData.groups = updates.groups;
+      if (updates.annotations) validationData.annotations = updates.annotations;
+
+      // Si nodes ou edges sont modifiés, valider les deux (requis)
+      if (updates.nodes || updates.edges) {
+        const current = await this.getById(id);
+        if (current) {
+          if (!validationData.nodes) validationData.nodes = current.nodes;
+          if (!validationData.edges) validationData.edges = current.edges;
+        }
+      }
+
+      if (validationData.nodes && validationData.edges) {
+        validateTemplateJSON(validationData);
+      }
+    }
+
     const db = getDatabase();
 
     await db
@@ -114,20 +187,24 @@ export const WorkflowTemplateService = {
 
   /**
    * Recherche des templates
+   * Optimisé avec requête SQL LIKE au lieu de filtrage JavaScript
    */
   async search(query: string): Promise<WorkflowTemplate[]> {
     const db = getDatabase();
-    const lowerQuery = query.toLowerCase();
+    const searchPattern = `%${query}%`;
 
-    const allTemplates = await db.select().from(workflowTemplates);
-
-    return allTemplates.filter(
-      (t) =>
-        t.name.toLowerCase().includes(lowerQuery) ||
-        t.description.toLowerCase().includes(lowerQuery) ||
-        t.category.toLowerCase().includes(lowerQuery) ||
-        t.tags.toLowerCase().includes(lowerQuery)
-    );
+    return await db
+      .select()
+      .from(workflowTemplates)
+      .where(
+        or(
+          sql`LOWER(${workflowTemplates.name}) LIKE LOWER(${searchPattern})`,
+          sql`LOWER(${workflowTemplates.description}) LIKE LOWER(${searchPattern})`,
+          sql`LOWER(${workflowTemplates.category}) LIKE LOWER(${searchPattern})`,
+          sql`LOWER(${workflowTemplates.tags}) LIKE LOWER(${searchPattern})`
+        )
+      )
+      .orderBy(desc(workflowTemplates.usageCount));
   },
 
   /**
@@ -150,6 +227,44 @@ export const WorkflowTemplateService = {
 
 // ==================== WORKFLOW VERSIONS ====================
 
+/**
+ * Interface pour le résultat du diff détaillé
+ */
+interface DetailedDiff {
+  added: number;
+  removed: number;
+  modified: number;
+  total: number;
+}
+
+/**
+ * Calcule un diff détaillé entre deux listes d'éléments
+ * Détecte les ajouts, suppressions ET modifications
+ */
+function calculateDetailedDiff(current: any[], previous: any[]): DetailedDiff {
+  const currentIds = new Set(current.map((item: any) => item.id));
+  const previousIds = new Set(previous.map((item: any) => item.id));
+
+  // Éléments ajoutés (présents dans current mais pas dans previous)
+  const added = current.filter((item: any) => !previousIds.has(item.id)).length;
+
+  // Éléments supprimés (présents dans previous mais pas dans current)
+  const removed = previous.filter((item: any) => !currentIds.has(item.id)).length;
+
+  // Éléments modifiés (même ID mais contenu différent)
+  const modified = current.filter((item: any) => {
+    const prev = previous.find((p: any) => p.id === item.id);
+    return prev && JSON.stringify(prev) !== JSON.stringify(item);
+  }).length;
+
+  return {
+    added,
+    removed,
+    modified,
+    total: added + removed + modified,
+  };
+}
+
 export const WorkflowVersionService = {
   /**
    * Crée une nouvelle version (commit)
@@ -165,6 +280,9 @@ export const WorkflowVersionService = {
     variables?: string;
     parentId?: string;
   }): Promise<WorkflowVersion> {
+    // Validation JSON avant création de version
+    validateVersionJSON(versionData);
+
     const db = getDatabase();
 
     // Déterminer le numéro de version
@@ -260,11 +378,15 @@ export const WorkflowVersionService = {
   },
 
   /**
-   * Récupère l'historique avec diff entre versions
+   * Récupère l'historique avec diff détaillé entre versions
+   * Retourne les ajouts, suppressions et modifications de nœuds et connexions
    */
   async getHistory(workflowId: string): Promise<
     Array<{
       version: WorkflowVersion;
+      nodesDiff: DetailedDiff;
+      edgesDiff: DetailedDiff;
+      // Rétrocompatibilité : total des changements
       nodesChanged: number;
       edgesChanged: number;
     }>
@@ -272,8 +394,8 @@ export const WorkflowVersionService = {
     const versions = await this.getByWorkflowId(workflowId);
 
     return versions.map((version, index) => {
-      let nodesChanged = 0;
-      let edgesChanged = 0;
+      let nodesDiff: DetailedDiff = { added: 0, removed: 0, modified: 0, total: 0 };
+      let edgesDiff: DetailedDiff = { added: 0, removed: 0, modified: 0, total: 0 };
 
       if (index < versions.length - 1) {
         const previousVersion = versions[index + 1];
@@ -282,14 +404,17 @@ export const WorkflowVersionService = {
         const currentEdges = JSON.parse(version.edges);
         const previousEdges = JSON.parse(previousVersion.edges);
 
-        nodesChanged = Math.abs(currentNodes.length - previousNodes.length);
-        edgesChanged = Math.abs(currentEdges.length - previousEdges.length);
+        nodesDiff = calculateDetailedDiff(currentNodes, previousNodes);
+        edgesDiff = calculateDetailedDiff(currentEdges, previousEdges);
       }
 
       return {
         version,
-        nodesChanged,
-        edgesChanged,
+        nodesDiff,
+        edgesDiff,
+        // Rétrocompatibilité
+        nodesChanged: nodesDiff.total,
+        edgesChanged: edgesDiff.total,
       };
     });
   },
@@ -324,6 +449,23 @@ export const WorkflowVariableService = {
   async create(
     variableData: Omit<NewWorkflowVariable, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<WorkflowVariable> {
+    // Validation : si scope = 'workflow', workflowId obligatoire
+    if (variableData.scope === 'workflow' && !variableData.workflowId) {
+      throw new Error('workflowId is required for workflow-scoped variables');
+    }
+
+    // Validation : si scope != 'workflow', workflowId doit être null
+    if (variableData.scope !== 'workflow' && variableData.workflowId) {
+      throw new Error(
+        `workflowId must be null for ${variableData.scope}-scoped variables. Remove workflowId or change scope to 'workflow'.`
+      );
+    }
+
+    // Validation de la valeur JSON
+    if (variableData.value) {
+      validateJSON(variableData.value, 'value');
+    }
+
     const db = getDatabase();
     const now = new Date();
 
@@ -426,17 +568,21 @@ export const WorkflowVariableService = {
 
   /**
    * Recherche des variables par nom
+   * Optimisé avec requête SQL LIKE au lieu de filtrage JavaScript
    */
   async search(query: string): Promise<WorkflowVariable[]> {
     const db = getDatabase();
-    const allVariables = await db.select().from(workflowVariables);
-    const lowerQuery = query.toLowerCase();
+    const searchPattern = `%${query}%`;
 
-    return allVariables.filter(
-      (v) =>
-        v.name.toLowerCase().includes(lowerQuery) ||
-        v.description?.toLowerCase().includes(lowerQuery)
-    );
+    return await db
+      .select()
+      .from(workflowVariables)
+      .where(
+        or(
+          sql`LOWER(${workflowVariables.name}) LIKE LOWER(${searchPattern})`,
+          sql`LOWER(${workflowVariables.description}) LIKE LOWER(${searchPattern})`
+        )
+      );
   },
 
   /**
