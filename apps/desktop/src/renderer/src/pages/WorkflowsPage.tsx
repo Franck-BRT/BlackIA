@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Plus, Search, Star, Layers, Filter, X } from 'lucide-react';
+import { Plus, Search, Star, Layers, Filter, X, ArrowLeft } from 'lucide-react';
 import { useWorkflows, type ParsedWorkflow } from '../hooks/useWorkflows';
 import { WorkflowList } from '../components/workflows/WorkflowList';
 import { WorkflowModal } from '../components/workflows/WorkflowModal';
 import { WorkflowExecutionPanel } from '../components/workflows/WorkflowExecutionPanel';
+import { WorkflowEditor } from '../components/workflows/WorkflowEditor';
 
 export function WorkflowsPage() {
   const {
@@ -25,6 +26,8 @@ export function WorkflowsPage() {
   const [activeFilter, setActiveFilter] = useState<'all' | 'favorites' | 'templates'>('all');
   const [filteredWorkflows, setFilteredWorkflows] = useState<ParsedWorkflow[]>([]);
   const [executingWorkflow, setExecutingWorkflow] = useState<ParsedWorkflow | null>(null);
+  const [editingWorkflow, setEditingWorkflow] = useState<ParsedWorkflow | null>(null);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   // Gestion du filtre et de la recherche
   useState(() => {
@@ -56,13 +59,37 @@ export function WorkflowsPage() {
   }, [workflows, searchQuery, activeFilter]);
 
   const handleCreateWorkflow = async () => {
+    // Ouvrir le modal pour saisir les infos de base
     setSelectedWorkflow(null);
     setIsModalOpen(true);
   };
 
+  const handleWorkflowCreated = async (workflowData: any) => {
+    // Créer le workflow avec des nodes/edges vides
+    const newWorkflow = await createWorkflow({
+      ...workflowData,
+      nodes: JSON.stringify([]),
+      edges: JSON.stringify([]),
+    });
+
+    // Fermer le modal
+    setIsModalOpen(false);
+
+    // Ouvrir l'éditeur avec ce nouveau workflow
+    if (newWorkflow) {
+      setEditingWorkflow(newWorkflow);
+      setIsCreatingNew(false);
+    }
+  };
+
   const handleSelectWorkflow = (workflow: ParsedWorkflow) => {
-    // TODO: Ouvrir l'éditeur de workflow
-    console.log('Open workflow editor for:', workflow.id);
+    setEditingWorkflow(workflow);
+    setIsCreatingNew(false);
+  };
+
+  const handleCloseEditor = () => {
+    setEditingWorkflow(null);
+    setIsCreatingNew(false);
   };
 
   const handleDuplicateWorkflow = async (id: string) => {
@@ -89,6 +116,56 @@ export function WorkflowsPage() {
   };
 
   const displayedWorkflows = searchQuery || activeFilter !== 'all' ? filteredWorkflows : workflows;
+
+  // Si on est en mode édition, afficher l'éditeur
+  if (editingWorkflow || isCreatingNew) {
+    return (
+      <div className="h-full flex flex-col bg-gray-900">
+        {/* Editor Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gray-900/95 backdrop-blur-sm">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleCloseEditor}
+              className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-white">
+                {isCreatingNew ? 'Nouveau Workflow' : editingWorkflow?.name}
+              </h1>
+              <p className="text-sm text-gray-400">
+                {isCreatingNew ? 'Créez votre workflow personnalisé' : 'Éditeur de workflow'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Editor */}
+        <div className="flex-1 overflow-hidden">
+          <WorkflowEditor
+            workflow={editingWorkflow || undefined}
+            onSave={async (workflowData) => {
+              // Convertir nodes et edges en JSON strings
+              const dataToSave = {
+                ...workflowData,
+                nodes: JSON.stringify(workflowData.nodes),
+                edges: JSON.stringify(workflowData.edges),
+              };
+
+              if (editingWorkflow) {
+                await updateWorkflow(editingWorkflow.id, dataToSave);
+              } else {
+                await createWorkflow(dataToSave);
+              }
+              handleCloseEditor();
+            }}
+            onCancel={handleCloseEditor}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-auto p-8">
@@ -232,7 +309,10 @@ export function WorkflowsPage() {
         <WorkflowModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onSubmit={createWorkflow}
+          onSubmit={selectedWorkflow ? async (data) => {
+            await updateWorkflow(selectedWorkflow.id, data);
+            setIsModalOpen(false);
+          } : handleWorkflowCreated}
           workflow={selectedWorkflow}
           title={selectedWorkflow ? 'Modifier le workflow' : 'Nouveau Workflow'}
         />

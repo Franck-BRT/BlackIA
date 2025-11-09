@@ -1,4 +1,4 @@
-import { Star, Copy, Trash2, Play, MoreVertical } from 'lucide-react';
+import { Star, Copy, Trash2, Play, Edit2 } from 'lucide-react';
 import type { ParsedWorkflow } from '../../hooks/useWorkflows';
 
 interface WorkflowCardProps {
@@ -126,6 +126,13 @@ export function WorkflowCard({
             Exécuter
           </button>
         )}
+        <button
+          onClick={(e) => handleAction(e, () => onSelect(workflow))}
+          className="p-2 rounded-lg hover:bg-blue-500/20 text-gray-400 hover:text-blue-400 transition-colors border border-transparent hover:border-blue-500/30"
+          title="Éditer"
+        >
+          <Edit2 size={16} />
+        </button>
         <button
           onClick={(e) => handleAction(e, () => onDuplicate(workflow.id))}
           className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-gray-300 transition-colors"

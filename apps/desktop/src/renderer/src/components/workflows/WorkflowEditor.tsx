@@ -36,14 +36,24 @@ const nodeTypes = {
 };
 
 interface WorkflowEditorProps {
-  workflow: ParsedWorkflow;
-  onSave: (nodes: Node[], edges: Edge[]) => Promise<void>;
+  workflow?: ParsedWorkflow;
+  onSave: (workflowData: {
+    name?: string;
+    description?: string;
+    icon?: string;
+    color?: string;
+    category?: string;
+    tags?: string[];
+    nodes: Node[];
+    edges: Edge[];
+  }) => Promise<void>;
+  onCancel?: () => void;
   onExecute?: () => void;
 }
 
-export function WorkflowEditor({ workflow, onSave, onExecute }: WorkflowEditorProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(workflow.nodes as Node[]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(workflow.edges as Edge[]);
+export function WorkflowEditor({ workflow, onSave, onCancel, onExecute }: WorkflowEditorProps) {
+  const [nodes, setNodes, onNodesChange] = useNodesState((workflow?.nodes as Node[]) || []);
+  const [edges, setEdges, onEdgesChange] = useEdgesState((workflow?.edges as Edge[]) || []);
   const [isSaving, setIsSaving] = useState(false);
 
   const onConnect = useCallback(
@@ -54,7 +64,19 @@ export function WorkflowEditor({ workflow, onSave, onExecute }: WorkflowEditorPr
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSave(nodes, edges);
+      await onSave({
+        nodes,
+        edges,
+        // Garder les métadonnées existantes si on édite
+        ...(workflow && {
+          name: workflow.name,
+          description: workflow.description,
+          icon: workflow.icon,
+          color: workflow.color,
+          category: workflow.category,
+          tags: workflow.tags,
+        }),
+      });
     } catch (error) {
       console.error('Error saving workflow:', error);
     } finally {
@@ -81,13 +103,24 @@ export function WorkflowEditor({ workflow, onSave, onExecute }: WorkflowEditorPr
       {/* Toolbar */}
       <div className="flex items-center justify-between px-6 py-4 bg-gray-900/50 border-b border-white/10">
         <div className="flex items-center gap-4">
-          <h2 className="text-xl font-semibold text-white">{workflow.name}</h2>
+          <h2 className="text-xl font-semibold text-white">
+            {workflow?.name || 'Nouveau Workflow'}
+          </h2>
           <span className="px-3 py-1 rounded-full bg-white/5 text-sm text-gray-400">
-            {nodes.length} nœuds
+            {nodes.length} nœud{nodes.length > 1 ? 's' : ''}
           </span>
         </div>
 
         <div className="flex items-center gap-3">
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 rounded-lg border border-white/10 text-gray-400
+                       hover:bg-white/5 transition-colors"
+            >
+              Annuler
+            </button>
+          )}
           {onExecute && (
             <button
               onClick={onExecute}
