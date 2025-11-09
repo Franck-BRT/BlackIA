@@ -32,7 +32,7 @@ export function EditorPage() {
       try {
         const result = await window.electron.documentation.update(state.documentId, {
           content,
-          updatedAt: new Date(),
+          // updatedAt est géré automatiquement par le service
         });
 
         if (result.success) {
