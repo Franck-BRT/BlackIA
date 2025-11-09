@@ -1,23 +1,41 @@
-# Packages manquants pour la Documentation
+# Packages pour la Documentation
 
-## À installer
+## Statut
+
+✅ **Auto-import implémenté** - La documentation sera importée automatiquement au premier lancement de l'application.
+
+## Packages requis
+
+Les packages suivants doivent être installés pour le système de documentation:
 
 ```bash
 cd apps/desktop
-pnpm add react-syntax-highlighter @types/react-syntax-highlighter
+pnpm install
 ```
 
-## Packages déjà installés
-
+### Packages clés
 - ✅ react-markdown
 - ✅ remark-gfm
-- ✅ rehype-highlight (ou utiliser react-syntax-highlighter à la place)
+- ✅ rehype-highlight
 - ✅ rehype-slug
 - ✅ rehype-autolink-headings
 - ✅ highlight.js
+- ⚠️ react-syntax-highlighter (à installer)
+- ⚠️ @types/react-syntax-highlighter (à installer)
 
 ## Note
 
-Le composant `DocumentationViewer.tsx` utilise actuellement `react-syntax-highlighter` pour la coloration syntaxique des blocs de code. Si ce package n'est pas installé, il y aura une erreur d'import.
+Le composant `DocumentationViewer.tsx` utilise `react-syntax-highlighter` pour la coloration syntaxique des blocs de code.
 
-**Alternative**: On peut aussi utiliser `rehype-highlight` + `highlight.js` qui sont déjà installés, mais `react-syntax-highlighter` offre une meilleure intégration avec React.
+## Auto-import
+
+L'import de la documentation se fait automatiquement au démarrage de l'app:
+- Détecte si la documentation existe déjà
+- Importe tous les fichiers .md du projet
+- Crée une page d'accueil
+- Peuple la base SQLite avec FTS5
+
+**Script manuel disponible** (optionnel):
+```bash
+pnpm docs:import
+```
