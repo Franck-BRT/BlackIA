@@ -1,16 +1,29 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Save, Folder, Search, X, Download, Upload, Star, Copy } from 'lucide-react';
 import type { WorkflowTemplate, WorkflowNode, WorkflowEdge } from './types';
-import {
-  defaultTemplates,
-  areDefaultTemplatesInitialized,
-  markDefaultTemplatesAsInitialized,
-} from '../../../../../shared/default-templates';
+import { defaultTemplates } from '../../../../../shared/default-templates';
 import {
   templateCategories,
   getCategoryIcon,
   getCategoryLabel,
 } from '../../../../../shared/template-categories';
+
+// Clé localStorage pour les templates par défaut
+const DEFAULT_TEMPLATES_KEY = 'blackia_default_templates_initialized';
+
+/**
+ * Vérifier si les templates par défaut ont déjà été initialisés
+ */
+function areDefaultTemplatesInitialized(): boolean {
+  return localStorage.getItem(DEFAULT_TEMPLATES_KEY) === 'true';
+}
+
+/**
+ * Marquer les templates par défaut comme initialisés
+ */
+function markDefaultTemplatesAsInitialized(): void {
+  localStorage.setItem(DEFAULT_TEMPLATES_KEY, 'true');
+}
 
 interface TemplateManagerProps {
   isOpen: boolean;

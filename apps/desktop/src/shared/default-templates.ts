@@ -474,28 +474,3 @@ export const defaultTemplates: DefaultTemplate[] = [
   documentSummaryTemplate,
   multiLanguageTranslationTemplate,
 ];
-
-/**
- * Vérifier si les templates par défaut ont déjà été initialisés
- * Utilise une clé dans localStorage pour éviter de réinitialiser à chaque lancement
- */
-export const DEFAULT_TEMPLATES_KEY = 'blackia_default_templates_initialized';
-
-/**
- * Marquer les templates par défaut comme initialisés
- */
-export function markDefaultTemplatesAsInitialized(): void {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    localStorage.setItem(DEFAULT_TEMPLATES_KEY, 'true');
-  }
-}
-
-/**
- * Vérifier si les templates par défaut ont déjà été initialisés
- */
-export function areDefaultTemplatesInitialized(): boolean {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    return localStorage.getItem(DEFAULT_TEMPLATES_KEY) === 'true';
-  }
-  return false;
-}
