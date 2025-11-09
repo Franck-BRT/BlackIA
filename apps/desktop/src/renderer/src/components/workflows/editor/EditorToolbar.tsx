@@ -8,13 +8,12 @@ import {
   Maximize2,
   Copy,
   Scissors,
-  Grid3x3,
   AlignLeft,
   AlignRight,
-  AlignCenterHorizontal,
-  AlignTop,
-  AlignBottom,
-  AlignCenterVertical,
+  AlignCenter,
+  AlignJustify,
+  MoveHorizontal,
+  MoveVertical,
   LayoutGrid,
 } from 'lucide-react';
 
@@ -138,6 +137,7 @@ export function EditorToolbar({
         {/* Alignment (only when multiple nodes selected) */}
         {selectedCount >= 2 && onAlign && (
           <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10">
+            {/* Horizontal alignment */}
             <button
               onClick={() => onAlign('left')}
               className="p-2 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
@@ -150,7 +150,7 @@ export function EditorToolbar({
               className="p-2 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
               title="Centrer horizontalement"
             >
-              <AlignCenterHorizontal size={16} />
+              <AlignCenter size={16} />
             </button>
             <button
               onClick={() => onAlign('right')}
@@ -160,26 +160,27 @@ export function EditorToolbar({
               <AlignRight size={16} />
             </button>
             <div className="w-px h-4 bg-white/20" />
+            {/* Vertical alignment */}
             <button
               onClick={() => onAlign('top')}
               className="p-2 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
               title="Aligner en haut"
             >
-              <AlignTop size={16} />
+              <AlignJustify size={16} className="rotate-90" />
             </button>
             <button
               onClick={() => onAlign('center-v')}
               className="p-2 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
               title="Centrer verticalement"
             >
-              <AlignCenterVertical size={16} />
+              <MoveVertical size={16} />
             </button>
             <button
               onClick={() => onAlign('bottom')}
               className="p-2 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
               title="Aligner en bas"
             >
-              <AlignBottom size={16} />
+              <AlignJustify size={16} className="-rotate-90" />
             </button>
           </div>
         )}
