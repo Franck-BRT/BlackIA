@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { Plus, Search, Star, Layers, Filter, X, ArrowLeft } from 'lucide-react';
+import { Plus, Search, Star, Layers, Filter, X, ArrowLeft, AlertCircle } from 'lucide-react';
 import { useWorkflows, type ParsedWorkflow } from '../hooks/useWorkflows';
 import { WorkflowList } from '../components/workflows/WorkflowList';
 import { WorkflowModal } from '../components/workflows/WorkflowModal';
 import { WorkflowExecutionPanel } from '../components/workflows/WorkflowExecutionPanel';
-import { WorkflowEditor } from '../components/workflows/WorkflowEditor';
+// TODO: Installer ReactFlow avec: pnpm add reactflow
+// import { WorkflowEditor } from '../components/workflows/WorkflowEditor';
+
+// WorkflowEditor temporairement désactivé car ReactFlow n'est pas installé
+const EDITOR_AVAILABLE = false;
 
 export function WorkflowsPage() {
   const {
@@ -142,26 +146,66 @@ export function WorkflowsPage() {
         </div>
 
         {/* Editor */}
-        <div className="flex-1 overflow-hidden">
-          <WorkflowEditor
-            workflow={editingWorkflow || undefined}
-            onSave={async (workflowData) => {
-              // Convertir nodes et edges en JSON strings
-              const dataToSave = {
-                ...workflowData,
-                nodes: JSON.stringify(workflowData.nodes),
-                edges: JSON.stringify(workflowData.edges),
-              };
+        <div className="flex-1 overflow-hidden p-8">
+          {EDITOR_AVAILABLE ? (
+            <div>
+              {/* TODO: Uncomment when ReactFlow is installed */}
+              {/* <WorkflowEditor
+                workflow={editingWorkflow || undefined}
+                onSave={async (workflowData) => {
+                  const dataToSave = {
+                    ...workflowData,
+                    nodes: JSON.stringify(workflowData.nodes),
+                    edges: JSON.stringify(workflowData.edges),
+                  };
 
-              if (editingWorkflow) {
-                await updateWorkflow(editingWorkflow.id, dataToSave);
-              } else {
-                await createWorkflow(dataToSave);
-              }
-              handleCloseEditor();
-            }}
-            onCancel={handleCloseEditor}
-          />
+                  if (editingWorkflow) {
+                    await updateWorkflow(editingWorkflow.id, dataToSave);
+                  } else {
+                    await createWorkflow(dataToSave);
+                  }
+                  handleCloseEditor();
+                }}
+                onCancel={handleCloseEditor}
+              /> */}
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <div className="max-w-2xl text-center space-y-6">
+                <AlertCircle className="mx-auto text-yellow-400" size={64} />
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-2">
+                    Éditeur visuel non disponible
+                  </h2>
+                  <p className="text-gray-400 mb-4">
+                    L'éditeur visuel de workflows nécessite ReactFlow qui n'a pas pu être installé.
+                  </p>
+                </div>
+                <div className="p-6 rounded-lg bg-white/5 border border-white/10 text-left">
+                  <h3 className="text-lg font-semibold text-white mb-3">Pour activer l'éditeur :</h3>
+                  <ol className="space-y-2 text-gray-300">
+                    <li className="flex gap-3">
+                      <span className="text-purple-400 font-bold">1.</span>
+                      <span>Installez ReactFlow : <code className="px-2 py-1 rounded bg-black/30 text-purple-400">pnpm add reactflow</code></span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="text-purple-400 font-bold">2.</span>
+                      <span>Décommentez l'import dans <code className="px-2 py-1 rounded bg-black/30">WorkflowsPage.tsx</code></span>
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="text-purple-400 font-bold">3.</span>
+                      <span>Changez <code className="px-2 py-1 rounded bg-black/30">EDITOR_AVAILABLE = true</code></span>
+                    </li>
+                  </ol>
+                </div>
+                <div className="pt-4">
+                  <p className="text-sm text-gray-500">
+                    En attendant, vous pouvez exécuter les workflows templates existants.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
