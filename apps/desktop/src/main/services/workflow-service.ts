@@ -334,6 +334,124 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: 'template-persona-creator-advanced',
+    name: 'Créateur de Persona Avancé (Expérimental)',
+    description:
+      'Version avancée avec loops et conditions - Génère plusieurs variations et affine jusqu\'à obtenir un score > 8',
+    nodes: JSON.stringify([
+      {
+        id: '1',
+        type: 'input',
+        position: { x: 100, y: 100 },
+        data: {
+          label: 'Entrée',
+          inputType: 'text',
+          inputValue: '',
+        },
+      },
+      {
+        id: '2',
+        type: 'aiPrompt',
+        position: { x: 100, y: 250 },
+        data: {
+          label: 'Analyser les besoins',
+          promptTemplate:
+            "Analyse les besoins suivants pour créer un persona IA : {{input}}. Identifie le domaine d'expertise, le style de communication souhaité, et les critères de qualité à respecter.",
+          model: 'llama3.2:latest',
+          temperature: 0.7,
+          maxTokens: 1000,
+        },
+      },
+      {
+        id: '3',
+        type: 'loop',
+        position: { x: 100, y: 400 },
+        data: {
+          label: 'Générer 3 variations',
+          loopType: 'count',
+          loopCount: 3,
+        },
+      },
+      {
+        id: '4',
+        type: 'aiPrompt',
+        position: { x: 100, y: 550 },
+        data: {
+          label: 'Créer système prompt',
+          promptTemplate:
+            "Basé sur l'analyse suivante : {{lastValue}}, crée un système prompt unique et optimisé pour un persona IA. Sois créatif et varie les approches.",
+          model: 'llama3.2:latest',
+          temperature: 0.8,
+          maxTokens: 2000,
+        },
+      },
+      {
+        id: '5',
+        type: 'aiPrompt',
+        position: { x: 100, y: 700 },
+        data: {
+          label: 'Comparer et noter',
+          promptTemplate:
+            'Compare les variations de personas suivantes : {{lastValue}}. Note chacune sur 10 selon la clarté, la pertinence et la qualité. Retourne la meilleure avec sa note au format "Score: X/10".',
+          model: 'llama3.2:latest',
+          temperature: 0.3,
+          maxTokens: 1500,
+        },
+      },
+      {
+        id: '6',
+        type: 'condition',
+        position: { x: 100, y: 850 },
+        data: {
+          label: 'Note > 8 ?',
+          condition: '{{score}} > 8',
+          conditionType: 'greater',
+        },
+      },
+      {
+        id: '7',
+        type: 'output',
+        position: { x: 300, y: 1000 },
+        data: {
+          label: 'Persona parfait',
+          outputType: 'text',
+        },
+      },
+      {
+        id: '8',
+        type: 'aiPrompt',
+        position: { x: -100, y: 1000 },
+        data: {
+          label: 'Affiner et réessayer',
+          promptTemplate:
+            'Le persona précédent a obtenu une note insuffisante. Améliore la proposition suivante en gardant ses points forts et en corrigeant ses faiblesses: {{lastValue}}',
+          model: 'llama3.2:latest',
+          temperature: 0.6,
+          maxTokens: 2000,
+        },
+      },
+    ]),
+    edges: JSON.stringify([
+      { id: 'e1-2', source: '1', target: '2' },
+      { id: 'e2-3', source: '2', target: '3' },
+      { id: 'e3-4', source: '3', target: '4' },
+      { id: 'e4-5', source: '4', target: '5' },
+      { id: 'e5-6', source: '5', target: '6' },
+      { id: 'e6-7', source: '6', target: '7', sourceHandle: 'yes', label: 'Oui' },
+      { id: 'e6-8', source: '6', target: '8', sourceHandle: 'no', label: 'Non' },
+      { id: 'e8-5', source: '8', target: '5', animated: true },
+    ]),
+    icon: '🎭',
+    color: 'orange',
+    category: 'Expérimental',
+    tags: '["persona", "création", "IA", "loop", "condition", "avancé"]',
+    isFavorite: false,
+    usageCount: 0,
+    isTemplate: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 /**
