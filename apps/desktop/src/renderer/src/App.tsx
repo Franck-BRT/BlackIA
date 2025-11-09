@@ -7,6 +7,7 @@ import { Layout } from './components/Layout';
 import { HomePage } from './pages/HomePage';
 import { ChatPage } from './pages/ChatPage';
 import { WorkflowsPage } from './pages/WorkflowsPage';
+import { EditorPage } from './pages/EditorPage';
 import { PromptsPage } from './pages/PromptsPage';
 import { PersonasPage } from './pages/PersonasPage';
 import { ProjectsPage } from './pages/ProjectsPage';
@@ -19,6 +20,7 @@ const PAGE_COMPONENTS: Record<string, React.ComponentType> = {
   'home': HomePage,
   'chat': ChatPage,
   'workflows': WorkflowsPage,
+  'editor': EditorPage,
   'prompts': PromptsPage,
   'personas': PersonasPage,
   'projects': ProjectsPage,
@@ -56,6 +58,7 @@ function AppContent() {
           <Route path="/home" element={<HomePage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/workflows" element={<WorkflowsPage />} />
+          <Route path="/editor" element={<EditorPage />} />
           <Route path="/prompts" element={<PromptsPage />} />
           <Route path="/personas" element={<PersonasPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
