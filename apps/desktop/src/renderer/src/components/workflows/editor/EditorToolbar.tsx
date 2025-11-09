@@ -15,6 +15,12 @@ import {
   MoveHorizontal,
   MoveVertical,
   LayoutGrid,
+  Folder,
+  GitBranch,
+  Variable,
+  Bug,
+  Group,
+  MessageSquare,
 } from 'lucide-react';
 
 interface EditorToolbarProps {
@@ -39,6 +45,14 @@ interface EditorToolbarProps {
   onAutoLayout: () => void;
   onAlign?: (direction: 'left' | 'right' | 'top' | 'bottom' | 'center-h' | 'center-v') => void;
   onDistribute?: (direction: 'horizontal' | 'vertical') => void;
+  // Advanced features
+  onOpenTemplates?: () => void;
+  onOpenVersions?: () => void;
+  onOpenVariables?: () => void;
+  onToggleDebug?: () => void;
+  onCreateGroup?: () => void;
+  onAddAnnotation?: (type: 'note' | 'comment') => void;
+  debugActive?: boolean;
 }
 
 export function EditorToolbar({
@@ -63,6 +77,13 @@ export function EditorToolbar({
   onAutoLayout,
   onAlign,
   onDistribute,
+  onOpenTemplates,
+  onOpenVersions,
+  onOpenVariables,
+  onToggleDebug,
+  onCreateGroup,
+  onAddAnnotation,
+  debugActive = false,
 }: EditorToolbarProps) {
   return (
     <div className="flex items-center justify-between px-6 py-3 bg-gray-900/50 border-b border-white/10">
@@ -220,6 +241,80 @@ export function EditorToolbar({
             <Upload size={16} />
           </button>
         </div>
+
+        {/* Advanced Features */}
+        <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10">
+          {onOpenTemplates && (
+            <button
+              onClick={onOpenTemplates}
+              className="p-2 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+              title="Bibliothèque de templates"
+            >
+              <Folder size={16} />
+            </button>
+          )}
+          {onOpenVersions && (
+            <button
+              onClick={onOpenVersions}
+              className="p-2 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+              title="Gestion des versions"
+            >
+              <GitBranch size={16} />
+            </button>
+          )}
+          {onOpenVariables && (
+            <button
+              onClick={onOpenVariables}
+              className="p-2 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+              title="Variables globales"
+            >
+              <Variable size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Group & Annotations */}
+        {(onCreateGroup || onAddAnnotation) && (
+          <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10">
+            {onCreateGroup && selectedCount >= 2 && (
+              <button
+                onClick={onCreateGroup}
+                className="p-2 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                title="Créer un groupe"
+              >
+                <Group size={16} />
+              </button>
+            )}
+            {onAddAnnotation && (
+              <>
+                <button
+                  onClick={() => onAddAnnotation('note')}
+                  className="p-2 rounded hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                  title="Ajouter une note"
+                >
+                  <MessageSquare size={16} />
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Debug Toggle */}
+        {onToggleDebug && (
+          <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10">
+            <button
+              onClick={onToggleDebug}
+              className={`p-2 rounded transition-colors ${
+                debugActive
+                  ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30'
+                  : 'text-gray-400 hover:bg-white/10 hover:text-white'
+              }`}
+              title="Toggle Debug Panel"
+            >
+              <Bug size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Right section - Actions */}

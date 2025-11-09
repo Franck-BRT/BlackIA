@@ -1,16 +1,22 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { ZoomIn, ZoomOut } from 'lucide-react';
-import type { SimpleWorkflowEditorProps, WorkflowNode, WorkflowEdge, Position } from './types';
+import type { SimpleWorkflowEditorProps, WorkflowNode, WorkflowEdge, Position, ExecutionState } from './types';
 import { createNode } from './defaultNodes';
 import { generateEdgeId } from './edgeUtils';
 import { useHistory } from './useHistory';
 import { useSelection } from './useSelection';
+import { useGroups } from './useGroups';
+import { useAnnotations } from './useAnnotations';
 import { autoLayout, fitToView, alignNodes, distributeNodes } from './layoutUtils';
 import { NodePalette } from './NodePalette';
 import { WorkflowCanvas } from './WorkflowCanvas';
 import { NodeConfigModal } from './NodeConfigModal';
 import { MiniMap } from './MiniMap';
 import { EditorToolbar } from './EditorToolbar';
+import { TemplateManager } from './TemplateManager';
+import { VersionManager } from './VersionManager';
+import { VariablesManager } from './VariablesManager';
+import { DebugPanel } from './DebugPanel';
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 80;
@@ -49,6 +55,37 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
     hasSelection,
     hasClipboard,
   } = useSelection();
+
+  // Groups management
+  const {
+    groups,
+    createGroup,
+    setAllGroups,
+  } = useGroups();
+
+  // Annotations management
+  const {
+    annotations,
+    createAnnotation,
+    setAllAnnotations,
+  } = useAnnotations();
+
+  // Modal states for advanced features
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
+  const [showVariables, setShowVariables] = useState(false);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+
+  // Debug execution state
+  const [executionState, setExecutionState] = useState<ExecutionState>({
+    currentNodeId: null,
+    status: 'idle',
+    breakpoints: [],
+    variables: {},
+    stepMode: false,
+    callStack: [],
+    logs: [],
+  });
 
   // Canvas state
   const [zoom, setZoom] = useState(1);
@@ -412,6 +449,8 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
     const data = {
       nodes,
       edges,
+      groups,
+      annotations,
       metadata: {
         name: workflow?.name,
         exportedAt: new Date().toISOString(),
@@ -426,7 +465,7 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
     link.download = `${workflow?.name || 'workflow'}-${Date.now()}.json`;
     link.click();
     URL.revokeObjectURL(url);
-  }, [nodes, edges, workflow]);
+  }, [nodes, edges, groups, annotations, workflow]);
 
   // Import workflow from JSON
   const handleImport = useCallback(() => {
@@ -445,6 +484,9 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
             nodes: data.nodes || [],
             edges: data.edges || [],
           });
+          // Restore groups and annotations if present
+          if (data.groups) setAllGroups(data.groups);
+          if (data.annotations) setAllAnnotations(data.annotations);
         } catch (error) {
           console.error('Failed to import workflow:', error);
           alert('Erreur lors de l\'importation du workflow');
@@ -453,7 +495,147 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
       reader.readAsText(file);
     };
     input.click();
-  }, [setWorkflowState]);
+  }, [setWorkflowState, setAllGroups, setAllAnnotations]);
+
+  // Advanced features handlers
+  const handleOpenTemplates = useCallback(() => {
+    setShowTemplates(true);
+  }, []);
+
+  const handleOpenVersions = useCallback(() => {
+    setShowVersions(true);
+  }, []);
+
+  const handleOpenVariables = useCallback(() => {
+    setShowVariables(true);
+  }, []);
+
+  const handleToggleDebug = useCallback(() => {
+    setShowDebugPanel((prev) => !prev);
+  }, []);
+
+  const handleCreateGroup = useCallback(() => {
+    if (selectedNodes.size >= 2) {
+      createGroup(Array.from(selectedNodes), nodes);
+    }
+  }, [selectedNodes, nodes, createGroup]);
+
+  const handleAddAnnotation = useCallback(
+    (type: 'note' | 'comment') => {
+      // Add annotation at center of viewport
+      createAnnotation(type, {
+        x: (viewportSize.width / 2 - pan.x) / zoom,
+        y: (viewportSize.height / 2 - pan.y) / zoom,
+      }, type === 'note' ? 'Nouvelle note' : 'Nouveau commentaire');
+    },
+    [createAnnotation, viewportSize, pan, zoom]
+  );
+
+  // Debug handlers
+  const handleToggleBreakpoint = useCallback(
+    (nodeId: string) => {
+      setExecutionState((prev) => {
+        const existingIndex = prev.breakpoints.findIndex((bp) => bp.nodeId === nodeId);
+        if (existingIndex >= 0) {
+          // Toggle existing breakpoint
+          const updated = [...prev.breakpoints];
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            enabled: !updated[existingIndex].enabled,
+          };
+          return { ...prev, breakpoints: updated };
+        } else {
+          // Add new breakpoint
+          return {
+            ...prev,
+            breakpoints: [
+              ...prev.breakpoints,
+              {
+                id: `bp-${Date.now()}`,
+                nodeId,
+                enabled: true,
+              },
+            ],
+          };
+        }
+      });
+    },
+    []
+  );
+
+  const handleStartDebug = useCallback(() => {
+    setExecutionState((prev) => ({
+      ...prev,
+      status: 'running',
+      stepMode: true,
+      currentNodeId: nodes[0]?.id || null,
+      callStack: [],
+      logs: [
+        {
+          nodeId: 'system',
+          timestamp: new Date().toISOString(),
+          level: 'info',
+          message: 'Debug session started',
+        },
+      ],
+    }));
+  }, [nodes]);
+
+  const handleStopDebug = useCallback(() => {
+    setExecutionState((prev) => ({
+      ...prev,
+      status: 'idle',
+      currentNodeId: null,
+      stepMode: false,
+      callStack: [],
+      logs: [
+        ...prev.logs,
+        {
+          nodeId: 'system',
+          timestamp: new Date().toISOString(),
+          level: 'info',
+          message: 'Debug session stopped',
+        },
+      ],
+    }));
+  }, []);
+
+  const handleStepNext = useCallback(() => {
+    setExecutionState((prev) => {
+      const currentIndex = nodes.findIndex((n) => n.id === prev.currentNodeId);
+      const nextNode = nodes[currentIndex + 1];
+
+      return {
+        ...prev,
+        currentNodeId: nextNode?.id || null,
+        status: nextNode ? 'paused' : 'completed',
+        callStack: nextNode ? [...prev.callStack, nextNode.id] : prev.callStack,
+        logs: [
+          ...prev.logs,
+          {
+            nodeId: prev.currentNodeId || 'system',
+            timestamp: new Date().toISOString(),
+            level: 'info',
+            message: nextNode ? `Stepping to ${nextNode.type}` : 'Execution completed',
+          },
+        ],
+      };
+    });
+  }, [nodes]);
+
+  const handleContinue = useCallback(() => {
+    setExecutionState((prev) => ({
+      ...prev,
+      status: 'running',
+    }));
+  }, []);
+
+  const handlePause = useCallback(() => {
+    setExecutionState((prev) => ({
+      ...prev,
+      status: 'paused',
+    }));
+  }, []);
 
   // Save workflow
   const handleSave = useCallback(async () => {
@@ -581,6 +763,13 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
         onAutoLayout={handleAutoLayout}
         onAlign={handleAlign}
         onDistribute={handleDistribute}
+        onOpenTemplates={handleOpenTemplates}
+        onOpenVersions={handleOpenVersions}
+        onOpenVariables={handleOpenVariables}
+        onToggleDebug={handleToggleDebug}
+        onCreateGroup={handleCreateGroup}
+        onAddAnnotation={handleAddAnnotation}
+        debugActive={showDebugPanel}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -681,6 +870,65 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
           }}
           onClose={() => setConfiguringNode(null)}
         />
+      )}
+
+      {/* Template Manager Modal */}
+      {showTemplates && (
+        <TemplateManager
+          currentNodes={nodes}
+          currentEdges={edges}
+          onApplyTemplate={(template) => {
+            setWorkflowState({
+              nodes: template.nodes,
+              edges: template.edges,
+            });
+          }}
+          onClose={() => setShowTemplates(false)}
+        />
+      )}
+
+      {/* Version Manager Modal */}
+      {showVersions && (
+        <VersionManager
+          workflowId={workflow?.id || 'temp-workflow'}
+          currentNodes={nodes}
+          currentEdges={edges}
+          currentGroups={groups}
+          currentAnnotations={annotations}
+          onRestoreVersion={(version) => {
+            setWorkflowState({
+              nodes: version.nodes,
+              edges: version.edges,
+            });
+            if (version.groups) setAllGroups(version.groups);
+            if (version.annotations) setAllAnnotations(version.annotations);
+          }}
+          onClose={() => setShowVersions(false)}
+        />
+      )}
+
+      {/* Variables Manager Modal */}
+      {showVariables && (
+        <VariablesManager
+          workflowId={workflow?.id || 'temp-workflow'}
+          onClose={() => setShowVariables(false)}
+        />
+      )}
+
+      {/* Debug Panel (Side panel, not modal) */}
+      {showDebugPanel && (
+        <div className="fixed right-0 top-0 bottom-0 w-96 z-50 shadow-2xl">
+          <DebugPanel
+            nodes={nodes}
+            executionState={executionState}
+            onToggleBreakpoint={handleToggleBreakpoint}
+            onStartDebug={handleStartDebug}
+            onStopDebug={handleStopDebug}
+            onStepNext={handleStepNext}
+            onContinue={handleContinue}
+            onPause={handlePause}
+          />
+        </div>
       )}
     </div>
   );

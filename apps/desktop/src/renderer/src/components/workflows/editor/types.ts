@@ -129,6 +129,117 @@ export interface CanvasState {
 }
 
 /**
+ * Groupe de nœuds (container)
+ */
+export interface NodeGroup {
+  id: string;
+  label: string;
+  nodeIds: string[];
+  position: Position;
+  size: Size;
+  color?: string;
+  collapsed?: boolean;
+}
+
+/**
+ * Annotation sur le canvas
+ */
+export interface Annotation {
+  id: string;
+  type: 'note' | 'comment' | 'arrow';
+  position: Position;
+  content: string;
+  color?: string;
+  size?: Size;
+  fontSize?: number;
+  createdAt: string;
+  createdBy?: string;
+}
+
+/**
+ * Template de workflow
+ */
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  tags: string[];
+  icon?: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  variables?: Record<string, unknown>;
+  thumbnail?: string;
+  usageCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Version d'un workflow (Git-like)
+ */
+export interface WorkflowVersion {
+  id: string;
+  workflowId: string;
+  version: string;
+  message: string;
+  author?: string;
+  createdAt: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  groups?: NodeGroup[];
+  annotations?: Annotation[];
+  variables?: Record<string, unknown>;
+  parent?: string; // ID de la version parente
+}
+
+/**
+ * Variable globale
+ */
+export interface GlobalVariable {
+  id: string;
+  name: string;
+  value: unknown;
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  description?: string;
+  scope: 'workflow' | 'global' | 'environment';
+  encrypted?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Breakpoint pour le debugging
+ */
+export interface Breakpoint {
+  id: string;
+  nodeId: string;
+  enabled: boolean;
+  condition?: string; // Expression conditionnelle
+  hitCount?: number;
+  logMessage?: string;
+}
+
+/**
+ * État d'exécution pour le debugging
+ */
+export interface ExecutionState {
+  currentNodeId: string | null;
+  status: 'idle' | 'running' | 'paused' | 'completed' | 'error';
+  breakpoints: Breakpoint[];
+  variables: Record<string, unknown>;
+  stepMode: boolean;
+  callStack: string[];
+  logs: Array<{
+    nodeId: string;
+    timestamp: string;
+    level: 'info' | 'warn' | 'error';
+    message: string;
+    data?: unknown;
+  }>;
+}
+
+/**
  * Props pour le SimpleWorkflowEditor
  */
 export interface SimpleWorkflowEditorProps {
@@ -137,6 +248,9 @@ export interface SimpleWorkflowEditorProps {
     name: string;
     nodes: WorkflowNode[];
     edges: WorkflowEdge[];
+    groups?: NodeGroup[];
+    annotations?: Annotation[];
+    variables?: Record<string, unknown>;
   };
   onSave: (data: {
     name?: string;
@@ -147,6 +261,9 @@ export interface SimpleWorkflowEditorProps {
     tags?: string[];
     nodes: WorkflowNode[];
     edges: WorkflowEdge[];
+    groups?: NodeGroup[];
+    annotations?: Annotation[];
+    variables?: Record<string, unknown>;
   }) => Promise<void>;
   onCancel?: () => void;
   onExecute?: () => void;
