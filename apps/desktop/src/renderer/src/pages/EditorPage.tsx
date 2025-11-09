@@ -30,7 +30,7 @@ export function EditorPage() {
       // Sauvegarder dans la documentation
       setSaveStatus('saving');
       try {
-        const result = await window.electron.documentation.update(state.documentId, {
+        const result = await window.electronAPI.documentation.update(state.documentId, {
           content,
           // updatedAt est géré automatiquement par le service
         });
