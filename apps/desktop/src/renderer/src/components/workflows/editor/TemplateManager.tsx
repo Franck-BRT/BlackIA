@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Save, Folder, Search, X, Download, Upload, Star, Copy } from 'lucide-react';
 import type { WorkflowTemplate, WorkflowNode, WorkflowEdge } from './types';
 
@@ -26,42 +26,53 @@ export function TemplateManager({
   const [newTemplateCategory, setNewTemplateCategory] = useState('general');
 
   // Créer un template depuis le workflow actuel
-  const handleCreateTemplate = useCallback(() => {
+  const handleCreateTemplate = useCallback(async () => {
     if (!newTemplateName.trim()) return;
 
-    const newTemplate: WorkflowTemplate = {
-      id: `template-${Date.now()}`,
+    const templateData = {
       name: newTemplateName,
       description: newTemplateDesc,
       category: newTemplateCategory,
-      tags: [],
-      nodes: JSON.parse(JSON.stringify(currentNodes)),
-      edges: JSON.parse(JSON.stringify(currentEdges)),
-      usageCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      tags: '[]',
+      nodes: JSON.stringify(currentNodes),
+      edges: JSON.stringify(currentEdges),
     };
 
-    setTemplates((prev) => [...prev, newTemplate]);
-    setIsCreating(false);
-    setNewTemplateName('');
-    setNewTemplateDesc('');
+    const result = await window.electronAPI.workflowTemplates.create(templateData);
 
-    // Sauvegarder dans localStorage
-    localStorage.setItem('workflow-templates', JSON.stringify([...templates, newTemplate]));
-  }, [newTemplateName, newTemplateDesc, newTemplateCategory, currentNodes, currentEdges, templates]);
+    if (result.success) {
+      setTemplates((prev) => [...prev, result.data]);
+      setIsCreating(false);
+      setNewTemplateName('');
+      setNewTemplateDesc('');
+    } else {
+      console.error('Failed to create template:', result.error);
+      alert('Erreur lors de la création du template');
+    }
+  }, [newTemplateName, newTemplateDesc, newTemplateCategory, currentNodes, currentEdges]);
 
   // Charger les templates au montage
-  useState(() => {
-    const saved = localStorage.getItem('workflow-templates');
-    if (saved) {
-      try {
-        setTemplates(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to load templates', e);
+  useEffect(() => {
+    const loadTemplates = async () => {
+      const result = await window.electronAPI.workflowTemplates.getAll();
+      if (result.success) {
+        // Parse nodes and edges from JSON strings to objects for display
+        const parsedTemplates = result.data.map((t: any) => ({
+          ...t,
+          nodes: typeof t.nodes === 'string' ? JSON.parse(t.nodes) : t.nodes,
+          edges: typeof t.edges === 'string' ? JSON.parse(t.edges) : t.edges,
+          tags: typeof t.tags === 'string' ? JSON.parse(t.tags) : t.tags,
+        }));
+        setTemplates(parsedTemplates);
+      } else {
+        console.error('Failed to load templates:', result.error);
       }
+    };
+
+    if (isOpen) {
+      loadTemplates();
     }
-  });
+  }, [isOpen]);
 
   // Filtrer les templates
   const filteredTemplates = templates.filter((t) => {
@@ -76,12 +87,15 @@ export function TemplateManager({
   const categories = ['all', ...new Set(templates.map((t) => t.category))];
 
   // Supprimer un template
-  const handleDeleteTemplate = useCallback((templateId: string) => {
-    setTemplates((prev) => {
-      const updated = prev.filter((t) => t.id !== templateId);
-      localStorage.setItem('workflow-templates', JSON.stringify(updated));
-      return updated;
-    });
+  const handleDeleteTemplate = useCallback(async (templateId: string) => {
+    const result = await window.electronAPI.workflowTemplates.delete(templateId);
+
+    if (result.success) {
+      setTemplates((prev) => prev.filter((t) => t.id !== templateId));
+    } else {
+      console.error('Failed to delete template:', result.error);
+      alert('Erreur lors de la suppression du template');
+    }
   }, []);
 
   // Exporter un template
@@ -100,19 +114,41 @@ export function TemplateManager({
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'application/json';
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         try {
           const template = JSON.parse(event.target?.result as string);
-          setTemplates((prev) => {
-            const updated = [...prev, template];
-            localStorage.setItem('workflow-templates', JSON.stringify(updated));
-            return updated;
-          });
+
+          // Create template via IPC
+          const templateData = {
+            name: template.name,
+            description: template.description,
+            category: template.category || 'imported',
+            tags: JSON.stringify(template.tags || []),
+            nodes: JSON.stringify(template.nodes),
+            edges: JSON.stringify(template.edges),
+          };
+
+          const result = await window.electronAPI.workflowTemplates.create(templateData);
+
+          if (result.success) {
+            setTemplates((prev) => [
+              ...prev,
+              {
+                ...result.data,
+                nodes: JSON.parse(result.data.nodes),
+                edges: JSON.parse(result.data.edges),
+                tags: JSON.parse(result.data.tags),
+              },
+            ]);
+          } else {
+            console.error('Failed to import template:', result.error);
+            alert('Erreur lors de l\'importation du template');
+          }
         } catch (error) {
           console.error('Failed to import template:', error);
           alert('Erreur lors de l\'importation du template');
@@ -281,7 +317,9 @@ export function TemplateManager({
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => {
+                      onClick={async () => {
+                        // Increment usage count
+                        await window.electronAPI.workflowTemplates.incrementUsage(template.id);
                         onApplyTemplate(template);
                         onClose();
                       }}

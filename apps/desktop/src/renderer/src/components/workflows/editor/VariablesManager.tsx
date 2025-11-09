@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Variable, Plus, X, Edit2, Lock, Unlock, Save, Search } from 'lucide-react';
 import type { GlobalVariable } from './types';
 
@@ -24,46 +24,48 @@ export function VariablesManager({ isOpen, onClose, workflowId }: VariablesManag
   const [formEncrypted, setFormEncrypted] = useState(false);
 
   // Charger les variables au montage
-  useState(() => {
-    const globalVars = localStorage.getItem('global-variables');
-    const workflowVars = workflowId
-      ? localStorage.getItem(`workflow-variables-${workflowId}`)
-      : null;
+  useEffect(() => {
+    const loadVariables = async () => {
+      const allVars: GlobalVariable[] = [];
 
-    const allVars: GlobalVariable[] = [];
-
-    if (globalVars) {
-      try {
-        allVars.push(...JSON.parse(globalVars));
-      } catch (e) {
-        console.error('Failed to load global variables', e);
+      if (workflowId) {
+        // Load workflow-specific variables
+        const workflowResult = await window.electronAPI.workflowVariables.getByWorkflowId(workflowId);
+        if (workflowResult.success) {
+          allVars.push(...workflowResult.data.map((v: any) => ({
+            ...v,
+            value: JSON.parse(v.value),
+          })));
+        }
       }
-    }
 
-    if (workflowVars) {
-      try {
-        allVars.push(...JSON.parse(workflowVars));
-      } catch (e) {
-        console.error('Failed to load workflow variables', e);
+      // Load global and environment variables
+      const globalResult = await window.electronAPI.workflowVariables.getGlobalAndEnvironment();
+      if (globalResult.success) {
+        allVars.push(...globalResult.data.map((v: any) => ({
+          ...v,
+          value: JSON.parse(v.value),
+        })));
       }
+
+      setVariables(allVars);
+    };
+
+    if (isOpen) {
+      loadVariables();
     }
+  }, [isOpen, workflowId]);
 
-    setVariables(allVars);
-  });
-
-  // Sauvegarder les variables
-  const saveVariables = useCallback((vars: GlobalVariable[]) => {
-    const global = vars.filter((v) => v.scope === 'global' || v.scope === 'environment');
-    const workflow = vars.filter((v) => v.scope === 'workflow');
-
-    localStorage.setItem('global-variables', JSON.stringify(global));
-    if (workflowId) {
-      localStorage.setItem(`workflow-variables-${workflowId}`, JSON.stringify(workflow));
-    }
-  }, [workflowId]);
+  // Cette fonction n'est plus nécessaire car les opérations sont directes via IPC
+  // Mais on la garde pour compatibilité avec le code existant
+  const saveVariables = useCallback(async (vars: GlobalVariable[]) => {
+    // Les variables sont maintenant sauvegardées individuellement via IPC
+    // Cette fonction ne fait plus rien mais est gardée pour éviter de casser le code
+    console.log('Variables saved via IPC:', vars.length);
+  }, []);
 
   // Créer ou mettre à jour une variable
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!formName.trim()) {
       alert('Le nom de la variable est requis');
       return;
@@ -92,42 +94,53 @@ export function VariablesManager({ isOpen, onClose, workflowId }: VariablesManag
       return;
     }
 
-    const now = new Date().toISOString();
-
     if (editingVar) {
-      // Mise à jour
-      const updated = variables.map((v) =>
-        v.id === editingVar.id
-          ? {
-              ...v,
-              name: formName,
-              value: parsedValue,
-              type: formType,
-              description: formDesc,
-              scope: formScope,
-              encrypted: formEncrypted,
-              updatedAt: now,
-            }
-          : v
-      );
-      setVariables(updated);
-      saveVariables(updated);
-    } else {
-      // Création
-      const newVar: GlobalVariable = {
-        id: `var-${Date.now()}`,
+      // Mise à jour via IPC
+      const updateData = {
         name: formName,
-        value: parsedValue,
+        value: JSON.stringify(parsedValue),
         type: formType,
         description: formDesc,
         scope: formScope,
         encrypted: formEncrypted,
-        createdAt: now,
-        updatedAt: now,
       };
-      const updated = [...variables, newVar];
-      setVariables(updated);
-      saveVariables(updated);
+
+      const result = await window.electronAPI.workflowVariables.update(editingVar.id, updateData);
+
+      if (result.success) {
+        setVariables((prev) =>
+          prev.map((v) =>
+            v.id === editingVar.id
+              ? { ...result.data, value: JSON.parse(result.data.value) }
+              : v
+          )
+        );
+      } else {
+        console.error('Failed to update variable:', result.error);
+        alert('Erreur lors de la mise à jour de la variable');
+        return;
+      }
+    } else {
+      // Création via IPC
+      const variableData = {
+        name: formName,
+        value: JSON.stringify(parsedValue),
+        type: formType,
+        description: formDesc,
+        scope: formScope,
+        workflowId: formScope === 'workflow' ? workflowId : null,
+        encrypted: formEncrypted,
+      };
+
+      const result = await window.electronAPI.workflowVariables.create(variableData);
+
+      if (result.success) {
+        setVariables((prev) => [...prev, { ...result.data, value: JSON.parse(result.data.value) }]);
+      } else {
+        console.error('Failed to create variable:', result.error);
+        alert('Erreur lors de la création de la variable');
+        return;
+      }
     }
 
     // Reset form
@@ -139,15 +152,20 @@ export function VariablesManager({ isOpen, onClose, workflowId }: VariablesManag
     setFormEncrypted(false);
     setEditingVar(null);
     setIsCreating(false);
-  }, [formName, formValue, formType, formScope, formDesc, formEncrypted, editingVar, variables, saveVariables]);
+  }, [formName, formValue, formType, formScope, formDesc, formEncrypted, editingVar, workflowId]);
 
   // Supprimer une variable
   const handleDelete = useCallback(
-    (varId: string) => {
+    async (varId: string) => {
       if (window.confirm('Supprimer cette variable ?')) {
-        const updated = variables.filter((v) => v.id !== varId);
-        setVariables(updated);
-        saveVariables(updated);
+        const result = await window.electronAPI.workflowVariables.delete(varId);
+
+        if (result.success) {
+          setVariables((prev) => prev.filter((v) => v.id !== varId));
+        } else {
+          console.error('Failed to delete variable:', result.error);
+          alert('Erreur lors de la suppression de la variable');
+        }
       }
     },
     [variables, saveVariables]

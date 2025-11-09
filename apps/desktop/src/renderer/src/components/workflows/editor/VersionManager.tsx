@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { GitBranch, Clock, Save, RotateCcw, X, GitCommit } from 'lucide-react';
 import type { WorkflowVersion, WorkflowNode, WorkflowEdge, NodeGroup, Annotation } from './types';
 
@@ -28,55 +28,82 @@ export function VersionManager({
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
 
   // Charger les versions au montage
-  useState(() => {
-    const saved = localStorage.getItem(`workflow-versions-${workflowId}`);
-    if (saved) {
-      try {
-        setVersions(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to load versions', e);
+  useEffect(() => {
+    const loadVersions = async () => {
+      const result = await window.electronAPI.workflowVersions.getByWorkflowId(workflowId);
+      if (result.success) {
+        // Parse nodes, edges, groups, annotations from JSON strings
+        const parsedVersions = result.data.map((v: any) => ({
+          ...v,
+          nodes: typeof v.nodes === 'string' ? JSON.parse(v.nodes) : v.nodes,
+          edges: typeof v.edges === 'string' ? JSON.parse(v.edges) : v.edges,
+          groups: v.groups && typeof v.groups === 'string' ? JSON.parse(v.groups) : v.groups,
+          annotations: v.annotations && typeof v.annotations === 'string' ? JSON.parse(v.annotations) : v.annotations,
+          parent: v.parentId,
+        }));
+        setVersions(parsedVersions);
+      } else {
+        console.error('Failed to load versions:', result.error);
       }
+    };
+
+    if (isOpen && workflowId) {
+      loadVersions();
     }
-  });
+  }, [isOpen, workflowId]);
 
   // Créer une nouvelle version (commit)
-  const handleCommit = useCallback(() => {
+  const handleCommit = useCallback(async () => {
     if (!commitMessage.trim()) {
       alert('Veuillez entrer un message de commit');
       return;
     }
 
     const latestVersion = versions[0];
-    const versionNumber = latestVersion
-      ? `v${parseInt(latestVersion.version.slice(1)) + 1}`
-      : 'v1';
 
-    const newVersion: WorkflowVersion = {
-      id: `version-${Date.now()}`,
+    const versionData = {
       workflowId,
-      version: versionNumber,
       message: commitMessage,
       author: 'User', // À remplacer par l'utilisateur connecté
-      createdAt: new Date().toISOString(),
-      nodes: JSON.parse(JSON.stringify(currentNodes)),
-      edges: JSON.parse(JSON.stringify(currentEdges)),
-      groups: currentGroups ? JSON.parse(JSON.stringify(currentGroups)) : undefined,
-      annotations: currentAnnotations ? JSON.parse(JSON.stringify(currentAnnotations)) : undefined,
-      parent: latestVersion?.id,
+      nodes: JSON.stringify(currentNodes),
+      edges: JSON.stringify(currentEdges),
+      groups: currentGroups ? JSON.stringify(currentGroups) : '[]',
+      annotations: currentAnnotations ? JSON.stringify(currentAnnotations) : '[]',
+      parentId: latestVersion?.id,
     };
 
-    const updatedVersions = [newVersion, ...versions];
-    setVersions(updatedVersions);
-    localStorage.setItem(`workflow-versions-${workflowId}`, JSON.stringify(updatedVersions));
-    setCommitMessage('');
+    const result = await window.electronAPI.workflowVersions.commit(versionData);
+
+    if (result.success) {
+      // Parse the response data
+      const newVersion = {
+        ...result.data,
+        nodes: JSON.parse(result.data.nodes),
+        edges: JSON.parse(result.data.edges),
+        groups: result.data.groups ? JSON.parse(result.data.groups) : undefined,
+        annotations: result.data.annotations ? JSON.parse(result.data.annotations) : undefined,
+        parent: result.data.parentId,
+      };
+      setVersions((prev) => [newVersion, ...prev]);
+      setCommitMessage('');
+    } else {
+      console.error('Failed to create version:', result.error);
+      alert('Erreur lors de la création de la version');
+    }
   }, [commitMessage, versions, workflowId, currentNodes, currentEdges, currentGroups, currentAnnotations]);
 
   // Restaurer une version
   const handleRestore = useCallback(
-    (version: WorkflowVersion) => {
+    async (version: WorkflowVersion) => {
       if (window.confirm(`Restaurer la version ${version.version} ?\nCela remplacera l'état actuel du workflow.`)) {
-        onRestoreVersion(version);
-        onClose();
+        const result = await window.electronAPI.workflowVersions.restore(version.id);
+        if (result.success) {
+          onRestoreVersion(version);
+          onClose();
+        } else {
+          console.error('Failed to restore version:', result.error);
+          alert('Erreur lors de la restauration de la version');
+        }
       }
     },
     [onRestoreVersion, onClose]

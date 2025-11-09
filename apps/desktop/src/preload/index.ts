@@ -102,6 +102,51 @@ contextBridge.exposeInMainWorld('electronAPI', {
     removeAIStreamListener: () => {
       ipcRenderer.removeAllListeners('workflow:aiStream');
     },
+    // Advanced updates
+    updateGroups: (id: string, groups: string) => ipcRenderer.invoke('workflows:updateGroups', id, groups),
+    updateAnnotations: (id: string, annotations: string) => ipcRenderer.invoke('workflows:updateAnnotations', id, annotations),
+    updateFull: (id: string, data: any) => ipcRenderer.invoke('workflows:updateFull', id, data),
+  },
+
+  // Workflow Templates API
+  workflowTemplates: {
+    getAll: () => ipcRenderer.invoke('workflow-templates:getAll'),
+    getById: (id: string) => ipcRenderer.invoke('workflow-templates:getById', id),
+    getByCategory: (category: string) => ipcRenderer.invoke('workflow-templates:getByCategory', category),
+    create: (data: any) => ipcRenderer.invoke('workflow-templates:create', data),
+    update: (id: string, data: any) => ipcRenderer.invoke('workflow-templates:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('workflow-templates:delete', id),
+    incrementUsage: (id: string) => ipcRenderer.invoke('workflow-templates:incrementUsage', id),
+    search: (query: string) => ipcRenderer.invoke('workflow-templates:search', query),
+    getCategories: () => ipcRenderer.invoke('workflow-templates:getCategories'),
+  },
+
+  // Workflow Versions API
+  workflowVersions: {
+    commit: (data: any) => ipcRenderer.invoke('workflow-versions:commit', data),
+    getByWorkflowId: (workflowId: string) => ipcRenderer.invoke('workflow-versions:getByWorkflowId', workflowId),
+    getById: (id: string) => ipcRenderer.invoke('workflow-versions:getById', id),
+    getLatest: (workflowId: string) => ipcRenderer.invoke('workflow-versions:getLatest', workflowId),
+    restore: (versionId: string) => ipcRenderer.invoke('workflow-versions:restore', versionId),
+    getHistory: (workflowId: string) => ipcRenderer.invoke('workflow-versions:getHistory', workflowId),
+    delete: (id: string) => ipcRenderer.invoke('workflow-versions:delete', id),
+    deleteByWorkflowId: (workflowId: string) => ipcRenderer.invoke('workflow-versions:deleteByWorkflowId', workflowId),
+  },
+
+  // Workflow Variables API
+  workflowVariables: {
+    create: (data: any) => ipcRenderer.invoke('workflow-variables:create', data),
+    getAll: () => ipcRenderer.invoke('workflow-variables:getAll'),
+    getById: (id: string) => ipcRenderer.invoke('workflow-variables:getById', id),
+    getByScope: (scope: string) => ipcRenderer.invoke('workflow-variables:getByScope', scope),
+    getByWorkflowId: (workflowId: string) => ipcRenderer.invoke('workflow-variables:getByWorkflowId', workflowId),
+    getGlobalAndEnvironment: () => ipcRenderer.invoke('workflow-variables:getGlobalAndEnvironment'),
+    update: (id: string, data: any) => ipcRenderer.invoke('workflow-variables:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('workflow-variables:delete', id),
+    deleteByWorkflowId: (workflowId: string) => ipcRenderer.invoke('workflow-variables:deleteByWorkflowId', workflowId),
+    search: (query: string) => ipcRenderer.invoke('workflow-variables:search', query),
+    getByNameAndScope: (name: string, scope: string, workflowId?: string) =>
+      ipcRenderer.invoke('workflow-variables:getByNameAndScope', name, scope, workflowId),
   },
 
   // Tags API
@@ -256,6 +301,46 @@ export interface ElectronAPI {
     execute: (id: string, inputs: Record<string, any>) => Promise<any>;
     onProgress: (callback: (data: { nodeId: string; status: string }) => void) => void;
     removeProgressListener: () => void;
+    updateGroups: (id: string, groups: string) => Promise<any>;
+    updateAnnotations: (id: string, annotations: string) => Promise<any>;
+    updateFull: (id: string, data: any) => Promise<any>;
+  };
+
+  workflowTemplates: {
+    getAll: () => Promise<any>;
+    getById: (id: string) => Promise<any>;
+    getByCategory: (category: string) => Promise<any>;
+    create: (data: any) => Promise<any>;
+    update: (id: string, data: any) => Promise<any>;
+    delete: (id: string) => Promise<any>;
+    incrementUsage: (id: string) => Promise<any>;
+    search: (query: string) => Promise<any>;
+    getCategories: () => Promise<any>;
+  };
+
+  workflowVersions: {
+    commit: (data: any) => Promise<any>;
+    getByWorkflowId: (workflowId: string) => Promise<any>;
+    getById: (id: string) => Promise<any>;
+    getLatest: (workflowId: string) => Promise<any>;
+    restore: (versionId: string) => Promise<any>;
+    getHistory: (workflowId: string) => Promise<any>;
+    delete: (id: string) => Promise<any>;
+    deleteByWorkflowId: (workflowId: string) => Promise<any>;
+  };
+
+  workflowVariables: {
+    create: (data: any) => Promise<any>;
+    getAll: () => Promise<any>;
+    getById: (id: string) => Promise<any>;
+    getByScope: (scope: string) => Promise<any>;
+    getByWorkflowId: (workflowId: string) => Promise<any>;
+    getGlobalAndEnvironment: () => Promise<any>;
+    update: (id: string, data: any) => Promise<any>;
+    delete: (id: string) => Promise<any>;
+    deleteByWorkflowId: (workflowId: string) => Promise<any>;
+    search: (query: string) => Promise<any>;
+    getByNameAndScope: (name: string, scope: string, workflowId?: string) => Promise<any>;
   };
 
   tags: {

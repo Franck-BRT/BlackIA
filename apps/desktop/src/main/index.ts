@@ -9,6 +9,7 @@ import { syncPersonaTags } from './services/tag-sync-service';
 import { personaSuggestionService } from './services/persona-suggestion-service';
 import './handlers/persona-suggestion-handlers';
 import { registerPromptHandlers } from './handlers/prompt-handlers';
+import { registerWorkflowHandlers as registerWorkflowAdvancedHandlers } from './handlers/workflow-handlers';
 import { initDatabase, runMigrations } from './database/client';
 
 // __dirname and __filename are available in CommonJS mode
@@ -128,6 +129,7 @@ app.whenReady().then(async () => {
     registerPersonaHandlers();
     registerPromptHandlers();
     registerWorkflowHandlers();
+    registerWorkflowAdvancedHandlers(); // Templates, Versions, Variables
     registerTagSyncHandlers();
     console.log('[App] ✅ IPC handlers registered');
 
