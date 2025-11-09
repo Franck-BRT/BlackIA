@@ -156,6 +156,23 @@ function createTablesDirectly() {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS documentation (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      category TEXT NOT NULL CHECK(category IN ('guide', 'features', 'roadmap', 'api', 'faq', 'changelog')),
+      parent_slug TEXT,
+      "order" INTEGER NOT NULL DEFAULT 0,
+      icon TEXT,
+      description TEXT,
+      tags TEXT NOT NULL DEFAULT '[]',
+      version TEXT,
+      published INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   console.log('[Database] Tables created successfully');
@@ -170,6 +187,17 @@ export function getDatabase() {
     throw new Error('Database not initialized. Call initDatabase() first.');
   }
   return dbInstance;
+}
+
+/**
+ * Retourne l'instance SQLite brute (pour requêtes SQL directes)
+ * Nécessaire pour FTS5 et autres features avancées
+ */
+export function getSqliteInstance() {
+  if (!sqliteInstance) {
+    throw new Error('Database not initialized. Call initDatabase() first.');
+  }
+  return sqliteInstance;
 }
 
 /**

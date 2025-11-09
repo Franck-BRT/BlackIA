@@ -1,5 +1,5 @@
 import { eq, desc, and, or, sql, like } from 'drizzle-orm';
-import { getDatabase } from '../database/client';
+import { getDatabase, getSqliteInstance } from '../database/client';
 import { documentation, type Documentation, type NewDocumentation } from '../database/schema';
 
 /**
@@ -14,11 +14,11 @@ import { documentation, type Documentation, type NewDocumentation } from '../dat
  * Doit être appelé au démarrage de l'app
  */
 export async function initializeDocumentationFTS(): Promise<void> {
-  const db = getDatabase();
+  const sqlite = getSqliteInstance();
 
   try {
     // Créer la table virtuelle FTS5 si elle n'existe pas
-    await db.run(sql`
+    sqlite.exec(`
       CREATE VIRTUAL TABLE IF NOT EXISTS documentation_fts USING fts5(
         id UNINDEXED,
         title,
@@ -28,21 +28,21 @@ export async function initializeDocumentationFTS(): Promise<void> {
         category UNINDEXED,
         slug UNINDEXED,
         tokenize = 'porter unicode61'
-      )
+      );
     `);
 
     // Créer les triggers pour maintenir le FTS à jour
     // Trigger INSERT
-    await db.run(sql`
+    sqlite.exec(`
       CREATE TRIGGER IF NOT EXISTS documentation_fts_insert AFTER INSERT ON documentation
       BEGIN
         INSERT INTO documentation_fts(id, title, content, description, tags, category, slug)
         VALUES (new.id, new.title, new.content, new.description, new.tags, new.category, new.slug);
-      END
+      END;
     `);
 
     // Trigger UPDATE
-    await db.run(sql`
+    sqlite.exec(`
       CREATE TRIGGER IF NOT EXISTS documentation_fts_update AFTER UPDATE ON documentation
       BEGIN
         UPDATE documentation_fts
@@ -53,15 +53,15 @@ export async function initializeDocumentationFTS(): Promise<void> {
             category = new.category,
             slug = new.slug
         WHERE id = old.id;
-      END
+      END;
     `);
 
     // Trigger DELETE
-    await db.run(sql`
+    sqlite.exec(`
       CREATE TRIGGER IF NOT EXISTS documentation_fts_delete AFTER DELETE ON documentation
       BEGIN
         DELETE FROM documentation_fts WHERE id = old.id;
-      END
+      END;
     `);
 
     console.log('✅ Documentation FTS5 initialized successfully');
@@ -188,6 +188,7 @@ export interface SearchResult extends Documentation {
  */
 export async function searchDocs(query: string, limit: number = 20): Promise<SearchResult[]> {
   const db = getDatabase();
+  const sqlite = getSqliteInstance();
 
   if (!query || query.trim().length < 2) {
     return [];
@@ -195,32 +196,33 @@ export async function searchDocs(query: string, limit: number = 20): Promise<Sea
 
   try {
     // Recherche FTS5 avec snippet et rank
-    const results = await db.all<SearchResult>(sql`
+    const stmt = sqlite.prepare(`
       SELECT
         d.id,
         d.slug,
         d.title,
         d.content,
         d.category,
-        d.parentSlug,
-        d.order,
+        d.parent_slug as parentSlug,
+        d."order",
         d.icon,
         d.description,
         d.tags,
         d.version,
         d.published,
-        d.createdAt,
-        d.updatedAt,
+        d.created_at as createdAt,
+        d.updated_at as updatedAt,
         snippet(documentation_fts, 1, '<mark>', '</mark>', '...', 30) as snippet,
         rank as rank
       FROM documentation_fts
       JOIN documentation d ON documentation_fts.id = d.id
-      WHERE documentation_fts MATCH ${query}
+      WHERE documentation_fts MATCH ?
         AND d.published = 1
       ORDER BY rank
-      LIMIT ${limit}
+      LIMIT ?
     `);
 
+    const results = stmt.all(query, limit) as SearchResult[];
     return results;
   } catch (error) {
     console.error('Search error:', error);
