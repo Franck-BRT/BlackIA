@@ -20,7 +20,7 @@ import {
   Image,
   Table,
   Minus,
-  CodeSquare,
+  Code2,
 } from 'lucide-react';
 import { cn } from '@blackia/ui';
 
@@ -304,7 +304,7 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
             className="p-2 rounded hover:bg-white/10 transition-colors"
             title="Bloc de code"
           >
-            <CodeSquare className="w-4 h-4" />
+            <Code2 className="w-4 h-4" />
           </button>
           <button
             onClick={formatTable}
