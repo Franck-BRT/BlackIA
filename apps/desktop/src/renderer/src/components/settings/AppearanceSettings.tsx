@@ -1,9 +1,11 @@
 import { useSettings } from '../../contexts/SettingsContext';
-import { Palette, Type, Layout, Sparkles, Circle, Eye, Droplet } from 'lucide-react';
+import { useTheme } from '../../contexts/ThemeContext';
+import { Palette, Type, Layout, Sparkles, Circle, Eye, Droplet, Sun, Moon, Monitor } from 'lucide-react';
 
 export function AppearanceSettings() {
   const { settings, updateAppearanceSettings } = useSettings();
   const { appearance } = settings;
+  const { theme, setTheme } = useTheme();
 
   return (
     <div className="space-y-6">
@@ -12,6 +14,61 @@ export function AppearanceSettings() {
         <p className="text-muted-foreground">
           Personnalisez l'apparence et le style de l'interface
         </p>
+      </div>
+
+      {/* Theme Mode */}
+      <div className="glass-card rounded-xl p-6 space-y-4">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-lg glass-lg flex items-center justify-center">
+            {theme === 'light' ? <Sun className="w-5 h-5 text-yellow-400" /> :
+             theme === 'dark' ? <Moon className="w-5 h-5 text-indigo-400" /> :
+             <Monitor className="w-5 h-5 text-blue-400" />}
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold">Thème</h3>
+            <p className="text-sm text-muted-foreground">
+              Choisissez le mode d'affichage de l'interface
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <button
+            onClick={() => setTheme('light')}
+            className={`flex flex-col items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+              theme === 'light'
+                ? 'glass-lg text-foreground ring-2 ring-yellow-500/50'
+                : 'glass text-muted-foreground hover:text-foreground hover:glass-lg'
+            }`}
+          >
+            <Sun className="w-6 h-6" />
+            <span className="text-sm">Clair</span>
+          </button>
+
+          <button
+            onClick={() => setTheme('dark')}
+            className={`flex flex-col items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+              theme === 'dark'
+                ? 'glass-lg text-foreground ring-2 ring-indigo-500/50'
+                : 'glass text-muted-foreground hover:text-foreground hover:glass-lg'
+            }`}
+          >
+            <Moon className="w-6 h-6" />
+            <span className="text-sm">Sombre</span>
+          </button>
+
+          <button
+            onClick={() => setTheme('auto')}
+            className={`flex flex-col items-center gap-2 px-4 py-3 rounded-lg font-medium transition-all ${
+              theme === 'auto'
+                ? 'glass-lg text-foreground ring-2 ring-blue-500/50'
+                : 'glass text-muted-foreground hover:text-foreground hover:glass-lg'
+            }`}
+          >
+            <Monitor className="w-6 h-6" />
+            <span className="text-sm">Auto</span>
+          </button>
+        </div>
       </div>
 
       {/* Font Size */}

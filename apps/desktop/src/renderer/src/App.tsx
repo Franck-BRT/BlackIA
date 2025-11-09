@@ -1,6 +1,7 @@
 import React from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { useApplyAppearance } from './hooks/useApplyAppearance';
 import { Layout } from './components/Layout';
 import { HomePage } from './pages/HomePage';
@@ -66,9 +67,11 @@ function AppContent() {
 
 function App() {
   return (
-    <SettingsProvider>
-      <AppContent />
-    </SettingsProvider>
+    <ThemeProvider>
+      <SettingsProvider>
+        <AppContent />
+      </SettingsProvider>
+    </ThemeProvider>
   );
 }
 
