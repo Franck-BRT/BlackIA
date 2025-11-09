@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -17,6 +17,10 @@ import {
   Save,
   FileDown,
   FileUp,
+  Image,
+  Table,
+  Minus,
+  CodeSquare,
 } from 'lucide-react';
 import { cn } from '@blackia/ui';
 
@@ -31,6 +35,11 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
   const [content, setContent] = useState(initialContent);
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Synchroniser le contenu quand initialContent change
+  useEffect(() => {
+    setContent(initialContent);
+  }, [initialContent]);
 
   // Fonction pour insérer du texte à la position du curseur
   const insertText = (before: string, after: string = '', placeholder: string = '') => {
@@ -60,15 +69,122 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
     }, 0);
   };
 
+  // Fonction pour insérer au début de la ligne
+  const insertAtLineStart = (prefix: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const beforeCursor = content.substring(0, start);
+    const afterCursor = content.substring(start);
+
+    // Trouver le début de la ligne actuelle
+    const lineStart = beforeCursor.lastIndexOf('\n') + 1;
+    const lineEnd = afterCursor.indexOf('\n');
+    const currentLine = content.substring(
+      lineStart,
+      lineEnd === -1 ? content.length : start + lineEnd
+    );
+
+    // Vérifier si la ligne commence déjà par le préfixe
+    const trimmedLine = currentLine.trimStart();
+    if (trimmedLine.startsWith(prefix)) {
+      // Retirer le préfixe
+      const newLine = currentLine.replace(prefix, '');
+      const newContent =
+        content.substring(0, lineStart) +
+        newLine +
+        content.substring(lineEnd === -1 ? content.length : start + lineEnd);
+      setContent(newContent);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(lineStart + newLine.length - currentLine.length + start - lineStart, lineStart + newLine.length - currentLine.length + start - lineStart);
+      }, 0);
+    } else {
+      // Ajouter le préfixe
+      const newContent =
+        content.substring(0, lineStart) +
+        prefix +
+        content.substring(lineStart);
+      setContent(newContent);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + prefix.length, start + prefix.length);
+      }, 0);
+    }
+  };
+
   // Actions de formatage
   const formatBold = () => insertText('**', '**', 'texte en gras');
   const formatItalic = () => insertText('_', '_', 'texte en italique');
   const formatCode = () => insertText('`', '`', 'code');
   const formatLink = () => insertText('[', '](https://)', 'texte du lien');
-  const formatHeading = () => insertText('## ', '', 'Titre');
-  const formatQuote = () => insertText('> ', '', 'citation');
-  const formatList = () => insertText('- ', '', 'élément de liste');
-  const formatOrderedList = () => insertText('1. ', '', 'élément de liste');
+  const formatImage = () => insertText('![', '](https://)', 'description de l\'image');
+  const formatHeading = () => insertAtLineStart('## ');
+  const formatQuote = () => insertAtLineStart('> ');
+  const formatList = () => insertAtLineStart('- ');
+  const formatOrderedList = () => insertAtLineStart('1. ');
+  const formatHr = () => insertText('\n---\n', '', '');
+
+  const formatCodeBlock = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+
+    const codeBlock = '```\n' + (selectedText || 'code here') + '\n```\n';
+    const newContent = content.substring(0, start) + codeBlock + content.substring(end);
+
+    setContent(newContent);
+
+    setTimeout(() => {
+      textarea.focus();
+      const newStart = start + 4; // Position après ```\n
+      const newEnd = newStart + (selectedText || 'code here').length;
+      textarea.setSelectionRange(newStart, newEnd);
+    }, 0);
+  };
+
+  const formatTable = () => {
+    const table = '\n| Colonne 1 | Colonne 2 | Colonne 3 |\n|-----------|-----------|-----------|-------| Cellule 1 | Cellule 2 | Cellule 3 |\n| Cellule 4 | Cellule 5 | Cellule 6 |\n';
+    insertText(table, '', '');
+  };
+
+  // Gestion des raccourcis clavier
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.ctrlKey || e.metaKey) {
+      switch (e.key) {
+        case 'b':
+          e.preventDefault();
+          formatBold();
+          break;
+        case 'i':
+          e.preventDefault();
+          formatItalic();
+          break;
+        case 'k':
+          e.preventDefault();
+          formatLink();
+          break;
+        case '`':
+          e.preventDefault();
+          formatCode();
+          break;
+        case 's':
+          e.preventDefault();
+          handleSave();
+          break;
+      }
+    }
+
+    // Tab pour indentation
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      insertText('  ', '', '');
+    }
+  };
 
   const handleSave = () => {
     if (onSave) {
@@ -127,7 +243,7 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
           <button
             onClick={formatCode}
             className="p-2 rounded hover:bg-white/10 transition-colors"
-            title="Code inline"
+            title="Code inline (Ctrl+`)"
           >
             <Code className="w-4 h-4" />
           </button>
@@ -164,12 +280,45 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
           >
             <ListOrdered className="w-4 h-4" />
           </button>
+        </div>
+
+        <div className="w-px h-6 bg-white/10" />
+
+        <div className="flex items-center gap-1">
           <button
             onClick={formatLink}
             className="p-2 rounded hover:bg-white/10 transition-colors"
-            title="Lien"
+            title="Lien (Ctrl+K)"
           >
             <Link className="w-4 h-4" />
+          </button>
+          <button
+            onClick={formatImage}
+            className="p-2 rounded hover:bg-white/10 transition-colors"
+            title="Image"
+          >
+            <Image className="w-4 h-4" />
+          </button>
+          <button
+            onClick={formatCodeBlock}
+            className="p-2 rounded hover:bg-white/10 transition-colors"
+            title="Bloc de code"
+          >
+            <CodeSquare className="w-4 h-4" />
+          </button>
+          <button
+            onClick={formatTable}
+            className="p-2 rounded hover:bg-white/10 transition-colors"
+            title="Tableau"
+          >
+            <Table className="w-4 h-4" />
+          </button>
+          <button
+            onClick={formatHr}
+            className="p-2 rounded hover:bg-white/10 transition-colors"
+            title="Ligne horizontale"
+          >
+            <Minus className="w-4 h-4" />
           </button>
         </div>
 
@@ -234,7 +383,7 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
             <button
               onClick={handleSave}
               className="px-3 py-2 rounded bg-purple-500/20 hover:bg-purple-500/30 transition-colors flex items-center gap-2"
-              title="Sauvegarder"
+              title="Sauvegarder (Ctrl+S)"
             >
               <Save className="w-4 h-4" />
               <span className="text-sm">Sauvegarder</span>
@@ -257,8 +406,10 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
               ref={textareaRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className="flex-1 w-full p-6 bg-transparent resize-none focus:outline-none font-mono text-sm"
+              onKeyDown={handleKeyDown}
+              className="flex-1 w-full p-6 bg-transparent resize-none focus:outline-none font-mono text-sm leading-relaxed"
               placeholder="Commencez à écrire en markdown..."
+              spellCheck={false}
             />
           </div>
         )}
@@ -271,7 +422,25 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
               viewMode === 'split' ? 'w-1/2' : 'w-full'
             )}
           >
-            <div className="prose prose-invert max-w-none">
+            <div className="prose prose-invert max-w-none
+              prose-headings:text-white prose-headings:font-bold
+              prose-h1:text-3xl prose-h1:mt-8 prose-h1:mb-4
+              prose-h2:text-2xl prose-h2:mt-6 prose-h2:mb-3 prose-h2:border-b prose-h2:border-white/10 prose-h2:pb-2
+              prose-h3:text-xl prose-h3:mt-4 prose-h3:mb-2
+              prose-p:text-gray-300 prose-p:leading-7
+              prose-a:text-purple-400 prose-a:no-underline hover:prose-a:underline
+              prose-strong:text-white prose-strong:font-semibold
+              prose-code:text-pink-400 prose-code:bg-white/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
+              prose-pre:bg-gray-900 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-lg
+              prose-ul:text-gray-300 prose-ol:text-gray-300
+              prose-li:marker:text-purple-400
+              prose-blockquote:border-l-purple-500 prose-blockquote:text-gray-400 prose-blockquote:italic
+              prose-table:border prose-table:border-white/10
+              prose-th:bg-white/5 prose-th:text-white prose-th:font-semibold prose-th:border prose-th:border-white/10
+              prose-td:border prose-td:border-white/10 prose-td:text-gray-300
+              prose-img:rounded-lg prose-img:border prose-img:border-white/10
+              prose-hr:border-white/10
+            ">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -284,6 +453,11 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
                         style={vscDarkPlus}
                         language={language}
                         PreTag="div"
+                        customStyle={{
+                          margin: 0,
+                          borderRadius: '0.5rem',
+                          fontSize: '0.875rem',
+                        }}
                         {...props}
                       >
                         {String(children).replace(/\n$/, '')}
