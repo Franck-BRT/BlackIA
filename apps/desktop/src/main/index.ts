@@ -83,6 +83,11 @@ app.whenReady().then(async () => {
     await DocumentationService.initializeFTS();
     console.log('[App] ✅ Documentation FTS5 initialized');
 
+    // Auto-importer la documentation par défaut si nécessaire
+    console.log('[App] Checking for documentation auto-import...');
+    await DocumentationService.autoImport();
+    console.log('[App] ✅ Documentation auto-import completed');
+
     // Initialiser le service personas
     console.log('[App] Initializing PersonaService...');
     await PersonaService.initialize();

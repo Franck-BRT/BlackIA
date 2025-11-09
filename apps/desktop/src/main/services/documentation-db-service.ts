@@ -325,11 +325,182 @@ export async function getDocStats(): Promise<{
   };
 }
 
+// ==================== AUTO-IMPORT ====================
+
+/**
+ * Auto-import default documentation on first run
+ */
+export async function autoImportDefaultDocs(): Promise<void> {
+  const db = getDatabase();
+  const sqlite = getSqliteInstance();
+
+  try {
+    // Check if docs already exist
+    const existingDocs = await db.select().from(documentation).limit(1);
+    if (existingDocs.length > 0) {
+      console.log('[Documentation] Docs already imported, skipping auto-import');
+      return;
+    }
+
+    console.log('[Documentation] Auto-importing default documentation...');
+
+    const fs = await import('fs');
+    const path = await import('path');
+    const { app } = await import('electron');
+
+    // Get the app root directory (3 levels up from main/services)
+    const appRoot = path.join(__dirname, '../../../');
+
+    // Welcome document
+    const welcomeContent = `# Bienvenue dans BlackIA
+
+BlackIA est une suite d'assistants IA desktop pour macOS, propulsée par Ollama.
+
+## 🌟 Fonctionnalités Principales
+
+### 💬 Module Chat
+Conversez avec des modèles IA locaux (Llama, Mistral, etc.) avec une interface intuitive et des personas personnalisables.
+
+### 🔄 Module Workflows
+Créez des workflows visuels complexes avec :
+- **Templates réutilisables** - Bibliothèque de workflows prêts à l'emploi
+- **Contrôle de version** - Historique Git-like de vos workflows
+- **Variables globales** - Partagez des données entre workflows
+- **Catégories organisées** - Classez vos workflows intelligemment
+
+### ✨ Personas Intelligentes
+Des assistants IA spécialisés pour chaque tâche :
+- Développeur
+- Rédacteur
+- Analyste
+- Designer
+- Et bien plus...
+
+### 📝 Bibliothèque de Prompts
+Gérez vos prompts favoris et réutilisez-les facilement.
+
+## 🚀 Démarrage Rapide
+
+1. **Installation** - Consultez le Guide d'Installation
+2. **Premier Lancement** - Suivez le Guide de Premier Lancement
+3. **Explorez** - Testez le module Chat ou créez votre premier workflow
+
+## 📖 Documentation
+
+Naviguez dans les sections :
+- **Guide Utilisateur** - Pour bien démarrer
+- **Fonctionnalités** - Découvrez toutes les features
+- **Roadmap** - Suivez l'évolution du projet
+- **API & Technique** - Pour les développeurs
+
+## 🆘 Besoin d'Aide?
+
+Consultez la FAQ ou le Guide de Test Beta pour plus d'informations.
+
+---
+
+**Version:** 1.0.0
+**Black Room Technologies** - 2025
+`;
+
+    const now = Date.now();
+    sqlite.prepare(`
+      INSERT INTO documentation (
+        id, slug, title, content, category, parent_slug, "order",
+        icon, description, tags, version, published, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'doc-accueil',
+      'accueil',
+      'Bienvenue dans BlackIA',
+      welcomeContent,
+      'guide',
+      null,
+      0,
+      '🏠',
+      'Page d\'accueil de la documentation BlackIA',
+      '["welcome","accueil","introduction"]',
+      '1.0',
+      1,
+      now,
+      now
+    );
+
+    // Docs mapping
+    const docsMapping: Record<string, any> = {
+      'README.md': { slug: 'guide/getting-started', title: 'Démarrage Rapide', category: 'guide', icon: '🚀', order: 1 },
+      'QUICK_START.md': { slug: 'guide/quick-start', title: 'Guide de Démarrage', category: 'guide', icon: '⚡', order: 2 },
+      'DEMARRAGE.md': { slug: 'guide/installation', title: 'Installation', category: 'guide', icon: '📦', order: 3 },
+      'FIRST_RUN.md': { slug: 'guide/first-run', title: 'Premier Lancement', category: 'guide', icon: '🎉', order: 4 },
+      'GUIDE_TEST_CHAT.md': { slug: 'guide/chat-testing', title: 'Guide Test Chat', category: 'guide', icon: '💬', order: 5 },
+      'BETA_TEST_GUIDE.md': { slug: 'guide/beta-testing', title: 'Guide de Test Beta', category: 'guide', icon: '🧪', order: 6 },
+      'CAHIER_DES_CHARGES.md': { slug: 'features/specifications', title: 'Cahier des Charges', category: 'features', icon: '📋', order: 1 },
+      'V1_CONSOLIDATION_PLAN.md': { slug: 'roadmap/v1-consolidation', title: 'Plan de Consolidation v1.0', category: 'roadmap', icon: '🗺️', order: 1 },
+      'WORKFLOW_DEVELOPMENT_PLAN.md': { slug: 'roadmap/workflow-development', title: 'Plan de Développement Workflows', category: 'roadmap', icon: '🔄', order: 2 },
+      'WORKFLOW_ADVANCED_FEATURES.md': { slug: 'roadmap/workflow-advanced', title: 'Features Avancées Workflows', category: 'roadmap', icon: '⚙️', order: 3 },
+      'DEVELOPMENT.md': { slug: 'api/development', title: 'Guide de Développement', category: 'api', icon: '👨‍💻', order: 1 },
+      'DECISIONS_TECHNIQUES.md': { slug: 'api/technical-decisions', title: 'Décisions Techniques', category: 'api', icon: '🏗️', order: 2 },
+      'CODEBASE_ANALYSIS.md': { slug: 'api/codebase-analysis', title: 'Analyse du Codebase', category: 'api', icon: '🔍', order: 3 },
+      'RELEASE_BUILD.md': { slug: 'api/release-build', title: 'Build de Release', category: 'api', icon: '📦', order: 4 },
+      'SETUP_VALIDATION.md': { slug: 'api/setup-validation', title: 'Validation du Setup', category: 'api', icon: '✅', order: 5 },
+      'DOCUMENTATION_SETUP.md': { slug: 'api/documentation-setup', title: 'Setup Documentation', category: 'api', icon: '📚', order: 6 },
+    };
+
+    let imported = 0;
+    const stmt = sqlite.prepare(`
+      INSERT INTO documentation (
+        id, slug, title, content, category, parent_slug, "order",
+        icon, description, tags, version, published, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    for (const [filename, metadata] of Object.entries(docsMapping)) {
+      const filePath = path.join(appRoot, filename);
+
+      if (fs.existsSync(filePath)) {
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          const docId = `doc-${metadata.slug.replace(/\//g, '-')}`;
+
+          stmt.run(
+            docId,
+            metadata.slug,
+            metadata.title,
+            content,
+            metadata.category,
+            null,
+            metadata.order,
+            metadata.icon,
+            metadata.description || '',
+            '[]',
+            '1.0',
+            1,
+            now,
+            now
+          );
+
+          imported++;
+        } catch (error) {
+          console.error(`[Documentation] Error importing ${filename}:`, error);
+        }
+      } else {
+        console.warn(`[Documentation] File not found: ${filename}`);
+      }
+    }
+
+    console.log(`[Documentation] Auto-import completed: ${imported + 1} documents imported`);
+  } catch (error) {
+    console.error('[Documentation] Auto-import failed:', error);
+    // Don't throw - app should continue even if import fails
+  }
+}
+
 // ==================== EXPORTS ====================
 
 export const DocumentationService = {
   // Initialization
   initializeFTS: initializeDocumentationFTS,
+  autoImport: autoImportDefaultDocs,
 
   // CRUD
   create: createDoc,
