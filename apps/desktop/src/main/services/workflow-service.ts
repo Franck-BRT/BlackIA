@@ -87,9 +87,9 @@ let cachedData: WorkflowsData | null = null;
 const DEFAULT_WORKFLOWS: Workflow[] = [
   {
     id: 'template-persona-creator',
-    name: 'Créateur de Persona Parfait',
+    name: 'Créateur de Persona Parfait V1 (Simplifié)',
     description:
-      'Workflow qui analyse vos besoins et génère un persona IA optimisé en plusieurs étapes',
+      'Version linéaire simple et fonctionnelle - 5 étapes: analyse, création, évaluation, optimisation, sortie',
     nodes: JSON.stringify([
       {
         id: '1',
@@ -336,9 +336,9 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
   },
   {
     id: 'template-persona-creator-advanced',
-    name: 'Créateur de Persona Avancé (Expérimental)',
+    name: 'Créateur de Persona Parfait V2 (Avancé)',
     description:
-      'Version avancée avec loops et conditions - Génère plusieurs variations et affine jusqu\'à obtenir un score > 8',
+      'Version complexe avec loops et conditions - Génère 3 variations, compare, note et affine jusqu\'à score > 8 (fonctionnalités en développement)',
     nodes: JSON.stringify([
       {
         id: '1',
@@ -444,8 +444,8 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
     ]),
     icon: '🎭',
     color: 'orange',
-    category: 'Expérimental',
-    tags: '["persona", "création", "IA", "loop", "condition", "avancé"]',
+    category: 'Templates',
+    tags: '["persona", "création", "IA", "loop", "condition", "avancé", "v2"]',
     isFavorite: false,
     usageCount: 0,
     isTemplate: true,
