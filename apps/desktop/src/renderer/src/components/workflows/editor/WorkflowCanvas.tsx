@@ -1,4 +1,4 @@
-import { Trash2, Circle } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import type { WorkflowNode, WorkflowEdge, Position } from './types';
 import { getBezierPath, getHandlePosition } from './edgeUtils';
 import { getNodeColor, getNodeIcon } from './defaultNodes';
@@ -13,10 +13,14 @@ interface WorkflowCanvasProps {
   zoom: number;
   pan: Position;
   selectedNode: string | null;
+  selectedNodes?: Set<string>;
   draggingNode: string | null;
   connecting: boolean;
   connectionStart: string | null;
   connectionPos: Position;
+  isSelecting?: boolean;
+  selectionStart?: Position;
+  selectionEnd?: Position;
   onNodeMouseDown: (nodeId: string, e: React.MouseEvent) => void;
   onNodeDoubleClick: (nodeId: string) => void;
   onStartConnection: (nodeId: string, e: React.MouseEvent) => void;
@@ -30,10 +34,14 @@ export function WorkflowCanvas({
   zoom,
   pan,
   selectedNode,
+  selectedNodes = new Set(),
   draggingNode,
   connecting,
   connectionStart,
   connectionPos,
+  isSelecting = false,
+  selectionStart = { x: 0, y: 0 },
+  selectionEnd = { x: 0, y: 0 },
   onNodeMouseDown,
   onNodeDoubleClick,
   onStartConnection,
@@ -178,7 +186,7 @@ export function WorkflowCanvas({
         {/* Nodes */}
         <g className="nodes">
           {nodes.map((node) => {
-            const isSelected = selectedNode === node.id;
+            const isSelected = selectedNode === node.id || selectedNodes.has(node.id);
             const isDragging = draggingNode === node.id;
             const nodeColor = getNodeColor(node.type);
             const nodeIcon = getNodeIcon(node.type);
@@ -204,6 +212,24 @@ export function WorkflowCanvas({
 
                 {/* Barre de couleur à gauche */}
                 <rect width={4} height={NODE_HEIGHT} rx={12} fill={nodeColor} />
+
+                {/* Badge de sélection (multi-select) */}
+                {isSelected && selectedNodes.size > 1 && (
+                  <g transform={`translate(${NODE_WIDTH - 24}, 8)`}>
+                    <circle r={10} fill={nodeColor} stroke="white" strokeWidth={2} />
+                    <text
+                      x={0}
+                      y={0}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill="white"
+                      fontSize={10}
+                      fontWeight="bold"
+                    >
+                      ✓
+                    </text>
+                  </g>
+                )}
 
                 {/* Contenu du nœud */}
                 <foreignObject x={16} y={0} width={NODE_WIDTH - 32} height={NODE_HEIGHT}>
@@ -251,6 +277,22 @@ export function WorkflowCanvas({
             );
           })}
         </g>
+
+        {/* Box selection */}
+        {isSelecting && (
+          <rect
+            x={Math.min(selectionStart.x, selectionEnd.x)}
+            y={Math.min(selectionStart.y, selectionEnd.y)}
+            width={Math.abs(selectionEnd.x - selectionStart.x)}
+            height={Math.abs(selectionEnd.y - selectionStart.y)}
+            fill="rgba(139, 92, 246, 0.1)"
+            stroke="rgb(139, 92, 246)"
+            strokeWidth={2 / zoom}
+            strokeDasharray={`${5 / zoom},${5 / zoom}`}
+            rx={4}
+            className="pointer-events-none"
+          />
+        )}
 
         {/* Marker pour les flèches */}
         <defs>

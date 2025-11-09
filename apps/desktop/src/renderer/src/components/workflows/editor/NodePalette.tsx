@@ -1,3 +1,5 @@
+import { useState, useMemo } from 'react';
+import { Search, X } from 'lucide-react';
 import { WorkflowNodeRegistry } from './types';
 
 interface NodePaletteProps {
@@ -5,17 +7,31 @@ interface NodePaletteProps {
 }
 
 export function NodePalette({ onAddNode }: NodePaletteProps) {
+  const [searchQuery, setSearchQuery] = useState('');
   const nodeTypes = WorkflowNodeRegistry.getAll();
 
+  // Filtrer les nodes selon la recherche
+  const filteredNodeTypes = useMemo(() => {
+    if (!searchQuery.trim()) return nodeTypes;
+
+    const query = searchQuery.toLowerCase();
+    return nodeTypes.filter(
+      (node) =>
+        node.label.toLowerCase().includes(query) ||
+        node.description.toLowerCase().includes(query) ||
+        node.type.toLowerCase().includes(query)
+    );
+  }, [nodeTypes, searchQuery]);
+
   // Grouper par catégorie
-  const categories = {
-    input: nodeTypes.filter((n) => n.category === 'input'),
-    output: nodeTypes.filter((n) => n.category === 'output'),
-    ai: nodeTypes.filter((n) => n.category === 'ai'),
-    logic: nodeTypes.filter((n) => n.category === 'logic'),
-    transform: nodeTypes.filter((n) => n.category === 'transform'),
-    custom: nodeTypes.filter((n) => n.category === 'custom'),
-  };
+  const categories = useMemo(() => ({
+    input: filteredNodeTypes.filter((n) => n.category === 'input'),
+    output: filteredNodeTypes.filter((n) => n.category === 'output'),
+    ai: filteredNodeTypes.filter((n) => n.category === 'ai'),
+    logic: filteredNodeTypes.filter((n) => n.category === 'logic'),
+    transform: filteredNodeTypes.filter((n) => n.category === 'transform'),
+    custom: filteredNodeTypes.filter((n) => n.category === 'custom'),
+  }), [filteredNodeTypes]);
 
   const categoryLabels = {
     input: 'Entrée',
@@ -26,13 +42,49 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
     custom: 'Personnalisés',
   };
 
+  const handleClearSearch = () => {
+    setSearchQuery('');
+  };
+
   return (
-    <div className="w-64 bg-gray-900/50 border-r border-white/10 overflow-y-auto">
-      <div className="p-4">
-        <h3 className="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wide">
+    <div className="w-64 bg-gray-900/50 border-r border-white/10 overflow-y-auto flex flex-col">
+      <div className="p-4 border-b border-white/10">
+        <h3 className="text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wide">
           Palette de nœuds
         </h3>
 
+        {/* Search bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Rechercher un nœud..."
+            className="w-full pl-10 pr-8 py-2 rounded-lg bg-white/5 border border-white/10
+                     text-white text-sm placeholder-gray-500 focus:outline-none
+                     focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20
+                     transition-colors"
+          />
+          {searchQuery && (
+            <button
+              onClick={handleClearSearch}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/10
+                       text-gray-500 hover:text-white transition-colors"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {searchQuery && (
+          <div className="mt-2 text-xs text-gray-500">
+            {filteredNodeTypes.length} résultat{filteredNodeTypes.length > 1 ? 's' : ''}
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-4">
           {Object.entries(categories).map(([category, nodes]) => {
             if (nodes.length === 0) return null;
@@ -71,9 +123,21 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
           })}
         </div>
 
-        {nodeTypes.length === 0 && (
+        {filteredNodeTypes.length === 0 && (
           <div className="text-sm text-gray-500 text-center py-8">
-            Aucun type de nœud disponible
+            {searchQuery ? (
+              <>
+                Aucun nœud trouvé pour "{searchQuery}"
+                <button
+                  onClick={handleClearSearch}
+                  className="block mx-auto mt-2 text-purple-400 hover:text-purple-300 text-xs"
+                >
+                  Effacer la recherche
+                </button>
+              </>
+            ) : (
+              'Aucun type de nœud disponible'
+            )}
           </div>
         )}
       </div>
