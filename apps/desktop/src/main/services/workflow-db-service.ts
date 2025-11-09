@@ -38,17 +38,11 @@ function validateJSON(jsonString: string, fieldName: string): void {
 
 /**
  * Valide les champs JSON d'un template
+ * Note: Templates n'ont que nodes et edges (pas groups/annotations)
  */
-function validateTemplateJSON(data: {
-  nodes: string;
-  edges: string;
-  groups?: string;
-  annotations?: string;
-}): void {
-  validateJSON(data.nodes, 'nodes');
-  validateJSON(data.edges, 'edges');
-  if (data.groups) validateJSON(data.groups, 'groups');
-  if (data.annotations) validateJSON(data.annotations, 'annotations');
+function validateTemplateJSON(data: { nodes?: string; edges?: string }): void {
+  if (data.nodes) validateJSON(data.nodes, 'nodes');
+  if (data.edges) validateJSON(data.edges, 'edges');
 }
 
 /**
@@ -129,25 +123,11 @@ export const WorkflowTemplateService = {
    */
   async update(id: string, updates: Partial<WorkflowTemplate>): Promise<WorkflowTemplate | null> {
     // Validation JSON si présents dans les mises à jour
-    if (updates.nodes || updates.edges || updates.groups || updates.annotations) {
-      const validationData: any = {};
-      if (updates.nodes) validationData.nodes = updates.nodes;
-      if (updates.edges) validationData.edges = updates.edges;
-      if (updates.groups) validationData.groups = updates.groups;
-      if (updates.annotations) validationData.annotations = updates.annotations;
-
-      // Si nodes ou edges sont modifiés, valider les deux (requis)
-      if (updates.nodes || updates.edges) {
-        const current = await this.getById(id);
-        if (current) {
-          if (!validationData.nodes) validationData.nodes = current.nodes;
-          if (!validationData.edges) validationData.edges = current.edges;
-        }
-      }
-
-      if (validationData.nodes && validationData.edges) {
-        validateTemplateJSON(validationData);
-      }
+    if (updates.nodes || updates.edges) {
+      validateTemplateJSON({
+        nodes: updates.nodes,
+        edges: updates.edges,
+      });
     }
 
     const db = getDatabase();
