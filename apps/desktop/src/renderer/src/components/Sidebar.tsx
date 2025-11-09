@@ -10,6 +10,7 @@ import {
   ScrollText,
   Settings,
   Home,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@blackia/ui';
 
@@ -27,6 +28,7 @@ const navItems: NavItem[] = [
   { icon: User, label: 'Personas', path: '/personas' },
   { icon: FolderOpen, label: 'Projets', path: '/projects' },
   { icon: ScrollText, label: 'Logs', path: '/logs' },
+  { icon: BookOpen, label: 'Documentation', path: '/documentation' },
 ];
 
 export function Sidebar() {
