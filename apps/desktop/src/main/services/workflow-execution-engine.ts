@@ -193,10 +193,22 @@ export class WorkflowExecutionEngine {
   // ============================================================================
 
   private async executeInputNode(node: WorkflowNode): Promise<void> {
-    // Le nœud input stocke juste la valeur d'entrée
-    const inputValue = node.data.inputValue || node.data.label || '';
+    // Le nœud input utilise les valeurs passées lors de l'exécution
+    // Si 'input' existe déjà dans le context (passé en paramètre), on l'utilise
+    let inputValue = this.context.getVariable('input');
+
+    // Sinon, on utilise la valeur par défaut du node
+    if (inputValue === undefined) {
+      inputValue = node.data.inputValue || node.data.label || '';
+      this.context.setVariable('input', inputValue);
+    }
+
     this.context.setVariable(`input_${node.id}`, inputValue);
-    this.context.setVariable('input', inputValue); // Variable globale 'input'
+    this.context.setVariable('lastValue', inputValue); // Initialiser lastValue
+
+    this.context.log(node.id, 'info', 'Input node executed', {
+      inputValue: String(inputValue).substring(0, 100)
+    });
   }
 
   private async executeOutputNode(node: WorkflowNode): Promise<void> {

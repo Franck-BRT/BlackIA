@@ -89,14 +89,14 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
     id: 'template-persona-creator',
     name: 'Créateur de Persona Parfait',
     description:
-      'Workflow qui analyse vos besoins et génère le meilleur persona possible en comparant plusieurs variations',
+      'Workflow qui analyse vos besoins et génère un persona IA optimisé en plusieurs étapes',
     nodes: JSON.stringify([
       {
         id: '1',
         type: 'input',
-        position: { x: 100, y: 100 },
+        position: { x: 250, y: 50 },
         data: {
-          label: 'Entrée',
+          label: 'Description du besoin',
           inputType: 'text',
           inputValue: '',
         },
@@ -104,82 +104,62 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
       {
         id: '2',
         type: 'aiPrompt',
-        position: { x: 100, y: 250 },
+        position: { x: 250, y: 200 },
         data: {
-          label: 'Analyser les besoins',
+          label: 'Analyser le besoin',
           promptTemplate:
-            "Analyse les besoins suivants pour créer un persona IA : {{input}}. Identifie le domaine d'expertise, le style de communication souhaité, et les critères de qualité à respecter.",
+            "Tu es un expert en conception de personas IA. Analyse ce besoin et identifie les caractéristiques clés du persona à créer : {{input}}\n\nIdentifie précisément :\n- Le domaine d'expertise requis\n- Le niveau de compétence (débutant/intermédiaire/expert)\n- Le style de communication approprié\n- Les compétences et connaissances nécessaires\n- Le public cible",
           model: 'llama3.2:latest',
           temperature: 0.7,
-          maxTokens: 1000,
+          maxTokens: 800,
         },
       },
       {
         id: '3',
-        type: 'loop',
-        position: { x: 100, y: 400 },
-        data: {
-          label: 'Générer 3 variations',
-          loopType: 'count',
-          loopCount: 3,
-        },
-      },
-      {
-        id: '4',
         type: 'aiPrompt',
-        position: { x: 100, y: 550 },
+        position: { x: 250, y: 350 },
         data: {
-          label: 'Créer système prompt',
+          label: 'Créer le système prompt',
           promptTemplate:
-            "Basé sur l'analyse suivante : {{lastValue}}, crée un système prompt unique et optimisé pour un persona IA. Sois créatif et varie les approches.",
+            "Basé sur cette analyse : {{lastValue}}\n\nCrée maintenant un système prompt complet et optimisé pour ce persona IA.\n\nLe système prompt doit inclure :\n1. Définition du rôle et de l'identité\n2. Domaine d'expertise et compétences\n3. Style de communication et ton\n4. Directives de comportement\n5. Exemples de réponses attendues\n\nSois précis, créatif et adapte le prompt au public cible.",
           model: 'llama3.2:latest',
           temperature: 0.8,
           maxTokens: 2000,
         },
       },
       {
-        id: '5',
+        id: '4',
         type: 'aiPrompt',
-        position: { x: 100, y: 700 },
+        position: { x: 250, y: 500 },
         data: {
-          label: 'Comparer et noter',
+          label: 'Évaluer la qualité',
           promptTemplate:
-            'Compare les variations de personas suivantes : {{lastValue}}. Note chacune sur 10 selon la clarté, la pertinence et la qualité. Retourne la meilleure avec sa note au format "Score: X/10".',
+            "Évalue ce système prompt de persona IA : {{lastValue}}\n\nAnalyse et note sur 10 les aspects suivants :\n- Clarté et précision\n- Pertinence pour le besoin initial\n- Complétude des informations\n- Originalité et créativité\n- Facilité d'utilisation\n\nCommence ta réponse par 'Score: X/10' puis détaille ton évaluation avec des suggestions d'amélioration.",
           model: 'llama3.2:latest',
           temperature: 0.3,
-          maxTokens: 1500,
+          maxTokens: 1000,
+        },
+      },
+      {
+        id: '5',
+        type: 'aiPrompt',
+        position: { x: 250, y: 650 },
+        data: {
+          label: 'Optimiser le prompt',
+          promptTemplate:
+            "Voici le système prompt initial et son évaluation : {{lastValue}}\n\nAméliore ce système prompt en :\n- Corrigeant les faiblesses identifiées\n- Renforçant les points forts\n- Ajoutant des détails pertinents\n- Peaufinant le style et le ton\n\nFournis la version finale optimisée du système prompt pour le persona IA, prête à l'emploi.",
+          model: 'llama3.2:latest',
+          temperature: 0.6,
+          maxTokens: 2500,
         },
       },
       {
         id: '6',
-        type: 'condition',
-        position: { x: 100, y: 850 },
-        data: {
-          label: 'Note > 8 ?',
-          condition: '{{score}} > 8',
-          conditionType: 'greater',
-        },
-      },
-      {
-        id: '7',
         type: 'output',
-        position: { x: 300, y: 1000 },
+        position: { x: 250, y: 800 },
         data: {
-          label: 'Persona parfait',
+          label: 'Persona final',
           outputType: 'text',
-        },
-      },
-      {
-        id: '8',
-        type: 'aiPrompt',
-        position: { x: -100, y: 1000 },
-        data: {
-          label: 'Affiner et réessayer',
-          promptTemplate:
-            'Le persona précédent a obtenu une note insuffisante. Améliore la proposition suivante en gardant ses points forts et en corrigeant ses faiblesses: {{lastValue}}',
-          model: 'llama3.2:latest',
-          temperature: 0.6,
-          maxTokens: 2000,
         },
       },
     ]),
@@ -189,9 +169,6 @@ const DEFAULT_WORKFLOWS: Workflow[] = [
       { id: 'e3-4', source: '3', target: '4' },
       { id: 'e4-5', source: '4', target: '5' },
       { id: 'e5-6', source: '5', target: '6' },
-      { id: 'e6-7', source: '6', target: '7', sourceHandle: 'yes', label: 'Oui' },
-      { id: 'e6-8', source: '6', target: '8', sourceHandle: 'no', label: 'Non' },
-      { id: 'e8-5', source: '8', target: '5', animated: true },
     ]),
     icon: '🎭',
     color: 'purple',
