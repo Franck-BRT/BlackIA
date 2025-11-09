@@ -1,5 +1,5 @@
 import { eq, desc, and, or, sql, like } from 'drizzle-orm';
-import { getDatabase } from '../database';
+import { getDatabase } from '../database/client';
 import { documentation, type Documentation, type NewDocumentation } from '../database/schema';
 
 /**
@@ -130,7 +130,7 @@ export async function getDocsByCategory(category: string): Promise<Documentation
   return await db
     .select()
     .from(documentation)
-    .where(and(eq(documentation.category, category), eq(documentation.published, true)))
+    .where(and(sql`${documentation.category} = ${category}`, eq(documentation.published, true)))
     .orderBy(documentation.order, documentation.title);
 }
 
@@ -239,8 +239,8 @@ export async function searchDocs(query: string, limit: number = 20): Promise<Sea
         )
       )
       .limit(limit)
-      .then((docs) =>
-        docs.map((doc) => ({
+      .then((docs: Documentation[]) =>
+        docs.map((doc: Documentation): SearchResult => ({
           ...doc,
           snippet: doc.description || doc.content.substring(0, 150) + '...',
           rank: 0,
