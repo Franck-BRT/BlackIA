@@ -328,6 +328,97 @@ export async function getDocStats(): Promise<{
 // ==================== AUTO-IMPORT ====================
 
 /**
+ * Catégoriser automatiquement un fichier selon son nom/chemin
+ */
+function categorizeFile(filename: string, filepath: string): {
+  category: 'guide' | 'features' | 'roadmap' | 'api' | 'faq' | 'changelog';
+  icon: string;
+  order: number;
+} {
+  const lower = filename.toLowerCase();
+  const pathLower = filepath.toLowerCase();
+
+  // Guides utilisateur (ordre prioritaire)
+  if (lower.includes('readme') && !pathLower.includes('scripts') && !pathLower.includes('resources')) {
+    return { category: 'guide', icon: '📖', order: 1 };
+  }
+  if (lower.includes('quick') || lower.includes('start')) {
+    return { category: 'guide', icon: '⚡', order: 2 };
+  }
+  if (lower.includes('first') || lower.includes('demarrage')) {
+    return { category: 'guide', icon: '🎉', order: 3 };
+  }
+  if (lower.includes('guide') || lower.includes('test')) {
+    return { category: 'guide', icon: '📚', order: 5 };
+  }
+  if (lower.includes('beta')) {
+    return { category: 'guide', icon: '🧪', order: 6 };
+  }
+
+  // Features et spécifications
+  if (lower.includes('cahier') || lower.includes('spec')) {
+    return { category: 'features', icon: '📋', order: 0 };
+  }
+
+  // Roadmap et planification
+  if (lower.includes('plan') || lower.includes('roadmap') || lower.includes('consolidation')) {
+    return { category: 'roadmap', icon: '🗺️', order: 0 };
+  }
+  if (lower.includes('workflow')) {
+    return { category: 'roadmap', icon: '🔄', order: 1 };
+  }
+
+  // Changelog et historique
+  if (lower.includes('changelog') || lower.includes('session') || lower.includes('resume')) {
+    return { category: 'changelog', icon: '📝', order: 0 };
+  }
+
+  // Documentation technique/API
+  if (lower.includes('development') || lower.includes('technique') || lower.includes('analysis') ||
+      lower.includes('release') || lower.includes('setup') || lower.includes('validation') ||
+      lower.includes('documentation_setup') || lower.includes('packages') || lower.includes('todo')) {
+    return { category: 'api', icon: '🔧', order: 0 };
+  }
+
+  // Par défaut selon le chemin
+  if (pathLower.includes('docs/')) {
+    return { category: 'guide', icon: '📄', order: 90 };
+  }
+  if (pathLower.includes('scripts/')) {
+    return { category: 'api', icon: '⚙️', order: 90 };
+  }
+
+  // Par défaut: guide
+  return { category: 'guide', icon: '📄', order: 99 };
+}
+
+/**
+ * Générer un slug à partir d'un nom de fichier
+ */
+function generateSlug(filename: string, category: string): string {
+  const base = filename
+    .replace(/\.md$/i, '')
+    .toLowerCase()
+    .replace(/_/g, '-')
+    .replace(/\s+/g, '-');
+
+  return `${category}/${base}`;
+}
+
+/**
+ * Générer un titre à partir d'un nom de fichier
+ */
+function generateTitle(filename: string): string {
+  return filename
+    .replace(/\.md$/i, '')
+    .replace(/_/g, ' ')
+    .replace(/-/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+/**
  * Auto-import default documentation on first run
  */
 export async function autoImportDefaultDocs(): Promise<void> {
@@ -342,11 +433,10 @@ export async function autoImportDefaultDocs(): Promise<void> {
       return;
     }
 
-    console.log('[Documentation] Auto-importing default documentation...');
+    console.log('[Documentation] Auto-importing all documentation files...');
 
     const fs = await import('fs');
     const path = await import('path');
-    const { app } = await import('electron');
 
     // Get the app root directory (3 levels up from main/services)
     const appRoot = path.join(__dirname, '../../../');
@@ -426,25 +516,31 @@ Consultez la FAQ ou le Guide de Test Beta pour plus d'informations.
       now
     );
 
-    // Docs mapping
-    const docsMapping: Record<string, any> = {
-      'README.md': { slug: 'guide/getting-started', title: 'Démarrage Rapide', category: 'guide', icon: '🚀', order: 1 },
-      'QUICK_START.md': { slug: 'guide/quick-start', title: 'Guide de Démarrage', category: 'guide', icon: '⚡', order: 2 },
-      'DEMARRAGE.md': { slug: 'guide/installation', title: 'Installation', category: 'guide', icon: '📦', order: 3 },
-      'FIRST_RUN.md': { slug: 'guide/first-run', title: 'Premier Lancement', category: 'guide', icon: '🎉', order: 4 },
-      'GUIDE_TEST_CHAT.md': { slug: 'guide/chat-testing', title: 'Guide Test Chat', category: 'guide', icon: '💬', order: 5 },
-      'BETA_TEST_GUIDE.md': { slug: 'guide/beta-testing', title: 'Guide de Test Beta', category: 'guide', icon: '🧪', order: 6 },
-      'CAHIER_DES_CHARGES.md': { slug: 'features/specifications', title: 'Cahier des Charges', category: 'features', icon: '📋', order: 1 },
-      'V1_CONSOLIDATION_PLAN.md': { slug: 'roadmap/v1-consolidation', title: 'Plan de Consolidation v1.0', category: 'roadmap', icon: '🗺️', order: 1 },
-      'WORKFLOW_DEVELOPMENT_PLAN.md': { slug: 'roadmap/workflow-development', title: 'Plan de Développement Workflows', category: 'roadmap', icon: '🔄', order: 2 },
-      'WORKFLOW_ADVANCED_FEATURES.md': { slug: 'roadmap/workflow-advanced', title: 'Features Avancées Workflows', category: 'roadmap', icon: '⚙️', order: 3 },
-      'DEVELOPMENT.md': { slug: 'api/development', title: 'Guide de Développement', category: 'api', icon: '👨‍💻', order: 1 },
-      'DECISIONS_TECHNIQUES.md': { slug: 'api/technical-decisions', title: 'Décisions Techniques', category: 'api', icon: '🏗️', order: 2 },
-      'CODEBASE_ANALYSIS.md': { slug: 'api/codebase-analysis', title: 'Analyse du Codebase', category: 'api', icon: '🔍', order: 3 },
-      'RELEASE_BUILD.md': { slug: 'api/release-build', title: 'Build de Release', category: 'api', icon: '📦', order: 4 },
-      'SETUP_VALIDATION.md': { slug: 'api/setup-validation', title: 'Validation du Setup', category: 'api', icon: '✅', order: 5 },
-      'DOCUMENTATION_SETUP.md': { slug: 'api/documentation-setup', title: 'Setup Documentation', category: 'api', icon: '📚', order: 6 },
+    // Scanner récursivement tous les fichiers .md
+    const findMarkdownFiles = (dir: string, baseDir: string = dir): string[] => {
+      let results: string[] = [];
+      const items = fs.readdirSync(dir);
+
+      for (const item of items) {
+        const fullPath = path.join(dir, item);
+        const stat = fs.statSync(fullPath);
+
+        // Ignorer certains dossiers
+        if (stat.isDirectory()) {
+          if (!['node_modules', '.git', 'dist', 'build', 'release', 'coverage'].includes(item)) {
+            results = results.concat(findMarkdownFiles(fullPath, baseDir));
+          }
+        } else if (stat.isFile() && item.toLowerCase().endsWith('.md')) {
+          results.push(fullPath);
+        }
+      }
+
+      return results;
     };
+
+    // Trouver tous les fichiers markdown
+    const allMdFiles = findMarkdownFiles(appRoot);
+    console.log(`[Documentation] Found ${allMdFiles.length} markdown files`);
 
     let imported = 0;
     const stmt = sqlite.prepare(`
@@ -454,41 +550,49 @@ Consultez la FAQ ou le Guide de Test Beta pour plus d'informations.
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    for (const [filename, metadata] of Object.entries(docsMapping)) {
-      const filePath = path.join(appRoot, filename);
+    for (const filePath of allMdFiles) {
+      try {
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const filename = path.basename(filePath);
+        const relativePath = path.relative(appRoot, filePath);
 
-      if (fs.existsSync(filePath)) {
-        try {
-          const content = fs.readFileSync(filePath, 'utf-8');
-          const docId = `doc-${metadata.slug.replace(/\//g, '-')}`;
+        // Catégoriser automatiquement
+        const { category, icon, order } = categorizeFile(filename, relativePath);
 
-          stmt.run(
-            docId,
-            metadata.slug,
-            metadata.title,
-            content,
-            metadata.category,
-            null,
-            metadata.order,
-            metadata.icon,
-            metadata.description || '',
-            '[]',
-            '1.0',
-            1,
-            now,
-            now
-          );
+        // Générer slug et titre
+        const slug = generateSlug(filename, category);
+        const title = generateTitle(filename);
+        const docId = `doc-${slug.replace(/\//g, '-')}`;
 
-          imported++;
-        } catch (error) {
-          console.error(`[Documentation] Error importing ${filename}:`, error);
-        }
-      } else {
-        console.warn(`[Documentation] File not found: ${filename}`);
+        // Extraire une description du contenu (premier paragraphe)
+        const lines = content.split('\n').filter(l => l.trim() && !l.startsWith('#'));
+        const description = lines[0]?.substring(0, 150) || '';
+
+        stmt.run(
+          docId,
+          slug,
+          title,
+          content,
+          category,
+          null,
+          order,
+          icon,
+          description,
+          '[]',
+          '1.0',
+          1,
+          now,
+          now
+        );
+
+        imported++;
+        console.log(`[Documentation] ✓ ${filename} → ${category}/${filename.replace('.md', '')}`);
+      } catch (error) {
+        console.error(`[Documentation] Error importing ${filePath}:`, error);
       }
     }
 
-    console.log(`[Documentation] Auto-import completed: ${imported + 1} documents imported`);
+    console.log(`[Documentation] Auto-import completed: ${imported + 1} documents imported (${imported} files + welcome page)`);
   } catch (error) {
     console.error('[Documentation] Auto-import failed:', error);
     // Don't throw - app should continue even if import fails
