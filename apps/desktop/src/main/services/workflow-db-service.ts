@@ -449,16 +449,18 @@ export const WorkflowVariableService = {
   ): Promise<WorkflowVariable | null> {
     const db = getDatabase();
 
-    let query = db
-      .select()
-      .from(workflowVariables)
-      .where(and(eq(workflowVariables.name, name), eq(workflowVariables.scope, scope)));
+    // Build conditions array
+    const conditions = [eq(workflowVariables.name, name), eq(workflowVariables.scope, scope)];
 
     if (scope === 'workflow' && workflowId) {
-      query = query.where(eq(workflowVariables.workflowId, workflowId));
+      conditions.push(eq(workflowVariables.workflowId, workflowId));
     }
 
-    const results = await query;
+    const results = await db
+      .select()
+      .from(workflowVariables)
+      .where(and(...conditions));
+
     return results[0] || null;
   },
 };
