@@ -17,6 +17,7 @@ import { TemplateManager } from './TemplateManager';
 import { VersionManager } from './VersionManager';
 import { VariablesManager } from './VariablesManager';
 import { DebugPanel } from './DebugPanel';
+import { WorkflowExecutionEngine } from './WorkflowExecutionEngine';
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 80;
@@ -130,6 +131,7 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
   const [isSaving, setIsSaving] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
+  const executionEngineRef = useRef<WorkflowExecutionEngine | null>(null);
 
   // Update viewport size
   useEffect(() => {
@@ -632,77 +634,54 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
   );
 
   const handleStartDebug = useCallback(() => {
-    setExecutionState((prev) => ({
-      ...prev,
-      status: 'running',
-      stepMode: true,
-      currentNodeId: nodes[0]?.id || null,
-      callStack: [],
-      logs: [
-        {
-          nodeId: 'system',
-          timestamp: new Date().toISOString(),
-          level: 'info',
-          message: 'Debug session started',
-        },
-      ],
-    }));
-  }, [nodes]);
+    // Create new execution engine instance
+    const engine = new WorkflowExecutionEngine(
+      nodes,
+      edges,
+      executionState,
+      (newState) => setExecutionState(newState)
+    );
+
+    executionEngineRef.current = engine;
+
+    // Start execution
+    engine.start();
+  }, [nodes, edges, executionState]);
 
   const handleStopDebug = useCallback(() => {
-    setExecutionState((prev) => ({
-      ...prev,
-      status: 'idle',
-      currentNodeId: null,
-      stepMode: false,
-      callStack: [],
-      logs: [
-        ...prev.logs,
-        {
-          nodeId: 'system',
-          timestamp: new Date().toISOString(),
-          level: 'info',
-          message: 'Debug session stopped',
-        },
-      ],
-    }));
+    if (executionEngineRef.current) {
+      executionEngineRef.current.stop();
+      executionEngineRef.current = null;
+    }
   }, []);
 
   const handleStepNext = useCallback(() => {
-    setExecutionState((prev) => {
-      const currentIndex = nodes.findIndex((n) => n.id === prev.currentNodeId);
-      const nextNode = nodes[currentIndex + 1];
+    if (executionEngineRef.current) {
+      executionEngineRef.current.stepNext();
+    } else {
+      // Create engine in step mode
+      const engine = new WorkflowExecutionEngine(
+        nodes,
+        edges,
+        { ...executionState, stepMode: true },
+        (newState) => setExecutionState(newState)
+      );
 
-      return {
-        ...prev,
-        currentNodeId: nextNode?.id || null,
-        status: nextNode ? 'paused' : 'completed',
-        callStack: nextNode ? [...prev.callStack, nextNode.id] : prev.callStack,
-        logs: [
-          ...prev.logs,
-          {
-            nodeId: prev.currentNodeId || 'system',
-            timestamp: new Date().toISOString(),
-            level: 'info',
-            message: nextNode ? `Stepping to ${nextNode.type}` : 'Execution completed',
-          },
-        ],
-      };
-    });
-  }, [nodes]);
+      executionEngineRef.current = engine;
+      engine.stepNext();
+    }
+  }, [nodes, edges, executionState]);
 
   const handleContinue = useCallback(() => {
-    setExecutionState((prev) => ({
-      ...prev,
-      status: 'running',
-    }));
+    if (executionEngineRef.current) {
+      executionEngineRef.current.continue();
+    }
   }, []);
 
   const handlePause = useCallback(() => {
-    setExecutionState((prev) => ({
-      ...prev,
-      status: 'paused',
-    }));
+    if (executionEngineRef.current) {
+      executionEngineRef.current.pause();
+    }
   }, []);
 
   // Save workflow
