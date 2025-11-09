@@ -2,6 +2,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { useNavigate } from 'react-router-dom';
+import { Edit3 } from 'lucide-react';
 import type { Documentation } from '../../../../main/database/schema';
 
 interface DocumentationViewerProps {
@@ -13,6 +15,20 @@ interface DocumentationViewerProps {
  * Utilise react-markdown avec support GFM et syntax highlighting
  */
 export function DocumentationViewer({ doc }: DocumentationViewerProps) {
+  const navigate = useNavigate();
+
+  const handleEdit = () => {
+    navigate('/editor', {
+      state: {
+        documentId: doc.id,
+        documentSlug: doc.slug,
+        documentTitle: doc.title,
+        documentContent: doc.content,
+        isDocumentation: true,
+      },
+    });
+  };
+
   return (
     <article className="max-w-4xl mx-auto px-8 py-8">
       {/* Header */}
@@ -25,6 +41,16 @@ export function DocumentationViewer({ doc }: DocumentationViewerProps) {
               <p className="text-lg text-muted-foreground">{doc.description}</p>
             )}
           </div>
+
+          {/* Edit button */}
+          <button
+            onClick={handleEdit}
+            className="px-4 py-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 transition-colors flex items-center gap-2 text-sm"
+            title="Éditer ce document"
+          >
+            <Edit3 className="w-4 h-4" />
+            <span>Éditer</span>
+          </button>
         </div>
 
         {/* Metadata */}
