@@ -21,25 +21,46 @@ import {
   Table,
   Minus,
   Code2,
+  Bot,
 } from 'lucide-react';
 import { cn } from '@blackia/ui';
+import { EditorAIAssistant } from './EditorAIAssistant';
 
 interface MarkdownEditorProps {
   initialContent?: string;
   onSave?: (content: string) => void;
 }
 
-type ViewMode = 'edit' | 'preview' | 'split';
+type ViewMode = 'edit' | 'preview' | 'split' | 'ai-assist';
 
 export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorProps) {
   const [content, setContent] = useState(initialContent);
   const [viewMode, setViewMode] = useState<ViewMode>('split');
+  const [selectedModel, setSelectedModel] = useState('');
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Synchroniser le contenu quand initialContent change
   useEffect(() => {
     setContent(initialContent);
   }, [initialContent]);
+
+  // Charger les modèles disponibles au démarrage
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        const models = await window.electronAPI.ollama.list();
+        const modelNames = models.models.map((m: any) => m.name);
+        setAvailableModels(modelNames);
+        if (modelNames.length > 0) {
+          setSelectedModel(modelNames[0]);
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des modèles:', error);
+      }
+    };
+    loadModels();
+  }, []);
 
   // Fonction pour insérer du texte à la position du curseur
   const insertText = (before: string, after: string = '', placeholder: string = '') => {
@@ -150,6 +171,34 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
   const formatTable = () => {
     const table = '\n| Colonne 1 | Colonne 2 | Colonne 3 |\n|-----------|-----------|-----------|-------| Cellule 1 | Cellule 2 | Cellule 3 |\n| Cellule 4 | Cellule 5 | Cellule 6 |\n';
     insertText(table, '', '');
+  };
+
+  // Fonction pour insérer du texte depuis l'assistant IA
+  const insertTextFromAI = (text: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      // Si pas de textarea (mode preview uniquement), ajouter à la fin
+      setContent(content + '\n\n' + text);
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    // Insérer à la position du curseur
+    const newContent =
+      content.substring(0, start) +
+      '\n\n' + text + '\n\n' +
+      content.substring(end);
+
+    setContent(newContent);
+
+    // Remettre le focus
+    setTimeout(() => {
+      textarea.focus();
+      const newPosition = start + text.length + 4; // +4 pour les \n\n avant et après
+      textarea.setSelectionRange(newPosition, newPosition);
+    }, 0);
   };
 
   // Gestion des raccourcis clavier
@@ -359,6 +408,16 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
           >
             <Eye className="w-4 h-4" />
           </button>
+          <button
+            onClick={() => setViewMode('ai-assist')}
+            className={cn(
+              'p-2 rounded transition-colors',
+              viewMode === 'ai-assist' ? 'bg-white/20' : 'hover:bg-white/10'
+            )}
+            title="Assistant IA"
+          >
+            <Bot className="w-4 h-4" />
+          </button>
         </div>
 
         <div className="flex-1" />
@@ -395,11 +454,11 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
       {/* Editor area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Editor panel */}
-        {(viewMode === 'edit' || viewMode === 'split') && (
+        {(viewMode === 'edit' || viewMode === 'split' || viewMode === 'ai-assist') && (
           <div
             className={cn(
               'flex flex-col',
-              viewMode === 'split' ? 'w-1/2 border-r border-white/10' : 'w-full'
+              viewMode === 'split' || viewMode === 'ai-assist' ? 'w-1/2 border-r border-white/10' : 'w-full'
             )}
           >
             <textarea
@@ -473,6 +532,17 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
                 {content || '*Aucun contenu à afficher*'}
               </ReactMarkdown>
             </div>
+          </div>
+        )}
+
+        {/* AI Assistant panel */}
+        {viewMode === 'ai-assist' && (
+          <div className="w-1/2">
+            <EditorAIAssistant
+              documentContent={content}
+              selectedModel={selectedModel}
+              onInsertText={insertTextFromAI}
+            />
           </div>
         )}
       </div>
