@@ -4,11 +4,10 @@ import { useWorkflows, type ParsedWorkflow } from '../hooks/useWorkflows';
 import { WorkflowList } from '../components/workflows/WorkflowList';
 import { WorkflowModal } from '../components/workflows/WorkflowModal';
 import { WorkflowExecutionPanel } from '../components/workflows/WorkflowExecutionPanel';
-// TODO: Installer ReactFlow avec: pnpm add reactflow
-// import { WorkflowEditor } from '../components/workflows/WorkflowEditor';
+import { WorkflowEditor } from '../components/workflows/WorkflowEditor';
 
-// WorkflowEditor temporairement désactivé car ReactFlow n'est pas installé
-const EDITOR_AVAILABLE = false;
+// SimpleWorkflowEditor (custom, sans dépendances) est maintenant disponible
+const EDITOR_AVAILABLE = true;
 
 export function WorkflowsPage() {
   const {
@@ -146,29 +145,26 @@ export function WorkflowsPage() {
         </div>
 
         {/* Editor */}
-        <div className="flex-1 overflow-hidden p-8">
+        <div className="flex-1 overflow-hidden">
           {EDITOR_AVAILABLE ? (
-            <div>
-              {/* TODO: Uncomment when ReactFlow is installed */}
-              {/* <WorkflowEditor
-                workflow={editingWorkflow || undefined}
-                onSave={async (workflowData) => {
-                  const dataToSave = {
-                    ...workflowData,
-                    nodes: JSON.stringify(workflowData.nodes),
-                    edges: JSON.stringify(workflowData.edges),
-                  };
+            <WorkflowEditor
+              workflow={editingWorkflow || undefined}
+              onSave={async (workflowData) => {
+                const dataToSave = {
+                  ...workflowData,
+                  nodes: JSON.stringify(workflowData.nodes),
+                  edges: JSON.stringify(workflowData.edges),
+                };
 
-                  if (editingWorkflow) {
-                    await updateWorkflow(editingWorkflow.id, dataToSave);
-                  } else {
-                    await createWorkflow(dataToSave);
-                  }
-                  handleCloseEditor();
-                }}
-                onCancel={handleCloseEditor}
-              /> */}
-            </div>
+                if (editingWorkflow) {
+                  await updateWorkflow(editingWorkflow.id, dataToSave);
+                } else {
+                  await createWorkflow(dataToSave);
+                }
+                handleCloseEditor();
+              }}
+              onCancel={handleCloseEditor}
+            />
           ) : (
             <div className="h-full flex items-center justify-center">
               <div className="max-w-2xl text-center space-y-6">
