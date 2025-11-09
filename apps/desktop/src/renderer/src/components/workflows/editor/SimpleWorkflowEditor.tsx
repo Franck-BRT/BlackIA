@@ -66,7 +66,14 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
   // Annotations management
   const {
     annotations,
+    editingAnnotation,
     createAnnotation,
+    deleteAnnotation,
+    updateAnnotation,
+    moveAnnotation,
+    resizeAnnotation,
+    startEditing,
+    stopEditing,
     setAllAnnotations,
   } = useAnnotations();
 
@@ -101,6 +108,10 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
   const [draggingNodes, setDraggingNodes] = useState<Set<string>>(new Set());
   const [dragStart, setDragStart] = useState<Position>({ x: 0, y: 0 });
   const [dragOffset, setDragOffset] = useState<Map<string, Position>>(new Map());
+
+  // Annotation drag state
+  const [draggingAnnotation, setDraggingAnnotation] = useState<string | null>(null);
+  const [annotationDragOffset, setAnnotationDragOffset] = useState<Position>({ x: 0, y: 0 });
 
   // Selection area (box selection)
   const [isSelecting, setIsSelecting] = useState(false);
@@ -282,6 +293,14 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
         }, true); // Skip history during drag
       }
 
+      // Drag annotation
+      if (draggingAnnotation) {
+        moveAnnotation(draggingAnnotation, {
+          x: Math.round((mouseX - annotationDragOffset.x) / GRID_SIZE) * GRID_SIZE,
+          y: Math.round((mouseY - annotationDragOffset.y) / GRID_SIZE) * GRID_SIZE,
+        });
+      }
+
       // Connection in progress
       if (connecting) {
         setConnectionPos({ x: mouseX, y: mouseY });
@@ -300,7 +319,7 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
         setSelectionEnd({ x: mouseX, y: mouseY });
       }
     },
-    [draggingNodes, dragOffset, connecting, isPanning, panStart, isSelecting, pan, zoom, nodes, edges, setWorkflowState]
+    [draggingNodes, dragOffset, connecting, isPanning, panStart, isSelecting, pan, zoom, nodes, edges, setWorkflowState, draggingAnnotation, annotationDragOffset, moveAnnotation]
   );
 
   // Mouse up handler
@@ -314,6 +333,10 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
         });
         setDraggingNodes(new Set());
         setDragOffset(new Map());
+      }
+
+      if (draggingAnnotation) {
+        setDraggingAnnotation(null);
       }
 
       if (connecting) {
@@ -330,7 +353,7 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
         setIsSelecting(false);
       }
     },
-    [draggingNodes, connecting, isPanning, isSelecting, nodes, edges, selectionStart, selectionEnd, setWorkflowState, selectArea]
+    [draggingNodes, draggingAnnotation, connecting, isPanning, isSelecting, nodes, edges, selectionStart, selectionEnd, setWorkflowState, selectArea]
   );
 
   // Canvas mouse down (pan or box select)
@@ -531,6 +554,51 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
     [createAnnotation, viewportSize, pan, zoom]
   );
 
+  // Annotation interaction handlers
+  const handleAnnotationMouseDown = useCallback(
+    (annotationId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+
+      const canvasBounds = canvasRef.current?.getBoundingClientRect();
+      if (!canvasBounds) return;
+
+      const annotation = annotations.find((a) => a.id === annotationId);
+      if (!annotation) return;
+
+      const mouseX = (e.clientX - canvasBounds.left - pan.x) / zoom;
+      const mouseY = (e.clientY - canvasBounds.top - pan.y) / zoom;
+
+      setDraggingAnnotation(annotationId);
+      setAnnotationDragOffset({
+        x: mouseX - annotation.position.x,
+        y: mouseY - annotation.position.y,
+      });
+    },
+    [annotations, pan, zoom]
+  );
+
+  const handleAnnotationDoubleClick = useCallback(
+    (annotationId: string) => {
+      startEditing(annotationId);
+    },
+    [startEditing]
+  );
+
+  const handleAnnotationContentChange = useCallback(
+    (annotationId: string, content: string) => {
+      updateAnnotation(annotationId, { content });
+    },
+    [updateAnnotation]
+  );
+
+  const handleDeleteAnnotation = useCallback(
+    (annotationId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      deleteAnnotation(annotationId);
+    },
+    [deleteAnnotation]
+  );
+
   // Debug handlers
   const handleToggleBreakpoint = useCallback(
     (nodeId: string) => {
@@ -703,9 +771,11 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
         handleSave();
       }
 
-      // Escape - Clear selection or cancel
+      // Escape - Clear selection, stop editing, or cancel
       if (e.key === 'Escape') {
-        if (configuringNode) {
+        if (editingAnnotation) {
+          stopEditing();
+        } else if (configuringNode) {
           setConfiguringNode(null);
         } else if (hasSelection) {
           clearSelection();
@@ -719,6 +789,7 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
     hasSelection,
     hasClipboard,
     configuringNode,
+    editingAnnotation,
     nodes,
     undo,
     redo,
@@ -728,6 +799,7 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
     handleSave,
     selectNode,
     clearSelection,
+    stopEditing,
   ]);
 
   const handleZoomIn = useCallback(() => {
@@ -803,11 +875,17 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
               groups={groups}
               annotations={annotations}
               executionState={executionState}
+              editingAnnotation={editingAnnotation}
               onNodeMouseDown={handleNodeMouseDown}
               onNodeDoubleClick={handleNodeDoubleClick}
               onStartConnection={handleStartConnection}
               onEndConnection={handleEndConnection}
               onDeleteEdge={handleDeleteEdge}
+              onAnnotationMouseDown={handleAnnotationMouseDown}
+              onAnnotationDoubleClick={handleAnnotationDoubleClick}
+              onAnnotationContentChange={handleAnnotationContentChange}
+              onDeleteAnnotation={handleDeleteAnnotation}
+              onToggleBreakpoint={handleToggleBreakpoint}
             />
           </div>
 

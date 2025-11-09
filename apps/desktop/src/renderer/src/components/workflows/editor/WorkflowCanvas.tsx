@@ -24,11 +24,17 @@ interface WorkflowCanvasProps {
   groups?: NodeGroup[];
   annotations?: Annotation[];
   executionState?: ExecutionState;
+  editingAnnotation?: string | null;
   onNodeMouseDown: (nodeId: string, e: React.MouseEvent) => void;
   onNodeDoubleClick: (nodeId: string) => void;
   onStartConnection: (nodeId: string, e: React.MouseEvent) => void;
   onEndConnection: (nodeId: string) => void;
   onDeleteEdge: (edgeId: string) => void;
+  onAnnotationMouseDown?: (annotationId: string, e: React.MouseEvent) => void;
+  onAnnotationDoubleClick?: (annotationId: string) => void;
+  onAnnotationContentChange?: (annotationId: string, content: string) => void;
+  onDeleteAnnotation?: (annotationId: string, e: React.MouseEvent) => void;
+  onToggleBreakpoint?: (nodeId: string) => void;
 }
 
 export function WorkflowCanvas({
@@ -48,11 +54,17 @@ export function WorkflowCanvas({
   groups = [],
   annotations = [],
   executionState,
+  editingAnnotation,
   onNodeMouseDown,
   onNodeDoubleClick,
   onStartConnection,
   onEndConnection,
   onDeleteEdge,
+  onAnnotationMouseDown,
+  onAnnotationDoubleClick,
+  onAnnotationContentChange,
+  onDeleteAnnotation,
+  onToggleBreakpoint,
 }: WorkflowCanvasProps) {
   return (
     <svg
@@ -326,7 +338,14 @@ export function WorkflowCanvas({
                   <>
                     {/* Breakpoint indicator */}
                     {executionState.breakpoints.some((bp) => bp.nodeId === node.id && bp.enabled) && (
-                      <g transform={`translate(8, 8)`}>
+                      <g
+                        transform={`translate(8, 8)`}
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleBreakpoint?.(node.id);
+                        }}
+                      >
                         <circle r={8} fill="#ef4444" stroke="white" strokeWidth={2} />
                         <text
                           x={0}
@@ -414,6 +433,7 @@ export function WorkflowCanvas({
               const width = annotation.size?.width || 200;
               const height = annotation.size?.height || 100;
               const bgColor = annotation.color || (annotation.type === 'note' ? '#fef3c7' : '#ddd6fe');
+              const isEditing = editingAnnotation === annotation.id;
 
               return (
                 <g key={annotation.id} transform={`translate(${annotation.position.x}, ${annotation.position.y})`}>
@@ -423,19 +443,48 @@ export function WorkflowCanvas({
                     height={height}
                     rx={4}
                     fill={bgColor}
-                    stroke="rgba(0, 0, 0, 0.1)"
-                    strokeWidth={1}
+                    stroke={isEditing ? 'rgba(139, 92, 246, 0.5)' : 'rgba(0, 0, 0, 0.1)'}
+                    strokeWidth={isEditing ? 2 : 1}
                     className="cursor-move opacity-90 hover:opacity-100 transition-opacity"
+                    onMouseDown={(e) => onAnnotationMouseDown?.(annotation.id, e as any)}
+                    onDoubleClick={() => onAnnotationDoubleClick?.(annotation.id)}
                   />
                   {/* Content */}
-                  <foreignObject x={8} y={8} width={width - 16} height={height - 16}>
-                    <div
-                      className="text-gray-800 text-sm p-2 overflow-auto"
-                      style={{ fontSize: annotation.fontSize || 14 }}
-                    >
-                      {annotation.content || 'Empty note'}
-                    </div>
+                  <foreignObject x={8} y={8} width={width - 16} height={height - 40}>
+                    {isEditing ? (
+                      <textarea
+                        className="w-full h-full text-gray-800 text-sm p-2 resize-none bg-transparent border-none outline-none"
+                        style={{ fontSize: annotation.fontSize || 14 }}
+                        value={annotation.content}
+                        onChange={(e) => onAnnotationContentChange?.(annotation.id, e.target.value)}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <div
+                        className="text-gray-800 text-sm p-2 overflow-auto h-full"
+                        style={{ fontSize: annotation.fontSize || 14 }}
+                      >
+                        {annotation.content || 'Empty note'}
+                      </div>
+                    )}
                   </foreignObject>
+                  {/* Delete button */}
+                  <g
+                    className="opacity-0 hover:opacity-100 transition-opacity"
+                    transform={`translate(${width - 20}, 4)`}
+                  >
+                    <circle r={8} fill="#ef4444" className="cursor-pointer" />
+                    <foreignObject x={-6} y={-6} width={12} height={12}>
+                      <div
+                        className="flex items-center justify-center cursor-pointer"
+                        onClick={(e) => onDeleteAnnotation?.(annotation.id, e as any)}
+                      >
+                        <Trash2 size={8} color="white" />
+                      </div>
+                    </foreignObject>
+                  </g>
                   {/* Type indicator */}
                   <text
                     x={width - 8}
