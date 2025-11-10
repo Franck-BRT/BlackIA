@@ -9,7 +9,7 @@ import type { WebContents } from 'electron';
 
 export interface WorkflowNode {
   id: string;
-  type: 'input' | 'output' | 'aiPrompt' | 'condition' | 'loop' | 'transform' | 'switch';
+  type: 'input' | 'output' | 'aiPrompt' | 'condition' | 'loop' | 'transform' | 'switch' | 'extract';
   position: { x: number; y: number };
   data: Record<string, unknown>;
 }
@@ -172,6 +172,9 @@ export class WorkflowExecutionEngine {
         return true; // Gère le flow manuellement
       case 'transform':
         await this.executeTransformNode(node);
+        return false;
+      case 'extract':
+        await this.executeExtractNode(node);
         return false;
       case 'switch':
         await this.executeSwitchNode(node);
@@ -507,6 +510,162 @@ export class WorkflowExecutionEngine {
 
     this.context.setVariable(`transform_${node.id}`, result);
     this.context.setVariable('lastValue', result);
+  }
+
+  /**
+   * Exécuter un nœud Extract
+   * Extrait des valeurs depuis la variable source avec regex, JSON path, etc.
+   */
+  private async executeExtractNode(node: WorkflowNode): Promise<void> {
+    // Configuration de l'extraction
+    const sourceVar = (node.data.sourceVar as string) || 'lastValue';
+    const extractType = (node.data.extractType as string) || 'regex';
+    const pattern = node.data.pattern as string;
+    const outputVar = node.data.outputVar as string;
+    const multiMatch = (node.data.multiMatch as boolean) || false;
+
+    // Récupérer la valeur source
+    let sourceValue = this.context.getVariable(sourceVar);
+
+    // Si pas trouvé, essayer avec smart aliases
+    if (sourceValue === undefined) {
+      sourceValue = this.context.getVariable('lastValue');
+    }
+
+    // Convertir en string pour l'extraction
+    const sourceText = typeof sourceValue === 'string'
+      ? sourceValue
+      : JSON.stringify(sourceValue);
+
+    this.context.log(node.id, 'info', `Extract (${extractType}) from ${sourceVar}`, {
+      pattern,
+      outputVar,
+      sourceLength: sourceText.length,
+      multiMatch
+    });
+
+    let result: unknown = null;
+
+    try {
+      switch (extractType) {
+        case 'regex': {
+          if (!pattern) {
+            throw new Error('Regex pattern is required');
+          }
+
+          // Créer le regex
+          const flags = multiMatch ? 'gi' : 'i';
+          const regex = new RegExp(pattern, flags);
+
+          if (multiMatch) {
+            // Extraire toutes les correspondances
+            const matches: string[] = [];
+            let match;
+            while ((match = regex.exec(sourceText)) !== null) {
+              // Si il y a des groupes de capture, utiliser le premier groupe
+              // Sinon utiliser le match complet
+              matches.push(match[1] !== undefined ? match[1] : match[0]);
+            }
+            result = matches;
+            this.context.log(node.id, 'info', `Extracted ${matches.length} matches`);
+          } else {
+            // Extraire la première correspondance
+            const match = sourceText.match(regex);
+            if (match) {
+              // Si il y a des groupes de capture, utiliser le premier groupe
+              // Sinon utiliser le match complet
+              result = match[1] !== undefined ? match[1] : match[0];
+              this.context.log(node.id, 'success', 'Value extracted successfully', {
+                extracted: String(result).substring(0, 100)
+              });
+            } else {
+              this.context.log(node.id, 'warning', 'No match found for pattern');
+              result = null;
+            }
+          }
+          break;
+        }
+
+        case 'number': {
+          // Extraire le premier nombre trouvé
+          const numberMatch = sourceText.match(/[-+]?\d*\.?\d+/);
+          if (numberMatch) {
+            result = parseFloat(numberMatch[0]);
+            this.context.log(node.id, 'success', `Extracted number: ${result}`);
+          } else {
+            this.context.log(node.id, 'warning', 'No number found in source');
+            result = null;
+          }
+          break;
+        }
+
+        case 'json': {
+          // Extraire un champ JSON (utilise pattern comme JSON path simple)
+          try {
+            const jsonObj = typeof sourceValue === 'string'
+              ? JSON.parse(sourceValue)
+              : sourceValue;
+
+            if (pattern) {
+              // Simple JSON path: "field" ou "field.subfield"
+              const parts = pattern.split('.');
+              let value = jsonObj;
+              for (const part of parts) {
+                value = value?.[part];
+                if (value === undefined) break;
+              }
+              result = value;
+            } else {
+              result = jsonObj;
+            }
+
+            this.context.log(node.id, 'success', 'JSON field extracted');
+          } catch (error) {
+            this.context.log(node.id, 'error', `JSON parsing failed: ${String(error)}`);
+            result = null;
+          }
+          break;
+        }
+
+        case 'lines': {
+          // Extraire des lignes spécifiques
+          const lines = sourceText.split('\n');
+          if (pattern) {
+            // Pattern est un range: "1-3" ou "5" ou "2-"
+            const rangeMatch = pattern.match(/^(\d+)(?:-(\d*))?$/);
+            if (rangeMatch) {
+              const start = parseInt(rangeMatch[1]) - 1; // Convert to 0-indexed
+              const end = rangeMatch[2] ? (rangeMatch[2] ? parseInt(rangeMatch[2]) : lines.length) : start + 1;
+              result = lines.slice(start, end).join('\n');
+            } else {
+              result = lines;
+            }
+          } else {
+            result = lines;
+          }
+          this.context.log(node.id, 'success', 'Lines extracted');
+          break;
+        }
+
+        default:
+          throw new Error(`Unknown extract type: ${extractType}`);
+      }
+
+      // Stocker le résultat
+      if (outputVar) {
+        this.context.setVariable(outputVar, result);
+        this.context.log(node.id, 'info', `Stored result in variable: ${outputVar}`);
+      }
+
+      // Toujours stocker dans une variable par défaut et lastValue
+      this.context.setVariable(`extract_${node.id}`, result);
+      this.context.setVariable('lastValue', result);
+
+    } catch (error) {
+      this.context.log(node.id, 'error', `Extraction failed: ${String(error)}`);
+      this.context.setVariable(`extract_${node.id}`, null);
+      this.context.setVariable('lastValue', null);
+    }
   }
 
   private async executeSwitchNode(node: WorkflowNode): Promise<void> {
