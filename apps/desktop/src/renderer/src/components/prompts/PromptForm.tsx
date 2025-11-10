@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User } from 'lucide-react';
+import { User, FileText } from 'lucide-react';
 import type { Prompt, PromptFormData, PromptColor } from '../../types/prompt';
 import { PROMPT_CATEGORIES, PROMPT_COLORS, SUGGESTED_PROMPT_ICONS, extractVariables } from '../../types/prompt';
 import { usePersonas } from '../../hooks/usePersonas';
@@ -35,6 +35,8 @@ export function PromptForm({
     tags: [],
     defaultPersonaId: undefined,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: undefined,
   });
 
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
@@ -70,6 +72,8 @@ export function PromptForm({
         tags,
         defaultPersonaId: prompt.defaultPersonaId || undefined,
         defaultIncludeFewShots: prompt.defaultIncludeFewShots || false,
+        availableInEditor: prompt.availableInEditor || false,
+        editorTitle: prompt.editorTitle || undefined,
       });
     }
   }, [prompt]);
@@ -283,6 +287,65 @@ export function PromptForm({
               <div className="text-sm font-medium">{selectedPersona.name}</div>
               <div className="text-xs text-muted-foreground">{selectedPersona.description}</div>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Disponibilité dans l'éditeur */}
+      <div className="p-4 glass-card rounded-xl">
+        <label className="block text-sm font-medium mb-3 flex items-center gap-2">
+          <FileText className="w-4 h-4" />
+          Disponibilité dans l'éditeur
+        </label>
+
+        {/* Checkbox pour activer dans l'éditeur */}
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            id="availableInEditor"
+            checked={formData.availableInEditor}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                availableInEditor: e.target.checked,
+                // Réinitialiser le titre si désactivé
+                editorTitle: e.target.checked ? formData.editorTitle : undefined,
+              })
+            }
+            className="w-4 h-4 rounded accent-purple-500 mt-1"
+          />
+          <div className="flex-1">
+            <label htmlFor="availableInEditor" className="text-sm cursor-pointer">
+              Rendre disponible dans l'éditeur de documentation
+            </label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ce prompt apparaîtra dans le menu contextuel (clic droit) et le menu déroulant de l'éditeur
+            </p>
+          </div>
+        </div>
+
+        {/* Champ pour le titre personnalisé */}
+        {formData.availableInEditor && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-2">
+              Titre dans l'éditeur
+              <span className="text-xs text-muted-foreground ml-2">(optionnel)</span>
+            </label>
+            <input
+              type="text"
+              value={formData.editorTitle || ''}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  editorTitle: e.target.value || undefined,
+                })
+              }
+              className="w-full px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              placeholder={`Par défaut : ${formData.name}`}
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Titre court affiché dans le menu contextuel. Si vide, le nom du prompt sera utilisé.
+            </p>
           </div>
         )}
       </div>
