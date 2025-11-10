@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Trash2, Settings, Search } from 'lucide-react';
+import { Trash2, Settings, Search, Wand2 } from 'lucide-react';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ModelSelector } from './ModelSelector';
@@ -12,6 +12,8 @@ import type { MessageMetadata } from '../../hooks/useConversations';
 import type { Persona } from '../../types/persona';
 import { PERSONA_COLOR_CLASSES } from '../../types/persona';
 import { User } from 'lucide-react';
+import { usePrompts } from '../../hooks/usePrompts';
+import { replaceVariables } from '../../types/prompt';
 
 interface ChatInterfaceProps {
   // Props de configuration
@@ -20,6 +22,7 @@ interface ChatInterfaceProps {
   hideStats?: boolean;
   hideImportExport?: boolean;
   documentContext?: string; // Contexte du document pour l'éditeur
+  selectedText?: string; // Texte sélectionné dans l'éditeur
   onInsertText?: (text: string) => void; // Callback pour insérer du texte dans l'éditeur
 
   // Props pour les personas
@@ -34,11 +37,13 @@ export function ChatInterface({
   hideStats = true,
   hideImportExport = false,
   documentContext,
+  selectedText,
   onInsertText,
   personas = [],
   currentPersona: externalPersona,
   onPersonaChange,
 }: ChatInterfaceProps) {
+  const { prompts } = usePrompts();
   const [messages, setMessages] = useState<OllamaMessage[]>([]);
   const [messageMetadata, setMessageMetadata] = useState<Record<number, MessageMetadata>>({});
   const [selectedModel, setSelectedModel] = useState('');
@@ -50,6 +55,7 @@ export function ChatInterface({
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
   const [currentPersona, setCurrentPersona] = useState<Persona | null>(externalPersona || null);
+  const [prefilledMessage, setPrefilledMessage] = useState<string>('');
   const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
     try {
       const saved = localStorage.getItem('chatSettings');
@@ -62,6 +68,12 @@ export function ChatInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentStreamIdRef = useRef<string | null>(null);
   const currentMentionedPersonaIdsRef = useRef<string[] | undefined>(undefined);
+  const chatInputRef = useRef<{ setMessage: (msg: string) => void } | null>(null);
+
+  // Filtrer les prompts disponibles pour l'éditeur
+  const editorPrompts = documentContext
+    ? prompts.filter(p => p.availableInEditor)
+    : [];
 
   // Synchroniser le persona externe avec le persona interne
   useEffect(() => {
@@ -243,6 +255,27 @@ export function ChatInterface({
     setIsPersonaModalOpen(false);
   };
 
+  const handleApplyPrompt = (promptId: string) => {
+    const prompt = prompts.find(p => p.id === promptId);
+    if (!prompt) return;
+
+    // Déterminer le texte à utiliser (sélection ou document complet)
+    const textToUse = selectedText || documentContext || '';
+
+    // Remplacer les variables dans le prompt
+    const filledContent = replaceVariables(prompt.content, {
+      texte: textToUse,
+      text: textToUse,
+      contenu: textToUse,
+      content: textToUse,
+      selection: textToUse,
+      document: documentContext || '',
+    });
+
+    // Pré-remplir l'input avec le prompt
+    setPrefilledMessage(filledContent);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -280,6 +313,30 @@ export function ChatInterface({
                 </>
               )}
             </button>
+
+            {/* Prompt Selector for Editor */}
+            {editorPrompts.length > 0 && (
+              <div className="relative">
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleApplyPrompt(e.target.value);
+                      e.target.value = ''; // Reset after selection
+                    }
+                  }}
+                  className="header-btn gap-2 px-3 pr-8 glass-hover appearance-none cursor-pointer"
+                  title="Appliquer une fonction sur le texte"
+                >
+                  <option value="">🪄 Actions rapides</option>
+                  {editorPrompts.map(prompt => (
+                    <option key={prompt.id} value={prompt.id}>
+                      {prompt.icon} {prompt.editorTitle || prompt.name}
+                    </option>
+                  ))}
+                </select>
+                <Wand2 className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -390,6 +447,8 @@ export function ChatInterface({
           isGenerating={isGenerating}
           placeholder={selectedModel ? 'Tapez votre message...' : 'Sélectionnez d\'abord un modèle...'}
           personas={personas}
+          initialMessage={prefilledMessage}
+          onMessageChange={() => setPrefilledMessage('')}
         />
       </div>
 
