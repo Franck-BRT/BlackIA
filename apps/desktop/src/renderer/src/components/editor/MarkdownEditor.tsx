@@ -15,7 +15,6 @@ import {
   Eye,
   Edit3,
   Save,
-  FileDown,
   FileUp,
   Image,
   Table,
@@ -38,7 +37,7 @@ interface MarkdownEditorProps {
 
 type ViewMode = 'edit' | 'preview' | 'split' | 'ai-assist';
 
-type ConfirmAction = 'new' | 'close' | 'overwrite' | null;
+type ConfirmAction = 'new' | 'close' | null;
 
 export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorProps) {
   const [content, setContent] = useState(initialContent);
@@ -49,7 +48,6 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
   const [isDirty, setIsDirty] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<ConfirmAction>(null);
-  const [currentFile, setCurrentFile] = useState<File | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const initialContentRef = useRef(initialContent);
@@ -306,36 +304,10 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
       return;
     }
 
-    // Sinon, gérer la sauvegarde nous-mêmes
-    if (currentFile) {
-      // Fichier existant : demander confirmation pour écraser
-      setPendingAction('overwrite');
-      setShowConfirmModal(true);
-    } else {
-      // Nouveau fichier : exporter directement
-      handleExport();
-      initialContentRef.current = content;
-      setIsDirty(false);
-    }
-  };
-
-  const confirmOverwrite = () => {
-    if (!currentFile) return;
-
-    // Créer un nouveau fichier avec le même nom
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = currentFile.name;
-    a.click();
-    URL.revokeObjectURL(url);
-
-    // Mettre à jour l'état
+    // Sinon, ouvrir la boîte de dialogue de sauvegarde (comme Export)
+    handleExport();
     initialContentRef.current = content;
     setIsDirty(false);
-    setShowConfirmModal(false);
-    setPendingAction(null);
   };
 
   const handleExport = () => {
@@ -359,7 +331,6 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
         reader.onload = (e) => {
           const text = e.target?.result as string;
           setContent(text);
-          setCurrentFile(file); // Enregistrer le fichier importé
           initialContentRef.current = text;
           setIsDirty(false);
         };
@@ -382,7 +353,6 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
   const confirmNewFile = () => {
     setContent('');
     initialContentRef.current = '';
-    setCurrentFile(null); // Réinitialiser le fichier
     setIsDirty(false);
     setShowConfirmModal(false);
     setPendingAction(null);
@@ -401,7 +371,6 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
   const confirmClose = () => {
     setContent('');
     initialContentRef.current = '';
-    setCurrentFile(null); // Réinitialiser le fichier
     setIsDirty(false);
     setShowConfirmModal(false);
     setPendingAction(null);
@@ -433,8 +402,6 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
       confirmNewFile();
     } else if (pendingAction === 'close') {
       confirmClose();
-    } else if (pendingAction === 'overwrite') {
-      confirmOverwrite();
     }
   };
 
@@ -595,15 +562,7 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
           </button>
         </div>
 
-        <div className="flex-1 flex items-center justify-center">
-          {/* File name indicator */}
-          {currentFile && (
-            <div className="text-sm text-muted-foreground flex items-center gap-2">
-              <span className="font-medium">{currentFile.name}</span>
-              {isDirty && <span className="text-orange-400">•</span>}
-            </div>
-          )}
-        </div>
+        <div className="flex-1" />
 
         {/* Action buttons */}
         <div className="flex items-center gap-1">
@@ -632,27 +591,18 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
             <FileUp className="w-4 h-4" />
           </button>
           <button
-            onClick={handleExport}
-            className="p-2 rounded hover:bg-white/10 transition-colors"
-            title="Exporter en markdown"
+            onClick={handleSave}
+            className={cn(
+              "px-3 py-2 rounded transition-colors flex items-center gap-2",
+              isDirty
+                ? "bg-purple-500/30 hover:bg-purple-500/40"
+                : "bg-purple-500/20 hover:bg-purple-500/30"
+            )}
+            title="Sauvegarder sous... (Ctrl+S)"
           >
-            <FileDown className="w-4 h-4" />
+            <Save className="w-4 h-4" />
+            <span className="text-sm">Sauvegarder{isDirty ? ' *' : ''}</span>
           </button>
-          {onSave && (
-            <button
-              onClick={handleSave}
-              className={cn(
-                "px-3 py-2 rounded transition-colors flex items-center gap-2",
-                isDirty
-                  ? "bg-purple-500/30 hover:bg-purple-500/40"
-                  : "bg-purple-500/20 hover:bg-purple-500/30"
-              )}
-              title="Sauvegarder (Ctrl+S)"
-            >
-              <Save className="w-4 h-4" />
-              <span className="text-sm">Sauvegarder{isDirty ? ' *' : ''}</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -788,61 +738,34 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="glass-card border border-white/10 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
             <h3 className="text-xl font-bold mb-2">
-              {pendingAction === 'overwrite'
-                ? 'Écraser le fichier ?'
-                : pendingAction === 'new'
-                ? 'Nouveau fichier'
-                : 'Fermer le fichier'}
+              {pendingAction === 'new' ? 'Nouveau fichier' : 'Fermer le fichier'}
             </h3>
             <p className="text-muted-foreground mb-6">
-              {pendingAction === 'overwrite'
-                ? `Voulez-vous écraser le fichier "${currentFile?.name}" avec les modifications actuelles ?`
-                : 'Vous avez des modifications non enregistrées. Que souhaitez-vous faire ?'}
+              Vous avez des modifications non enregistrées. Que souhaitez-vous faire ?
             </p>
 
             <div className="flex flex-col gap-3">
-              {pendingAction === 'overwrite' ? (
-                <>
-                  <button
-                    onClick={confirmOverwrite}
-                    className="w-full px-4 py-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 transition-colors flex items-center justify-center gap-2 font-medium"
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>Écraser le fichier</span>
-                  </button>
+              <button
+                onClick={handleSaveAndContinue}
+                className="w-full px-4 py-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 transition-colors flex items-center justify-center gap-2 font-medium"
+              >
+                <Save className="w-4 h-4" />
+                <span>{onSave ? 'Enregistrer et continuer' : 'Sauvegarder et continuer'}</span>
+              </button>
 
-                  <button
-                    onClick={handleCancelAction}
-                    className="w-full px-4 py-3 rounded-lg glass-hover transition-colors font-medium"
-                  >
-                    Annuler
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={handleSaveAndContinue}
-                    className="w-full px-4 py-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 transition-colors flex items-center justify-center gap-2 font-medium"
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>{onSave ? 'Enregistrer et continuer' : 'Exporter et continuer'}</span>
-                  </button>
+              <button
+                onClick={handleContinueWithoutSaving}
+                className="w-full px-4 py-3 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 transition-colors font-medium text-orange-300"
+              >
+                Continuer sans enregistrer
+              </button>
 
-                  <button
-                    onClick={handleContinueWithoutSaving}
-                    className="w-full px-4 py-3 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 transition-colors font-medium text-orange-300"
-                  >
-                    Continuer sans enregistrer
-                  </button>
-
-                  <button
-                    onClick={handleCancelAction}
-                    className="w-full px-4 py-3 rounded-lg glass-hover transition-colors font-medium"
-                  >
-                    Annuler
-                  </button>
-                </>
-              )}
+              <button
+                onClick={handleCancelAction}
+                className="w-full px-4 py-3 rounded-lg glass-hover transition-colors font-medium"
+              >
+                Annuler
+              </button>
             </div>
           </div>
         </div>
