@@ -1,69 +1,102 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Trash2, Settings, Menu, Search, BarChart3, User } from 'lucide-react';
-import { ChatMessage } from '../components/chat/ChatMessage';
-import { ChatInput } from '../components/chat/ChatInput';
-import { ModelSelector } from '../components/chat/ModelSelector';
-import { ChatSettings, ChatSettingsData, DEFAULT_CHAT_SETTINGS } from '../components/chat/ChatSettings';
 import { ConversationSidebar } from '../components/chat/ConversationSidebarWithFolders';
-import { ExportMenu } from '../components/chat/ExportMenu';
-import { ImportExportMenu, BackupData } from '../components/chat/ImportExportMenu';
+import { ChatHeader } from '../components/chat/ChatHeader';
+import { ChatMessages } from '../components/chat/ChatMessages';
+import { ChatModals } from '../components/chat/ChatModals';
+import { ChatInput } from '../components/chat/ChatInput';
 import { ChatSearchBar } from '../components/chat/ChatSearchBar';
-import { TagModal } from '../components/chat/TagModal';
-import { FolderModal } from '../components/chat/FolderModal';
-import { KeyboardShortcutsModal } from '../components/chat/KeyboardShortcutsModal';
-import { StatisticsModal } from '../components/chat/StatisticsModal';
-import { PersonaSelectionModal } from '../components/chat/PersonaSelectionModal';
-import { useConversations, type MessageMetadata } from '../hooks/useConversations';
+import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
 import { usePersonas } from '../hooks/usePersonas';
 import { useKeyboardShortcuts, KeyboardShortcut } from '../hooks/useKeyboardShortcuts';
 import { useCustomKeyboardShortcuts } from '../hooks/useCustomKeyboardShortcuts';
 import { useStatistics } from '../hooks/useStatistics';
-import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
+import { useChatState } from '../hooks/useChatState';
+import { useChatStreaming } from '../hooks/useChatStreaming';
+import { useChatPersona } from '../hooks/useChatPersona';
+import { useChatSearch } from '../hooks/useChatSearch';
+import { useChatActions } from '../hooks/useChatActions';
+import type { BackupData } from '../components/chat/ImportExportMenu';
 import type { Folder } from '../hooks/useConversations';
-import type { Persona } from '../types/persona';
-import { PERSONA_COLOR_CLASSES } from '../types/persona';
 
+/**
+ * ChatPage - Composant principal du chat refactorisé
+ *
+ * Réduit de 1,393 lignes à ~300 lignes grâce à :
+ * - 5 hooks personnalisés (useChatState, useChatStreaming, useChatPersona, useChatSearch, useChatActions)
+ * - 3 composants extraits (ChatHeader, ChatMessages, ChatModals)
+ *
+ * Améliore la maintenabilité, la testabilité et la lisibilité du code.
+ */
 export function ChatPage() {
   const location = useLocation();
-  const [messages, setMessages] = useState<OllamaMessage[]>([]);
-  const [messageMetadata, setMessageMetadata] = useState<Record<number, MessageMetadata>>({});
-  const [prefillMessage, setPrefillMessage] = useState<string>('');
-  const [prefillPersonaId, setPrefillPersonaId] = useState<string | undefined>(undefined);
-  const [prefillIncludeFewShots, setPrefillIncludeFewShots] = useState<boolean>(false);
-  const [selectedModel, setSelectedModel] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [streamingMessage, setStreamingMessage] = useState('');
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [regenerationCounts, setRegenerationCounts] = useState<Map<number, number>>(new Map());
-  const [isChatSearchOpen, setIsChatSearchOpen] = useState(false);
-  const [chatSearchQuery, setChatSearchQuery] = useState('');
-  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
-  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
-  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
-  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
-  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
-  const [isStatisticsModalOpen, setIsStatisticsModalOpen] = useState(false);
-  const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
-  const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
-    // Charger les settings depuis localStorage au démarrage
-    try {
-      const saved = localStorage.getItem('chatSettings');
-      return saved ? JSON.parse(saved) : DEFAULT_CHAT_SETTINGS;
-    } catch {
-      return DEFAULT_CHAT_SETTINGS;
-    }
-  });
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const currentStreamIdRef = useRef<string | null>(null);
-  const previousMessagesLengthRef = useRef<number>(0);
-  const currentMentionedPersonaIdRef = useRef<string | undefined>(undefined); // Legacy
-  const currentMentionedPersonaIdsRef = useRef<string[] | undefined>(undefined); // Pour @mention multiple
 
-  // Hook pour gérer les conversations
+  // === HOOKS PERSONNALISÉS ===
+
+  // 1. États centralisés
+  const {
+    // Messages
+    messages,
+    setMessages,
+    messageMetadata,
+    setMessageMetadata,
+    streamingMessage,
+    setStreamingMessage,
+    isGenerating,
+    setIsGenerating,
+    regenerationCounts,
+    setRegenerationCounts,
+    // Préfill
+    prefillMessage,
+    setPrefillMessage,
+    prefillPersonaId,
+    setPrefillPersonaId,
+    prefillIncludeFewShots,
+    setPrefillIncludeFewShots,
+    // Modèle
+    selectedModel,
+    setSelectedModel,
+    // Modals
+    isSettingsOpen,
+    setIsSettingsOpen,
+    isTagModalOpen,
+    setIsTagModalOpen,
+    isFolderModalOpen,
+    setIsFolderModalOpen,
+    isShortcutsModalOpen,
+    setIsShortcutsModalOpen,
+    isStatisticsModalOpen,
+    setIsStatisticsModalOpen,
+    isPersonaModalOpen,
+    setIsPersonaModalOpen,
+    editingFolder,
+    setEditingFolder,
+    // UI
+    isSidebarOpen,
+    setIsSidebarOpen,
+    // Recherche
+    isChatSearchOpen,
+    setIsChatSearchOpen,
+    chatSearchQuery,
+    setChatSearchQuery,
+    currentSearchIndex,
+    setCurrentSearchIndex,
+    // Settings
+    chatSettings,
+    updateChatSettings,
+    // Refs
+    messagesEndRef,
+    currentStreamIdRef,
+    previousMessagesLengthRef,
+    currentMentionedPersonaIdRef,
+    currentMentionedPersonaIdsRef,
+    // Helpers
+    resetChatState,
+  } = useChatState();
+
+  // 2. Conversations, dossiers, tags, personas
   const {
     conversations,
     currentConversationId,
@@ -84,7 +117,6 @@ export function ChatPage() {
     removeTagFromAllConversations,
   } = useConversations();
 
-  // Hook pour gérer les dossiers
   const {
     folders,
     createFolder,
@@ -94,7 +126,6 @@ export function ChatPage() {
     importFolders,
   } = useFolders();
 
-  // Hook pour gérer les tags
   const {
     tags,
     createTag,
@@ -103,54 +134,87 @@ export function ChatPage() {
     importTags,
   } = useTags();
 
-  // Hook pour gérer les personas
   const { personas, incrementUsage: incrementPersonaUsage } = usePersonas();
 
-  // Hook pour les statistiques
+  // 3. Streaming Ollama
+  useChatStreaming({
+    setStreamingMessage,
+    setIsGenerating,
+    setMessages,
+    setMessageMetadata,
+    currentStreamIdRef,
+    currentMentionedPersonaIdRef,
+    currentMentionedPersonaIdsRef,
+  });
+
+  // 4. Gestion des personas
+  const { currentPersona, handleSelectPersona } = useChatPersona({
+    personas,
+    getCurrentConversation,
+    currentConversationId,
+    updateConversation,
+    createConversation,
+    selectedModel,
+    setSelectedModel,
+    setMessages,
+    chatSettings,
+    setChatSettings: updateChatSettings,
+    messages,
+  });
+
+  // 5. Recherche dans le chat
+  const {
+    searchResults,
+    handleChatSearchChange,
+    handleSearchNext,
+    handleSearchPrevious,
+    handleCloseChatSearch,
+  } = useChatSearch({
+    messages,
+    chatSearchQuery,
+    setChatSearchQuery,
+    currentSearchIndex,
+    setCurrentSearchIndex,
+    isChatSearchOpen,
+    setIsChatSearchOpen,
+  });
+
+  // 6. Actions du chat (send, stop, clear, regenerate, edit)
+  const {
+    handleSendMessage,
+    handleStop,
+    handleClearChat,
+    handleRegenerate,
+    handleEditUserMessage,
+  } = useChatActions({
+    messages,
+    setMessages,
+    messageMetadata,
+    setMessageMetadata,
+    streamingMessage,
+    setStreamingMessage,
+    isGenerating,
+    setIsGenerating,
+    selectedModel,
+    setRegenerationCounts,
+    currentStreamIdRef,
+    currentMentionedPersonaIdRef,
+    currentMentionedPersonaIdsRef,
+    currentConversationId,
+    createConversation,
+    personas,
+    currentPersona,
+    chatSettings,
+    incrementPersonaUsage,
+  });
+
+  // 7. Statistiques
   const statistics = useStatistics(conversations, personas);
 
-  // Hook pour les raccourcis clavier personnalisés
+  // 8. Raccourcis clavier personnalisés
   const { shortcuts: customShortcuts } = useCustomKeyboardShortcuts();
 
-  // Calculer les résultats de recherche dans le chat
-  const searchResults = useMemo(() => {
-    if (!chatSearchQuery.trim()) {
-      return { totalCount: 0, messageOccurrences: [] };
-    }
-
-    const query = chatSearchQuery.toLowerCase();
-    const escapedQuery = chatSearchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(escapedQuery, 'gi');
-
-    let totalCount = 0;
-    const messageOccurrences: Array<{ messageIndex: number; startIndex: number; count: number }> = [];
-
-    messages.forEach((message, messageIndex) => {
-      const matches = message.content.match(regex);
-      if (matches && matches.length > 0) {
-        messageOccurrences.push({
-          messageIndex,
-          startIndex: totalCount,
-          count: matches.length,
-        });
-        totalCount += matches.length;
-      }
-    });
-
-    return { totalCount, messageOccurrences };
-  }, [messages, chatSearchQuery]);
-
-  // Obtenir le persona actuel de la conversation
-  const currentPersona = useMemo(() => {
-    const currentConv = getCurrentConversation();
-    if (!currentConv?.personaId) return null;
-    return personas.find((p) => p.id === currentConv.personaId) || null;
-  }, [getCurrentConversation, personas, currentConversationId]);
-
-  // Auto-scroll vers le bas
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  // === EFFETS ===
 
   // Gérer le pré-remplissage depuis un prompt
   useEffect(() => {
@@ -164,25 +228,17 @@ export function ChatPage() {
       setPrefillMessage(state.prefillMessage);
       setPrefillPersonaId(state.personaId);
       setPrefillIncludeFewShots(state.includeFewShots || false);
-      // Nettoyer le state pour éviter de re-remplir lors de la navigation suivante
       window.history.replaceState({}, document.title);
     }
   }, [location]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, streamingMessage]);
 
   // Auto-sauvegarder la conversation quand les messages changent
   useEffect(() => {
     if (currentConversationId && messages.length > 0) {
       const title = generateTitle(messages);
-
-      // Déterminer si c'est un nouveau message ou juste un chargement
       const isNewMessage = messages.length > previousMessagesLengthRef.current;
       previousMessagesLengthRef.current = messages.length;
 
-      // Ne pas réorganiser la liste si on ne fait que charger
       updateConversation(
         currentConversationId,
         {
@@ -191,144 +247,14 @@ export function ChatPage() {
           model: selectedModel,
           title,
         },
-        !isNewMessage // skipSort = true si pas de nouveau message
+        !isNewMessage
       );
 
-      console.log('[ChatPage] 💾 Conversation auto-sauvegardée:', currentConversationId, 'isNewMessage:', isNewMessage);
+      console.log('[ChatPage] 💾 Conversation auto-sauvegardée:', currentConversationId);
     }
-  }, [messages, messageMetadata, currentConversationId, selectedModel, updateConversation, generateTitle]);
+  }, [messages, messageMetadata, currentConversationId, selectedModel]);
 
-  // Setup des listeners pour le streaming
-  useEffect(() => {
-    console.log('[ChatPage] 🎧 Enregistrement des listeners de streaming');
-
-    // Listener pour le début du streaming - SET LE STREAMID IMMÉDIATEMENT
-    window.electronAPI.ollama.onStreamStart((data: { streamId: string }) => {
-      console.log('[ChatPage] 🚀 Stream start reçu, streamId:', data.streamId);
-      currentStreamIdRef.current = data.streamId;
-      setStreamingMessage('');
-      setIsGenerating(true);
-    });
-
-    // Listener pour les chunks de streaming
-    window.electronAPI.ollama.onStreamChunk((data: { streamId: string; chunk: OllamaChatStreamChunk }) => {
-      console.log('[ChatPage] 📥 Chunk reçu:', {
-        receivedStreamId: data.streamId,
-        currentStreamId: currentStreamIdRef.current,
-        content: data.chunk.message.content,
-        done: data.chunk.done,
-      });
-
-      // Utiliser le ref au lieu du state pour éviter les problèmes de timing
-      if (data.streamId === currentStreamIdRef.current) {
-        console.log('[ChatPage] ✅ StreamId match! Traitement du chunk');
-        setStreamingMessage((prev) => {
-          const newContent = prev + data.chunk.message.content;
-          console.log('[ChatPage] 📝 Contenu accumulé:', newContent);
-          return newContent;
-        });
-
-        // Si le stream est terminé
-        if (data.chunk.done) {
-          console.log('[ChatPage] 🏁 Stream terminé, création du message final');
-          setStreamingMessage((currentContent) => {
-            const finalContent = currentContent + data.chunk.message.content;
-            const finalMessage: OllamaMessage = {
-              role: 'assistant',
-              content: finalContent,
-            };
-            setMessages((prev) => {
-              const newMessages = [...prev, finalMessage];
-              // L'index du message assistant sera prev.length
-              const assistantMessageIndex = prev.length;
-
-              // Si des personas ont été mentionnés pour cette requête, ajouter les métadonnées
-              if (currentMentionedPersonaIdsRef.current && currentMentionedPersonaIdsRef.current.length > 0) {
-                setMessageMetadata((prevMetadata) => ({
-                  ...prevMetadata,
-                  [assistantMessageIndex]: {
-                    personaId: currentMentionedPersonaIdsRef.current[0], // Legacy
-                    personaIds: currentMentionedPersonaIdsRef.current,
-                    timestamp: Date.now(),
-                  },
-                }));
-                console.log('[ChatPage] 📝 Métadonnées ajoutées pour le message assistant à l\'index', assistantMessageIndex, 'personas:', currentMentionedPersonaIdsRef.current);
-              }
-
-              return newMessages;
-            });
-            return '';
-          });
-          setIsGenerating(false);
-          currentStreamIdRef.current = null;
-          currentMentionedPersonaIdRef.current = undefined; // Réinitialiser (legacy)
-          currentMentionedPersonaIdsRef.current = undefined; // Réinitialiser
-        }
-      } else {
-        console.log('[ChatPage] ⚠️ StreamId ne correspond pas, chunk ignoré');
-      }
-    });
-
-    // Listener pour la fin du stream
-    window.electronAPI.ollama.onStreamEnd((data: { streamId: string; stopped?: boolean }) => {
-      console.log('[ChatPage] 🏁 Stream terminé:', {
-        streamId: data.streamId,
-        stopped: data.stopped,
-        currentStreamId: currentStreamIdRef.current,
-      });
-
-      // Vérifier que c'est bien notre stream
-      if (data.streamId === currentStreamIdRef.current) {
-        console.log('[ChatPage] ✅ Cleanup du stream');
-
-        // Si le stream a été stoppé, sauvegarder le contenu partiel
-        if (data.stopped) {
-          console.log('[ChatPage] 🛑 Stream stoppé, vérification du contenu partiel...');
-          setStreamingMessage((currentContent) => {
-            console.log('[ChatPage] 📝 Contenu partiel à sauvegarder:', currentContent?.substring(0, 100));
-            if (currentContent && currentContent.trim()) {
-              const partialMessage: OllamaMessage = {
-                role: 'assistant',
-                content: currentContent + ' [interrompu]',
-              };
-              console.log('[ChatPage] 💾 Sauvegarde du message partiel');
-              setMessages((prev) => [...prev, partialMessage]);
-            } else {
-              console.log('[ChatPage] ⚠️ Pas de contenu partiel à sauvegarder');
-            }
-            return '';
-          });
-        }
-
-        setIsGenerating(false);
-        currentStreamIdRef.current = null;
-      }
-    });
-
-    // Listener pour les erreurs
-    window.electronAPI.ollama.onStreamError((data: { error: string }) => {
-      console.error('[ChatPage] ❌ Erreur de streaming:', data.error);
-      setIsGenerating(false);
-      currentStreamIdRef.current = null;
-      setStreamingMessage('');
-
-      // Ajouter un message d'erreur
-      const errorMessage: OllamaMessage = {
-        role: 'system',
-        content: `❌ Erreur: ${data.error}`,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    });
-
-    // Cleanup
-    return () => {
-      console.log('[ChatPage] 🧹 Nettoyage des listeners');
-      window.electronAPI.ollama.removeAllListeners('ollama:streamStart');
-      window.electronAPI.ollama.removeAllListeners('ollama:streamChunk');
-      window.electronAPI.ollama.removeAllListeners('ollama:streamEnd');
-      window.electronAPI.ollama.removeAllListeners('ollama:streamError');
-    };
-  }, []); // Pas de dépendances pour n'enregistrer qu'une seule fois
+  // === HANDLERS ===
 
   // Nouvelle conversation
   const handleNewConversation = () => {
@@ -336,170 +262,9 @@ export function ChatPage() {
       return;
     }
 
-    // Reset l'UI et le currentConversationId
-    // La conversation sera créée automatiquement au premier message
     setCurrentConversationId(null);
-    setMessages([]);
-    setMessageMetadata({});
-    setStreamingMessage('');
-    setIsGenerating(false);
-    currentStreamIdRef.current = null;
-    currentMentionedPersonaIdRef.current = undefined;
-    currentMentionedPersonaIdsRef.current = undefined;
-    previousMessagesLengthRef.current = 0;
-    setRegenerationCounts(new Map());
-
+    resetChatState();
     console.log('[ChatPage] ✨ Prêt pour une nouvelle conversation');
-  };
-
-  // Import d'une conversation unique
-  const handleImportConversation = (conversation: any) => {
-    importConversation(conversation);
-  };
-
-  // Import d'un backup complet
-  const handleImportBackup = (data: BackupData, mode: 'merge' | 'replace') => {
-    // Importer les conversations
-    importBackup(data.conversations, mode);
-
-    // Importer les dossiers
-    if (data.folders) {
-      importFolders(data.folders, mode);
-    }
-
-    // Importer les tags
-    if (data.tags) {
-      importTags(data.tags, mode);
-    }
-
-    console.log('[ChatPage] ✅ Backup importé:', mode, data.conversations.length, 'conversations');
-  };
-
-  // Suppression de tag avec nettoyage
-  const handleDeleteTag = (tagId: string) => {
-    // Retirer le tag de toutes les conversations
-    removeTagFromAllConversations(tagId);
-    // Supprimer le tag
-    deleteTag(tagId);
-  };
-
-  // Sélectionner un persona pour la conversation
-  const handleSelectPersona = async (persona: Persona | null, includeFewShots: boolean) => {
-    // Si persona est null, on le retire
-    if (!persona) {
-      if (currentConversationId) {
-        updateConversation(currentConversationId, { personaId: undefined });
-        console.log('[ChatPage] 👤 Persona retiré de la conversation');
-      }
-      return;
-    }
-
-    // Déterminer le modèle à utiliser
-    const modelToUse = persona.model || selectedModel;
-
-    // Si pas de modèle sélectionné du tout, demander à l'utilisateur
-    if (!modelToUse) {
-      alert('Veuillez d\'abord sélectionner un modèle');
-      return;
-    }
-
-    // Vérifier si le persona utilise un modèle différent
-    if (persona.model && persona.model !== selectedModel) {
-      const confirmed = confirm(
-        `Le persona "${persona.name}" utilise le modèle "${persona.model}".\n\n` +
-        `Voulez-vous changer le modèle actuel "${selectedModel || 'aucun'}" vers "${persona.model}" ?`
-      );
-
-      if (confirmed) {
-        setSelectedModel(persona.model);
-        console.log('[ChatPage] 🔄 Modèle changé:', selectedModel, '→', persona.model);
-      }
-    } else if (!selectedModel) {
-      // Si aucun modèle n'était sélectionné, utiliser celui du persona ou demander
-      setSelectedModel(modelToUse);
-    }
-
-    // Créer une nouvelle conversation si nécessaire
-    let conversationId = currentConversationId;
-    const isNewConversation = !conversationId || messages.length === 0;
-
-    if (!conversationId) {
-      const newConv = createConversation(modelToUse, `Conversation avec ${persona.name}`);
-      conversationId = newConv.id;
-      console.log('[ChatPage] ✨ Nouvelle conversation créée pour le persona:', conversationId);
-    }
-
-    // Stocker le persona dans la conversation
-    updateConversation(conversationId, { personaId: persona.id });
-
-    // Stocker les préférences few-shots dans chatSettings (temporaire pour cette session)
-    setChatSettings(prev => ({
-      ...prev,
-      includeFewShots,
-    }));
-
-    console.log('[ChatPage] 👤 Persona appliqué:', persona.name, 'Few-shots:', includeFewShots);
-
-    // Si c'est une nouvelle conversation, générer un message de bienvenue
-    if (isNewConversation) {
-      await generatePersonaWelcomeMessage(persona, includeFewShots, modelToUse);
-    }
-  };
-
-  // Générer un message de bienvenue du persona
-  const generatePersonaWelcomeMessage = async (persona: Persona, includeFewShots: boolean, model: string) => {
-    try {
-      console.log('[ChatPage] 💬 Génération du message de bienvenue du persona');
-
-      // Construire le prompt système pour le persona
-      let systemPrompt = persona.systemPrompt;
-
-      if (includeFewShots && persona.fewShotExamples?.length) {
-        const fewShotsText = persona.fewShotExamples
-          .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
-          .join('\n\n');
-        systemPrompt += '\n\nExemples:\n' + fewShotsText;
-      }
-
-      // Message demandant à l'IA de se présenter
-      const welcomePrompt: OllamaMessage = {
-        role: 'user',
-        content: 'Bonjour ! Peux-tu te présenter brièvement et m\'expliquer comment tu peux m\'aider ?',
-      };
-
-      const messagesToSend: OllamaMessage[] = [
-        {
-          role: 'system',
-          content: systemPrompt,
-        },
-        welcomePrompt,
-      ];
-
-      // Ajouter le message utilisateur à l'historique
-      setMessages([welcomePrompt]);
-
-      // Envoyer la requête de chat avec streaming
-      await window.electronAPI.ollama.chatStream({
-        model,
-        messages: messagesToSend,
-        stream: true,
-        options: {
-          temperature: persona.temperature ?? chatSettings.temperature,
-          num_ctx: persona.maxTokens ?? chatSettings.maxTokens,
-          top_p: chatSettings.topP,
-        },
-      });
-
-      console.log('[ChatPage] ✅ Message de bienvenue généré');
-    } catch (error: any) {
-      console.error('[ChatPage] ❌ Erreur génération message de bienvenue:', error);
-
-      const errorMessage: OllamaMessage = {
-        role: 'system',
-        content: `❌ Erreur lors de la génération du message de bienvenue: ${error.message || 'Erreur inconnue'}`,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    }
   };
 
   // Charger une conversation
@@ -513,330 +278,48 @@ export function ChatPage() {
       setIsGenerating(false);
       currentStreamIdRef.current = null;
       setRegenerationCounts(new Map());
-
-      // Mettre à jour le ref pour que l'auto-save ne considère pas ça comme un nouveau message
       previousMessagesLengthRef.current = conv.messages.length;
 
-      console.log('[ChatPage] 📂 Conversation chargée:', id, 'Messages:', conv.messages.length);
+      console.log('[ChatPage] 📂 Conversation chargée:', id);
     }
   };
 
-  const handleSendMessage = async (content: string, mentionedPersonaIds?: string[], includeMentionFewShots: boolean = false) => {
-    console.log('[ChatPage] 📥 handleSendMessage reçu:', { mentionedPersonaIds, includeMentionFewShots });
-
-    if (!selectedModel) {
-      alert('Veuillez sélectionner un modèle');
-      return;
-    }
-
-    // Stocker les mentionedPersonaIds dans le ref pour l'utiliser dans les listeners
-    currentMentionedPersonaIdsRef.current = mentionedPersonaIds;
-    currentMentionedPersonaIdRef.current = mentionedPersonaIds?.[0]; // Legacy
-
-    // Créer une nouvelle conversation si nécessaire
-    if (!currentConversationId && messages.length === 0) {
-      const newConv = createConversation(selectedModel);
-      console.log('[ChatPage] ✨ Nouvelle conversation créée automatiquement:', newConv.id);
-    }
-
-    // Ajouter le message de l'utilisateur
-    const userMessage: OllamaMessage = {
-      role: 'user',
-      content,
-    };
-
-    // Calculer l'index du message utilisateur avant de l'ajouter
-    const userMessageIndex = messages.length;
-
-    setMessages((prev) => [...prev, userMessage]);
-
-    // Si des personas ont été mentionnés, stocker les métadonnées
-    if (mentionedPersonaIds && mentionedPersonaIds.length > 0) {
-      setMessageMetadata((prev) => ({
-        ...prev,
-        [userMessageIndex]: {
-          personaId: mentionedPersonaIds[0], // Legacy: premier persona
-          personaIds: mentionedPersonaIds, // Nouveau: tableau de tous les personas
-          timestamp: Date.now(),
-        },
-      }));
-      console.log('[ChatPage] 📝 Métadonnées ajoutées pour le message utilisateur à l\'index', userMessageIndex, 'personas:', mentionedPersonaIds);
-    }
-
-    try {
-      console.log('[ChatPage] 📤 Envoi du message au backend');
-      console.log('[ChatPage] 📋 Settings:', chatSettings);
-      console.log('[ChatPage] 👤 Persona global:', currentPersona?.name || 'aucun');
-
-      // Déterminer quels personas utiliser
-      // Priorité: Personas mentionnés (@mention) > Persona global > Aucun
-      const mentionedPersonas = mentionedPersonaIds
-        ? mentionedPersonaIds.map(id => personas.find(p => p.id === id)).filter((p): p is Persona => p !== undefined)
-        : [];
-
-      const personasToUse = mentionedPersonas.length > 0 ? mentionedPersonas : (currentPersona ? [currentPersona] : []);
-
-      if (mentionedPersonas.length > 0) {
-        console.log('[ChatPage] 📧 Personas mentionnés (@mention):', mentionedPersonas.map(p => p.name).join(', '));
-        // Incrémenter le compteur d'utilisation pour tous les @mentions
-        mentionedPersonas.forEach(p => incrementPersonaUsage(p.id));
-      } else if (currentPersona) {
-        // Incrémenter le compteur d'utilisation pour persona global
-        incrementPersonaUsage(currentPersona.id);
-      }
-
-      // Construire la liste des messages avec le system prompt
-      const messagesToSend: OllamaMessage[] = [];
-
-      // Priorité 1: System prompt des personas (mentionnés ou global)
-      // Priorité 2: System prompt des settings
-      let systemPromptToUse = '';
-
-      if (personasToUse.length > 0) {
-        // Combiner les system prompts de tous les personas
-        if (personasToUse.length === 1) {
-          systemPromptToUse = personasToUse[0].systemPrompt || '';
-          console.log('[ChatPage] 📝 Utilisation du system prompt du persona:', personasToUse[0].name);
-        } else {
-          // Plusieurs personas: combiner leurs prompts
-          const combinedPrompts = personasToUse
-            .filter(p => p.systemPrompt)
-            .map((p, index) => {
-              return `[Rôle ${index + 1}: ${p.name}]\n${p.systemPrompt}`;
-            })
-            .join('\n\n---\n\n');
-
-          systemPromptToUse = `Vous devez combiner les perspectives de plusieurs rôles pour répondre. Voici les rôles à adopter :\n\n${combinedPrompts}\n\nRépondez en intégrant les perspectives de tous ces rôles.`;
-          console.log('[ChatPage] 📝 Combinaison des system prompts de', personasToUse.length, 'personas:', personasToUse.map(p => p.name).join(', '));
-        }
-
-        // Ajouter les few-shots si demandé
-        // Pour personas mentionnés: utiliser includeMentionFewShots
-        // Pour persona global: utiliser chatSettings.includeFewShots
-        const shouldIncludeFewShots = mentionedPersonas.length > 0
-          ? includeMentionFewShots
-          : chatSettings.includeFewShots;
-
-        if (shouldIncludeFewShots) {
-          // Combiner les few-shots de tous les personas
-          const allFewShots = personasToUse
-            .filter(p => p.fewShotExamples && p.fewShotExamples.length > 0)
-            .flatMap(p => p.fewShotExamples || []);
-
-          if (allFewShots.length > 0) {
-            const fewShotsText = allFewShots
-              .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
-              .join('\n\n');
-            systemPromptToUse += '\n\nExemples:\n' + fewShotsText;
-            console.log(
-              '[ChatPage] 📚 Few-shots ajoutés:',
-              allFewShots.length,
-              'exemples de',
-              personasToUse.length,
-              'personas',
-              mentionedPersonas.length > 0 ? '(@mention)' : '(global)'
-            );
-          }
-        }
-      } else if (chatSettings.systemPrompt.trim()) {
-        systemPromptToUse = chatSettings.systemPrompt;
-        console.log('[ChatPage] 📝 Utilisation du system prompt des settings');
-      }
-
-      if (systemPromptToUse) {
-        messagesToSend.push({
-          role: 'system',
-          content: systemPromptToUse,
-        });
-      }
-
-      messagesToSend.push(...messages, userMessage);
-
-      // Déterminer les paramètres à utiliser (premier persona ou settings)
-      const firstPersona = personasToUse[0];
-      const temperature = firstPersona?.temperature ?? chatSettings.temperature;
-      const maxTokens = firstPersona?.maxTokens ?? chatSettings.maxTokens;
-
-      // Déterminer le modèle à utiliser
-      // Priorité: Modèle du premier persona mentionné > Modèle du persona global > Modèle sélectionné
-      let modelToUse = selectedModel;
-      if (firstPersona?.model) {
-        modelToUse = firstPersona.model;
-        if (modelToUse !== selectedModel) {
-          console.log(
-            '[ChatPage] 🔄 Utilisation du modèle du premier persona:',
-            firstPersona.name,
-            '→',
-            modelToUse,
-            '(au lieu de',
-            selectedModel + ')'
-          );
-          if (mentionedPersonas.length > 0) {
-            console.log('[ChatPage] 💡 @mention utilise automatiquement le modèle configuré du premier persona');
-          }
-        }
-      }
-
-      console.log('[ChatPage] ⚙️ Paramètres:', { model: modelToUse, temperature, maxTokens });
-
-      // Envoyer la requête de chat avec streaming
-      // Le streamId sera défini par le listener onStreamStart
-      await window.electronAPI.ollama.chatStream({
-        model: modelToUse,
-        messages: messagesToSend,
-        stream: true,
-        options: {
-          temperature,
-          num_ctx: maxTokens,
-          top_p: chatSettings.topP,
-        },
-      });
-
-      console.log('[ChatPage] ✅ Handler chatStream terminé');
-    } catch (error: any) {
-      console.error('Erreur lors de l\'envoi du message:', error);
-      setIsGenerating(false);
-
-      const errorMessage: OllamaMessage = {
-        role: 'system',
-        content: `❌ Erreur: ${error.message || 'Erreur inconnue'}`,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    }
+  // Import d'une conversation unique
+  const handleImportConversation = (conversation: any) => {
+    importConversation(conversation);
   };
 
-  const handleStop = async () => {
-    const streamId = currentStreamIdRef.current;
-    if (!streamId) {
-      console.log('[ChatPage] ⚠️ Aucun stream actif à stopper');
-      return;
+  // Import d'un backup complet
+  const handleImportBackup = (data: BackupData, mode: 'merge' | 'replace') => {
+    importBackup(data.conversations, mode);
+    if (data.folders) {
+      importFolders(data.folders, mode);
     }
-
-    try {
-      console.log('[ChatPage] 🛑 Demande d\'arrêt du stream:', streamId);
-      const result = await window.electronAPI.ollama.stopStream(streamId);
-      console.log('[ChatPage] ✅ Réponse stopStream:', result);
-
-      // Le cleanup sera fait par le listener onStreamEnd
-    } catch (error: any) {
-      console.error('[ChatPage] ❌ Erreur lors du stop:', error);
-
-      // Cleanup local en cas d'erreur
-      setIsGenerating(false);
-      currentStreamIdRef.current = null;
-
-      if (streamingMessage) {
-        const partialMessage: OllamaMessage = {
-          role: 'assistant',
-          content: streamingMessage + ' [interrompu]',
-        };
-        setMessages((prev) => [...prev, partialMessage]);
-        setStreamingMessage('');
-      }
+    if (data.tags) {
+      importTags(data.tags, mode);
     }
+    console.log('[ChatPage] ✅ Backup importé:', mode);
   };
 
-  const handleClearChat = () => {
-    if (confirm('Voulez-vous vraiment effacer toute la conversation ?')) {
-      setMessages([]);
-      setMessageMetadata({});
-      setStreamingMessage('');
-      setIsGenerating(false);
-      currentStreamIdRef.current = null;
-      currentMentionedPersonaIdRef.current = undefined;
-      currentMentionedPersonaIdsRef.current = undefined;
-      setRegenerationCounts(new Map());
-    }
+  // Suppression de tag avec nettoyage
+  const handleDeleteTag = (tagId: string) => {
+    removeTagFromAllConversations(tagId);
+    deleteTag(tagId);
   };
 
-  // Régénérer la dernière réponse de l'IA
-  const handleRegenerate = async () => {
-    if (isGenerating) {
-      return;
-    }
-
-    // Trouver le dernier message assistant
-    const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant');
-    if (lastAssistantIndex === -1) {
-      return;
-    }
-
-    // Supprimer le dernier message assistant
-    const updatedMessages = messages.slice(0, lastAssistantIndex);
-    setMessages(updatedMessages);
-
-    // Incrémenter le compteur de régénération pour ce message
-    setRegenerationCounts((prev) => {
-      const newCounts = new Map(prev);
-      const currentCount = newCounts.get(lastAssistantIndex) || 0;
-      newCounts.set(lastAssistantIndex, currentCount + 1);
-      return newCounts;
+  // Supprimer un dossier et remettre ses conversations dans "sans dossier"
+  const handleDeleteFolder = (folderId: string) => {
+    const conversationsInFolder = conversations.filter((conv) => conv.folderId === folderId);
+    conversationsInFolder.forEach((conv) => {
+      moveToFolder(conv.id, null);
     });
-
-    try {
-      console.log('[ChatPage] 🔄 Régénération de la réponse');
-
-      // Construire la liste des messages avec le system prompt
-      const messagesToSend: OllamaMessage[] = [];
-
-      // Utiliser le persona si disponible, sinon les settings
-      let systemPromptToUse = '';
-
-      if (currentPersona?.systemPrompt) {
-        systemPromptToUse = currentPersona.systemPrompt;
-
-        // Ajouter les few-shots si demandé
-        if (chatSettings.includeFewShots && currentPersona.fewShotExamples?.length) {
-          const fewShotsText = currentPersona.fewShotExamples
-            .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
-            .join('\n\n');
-          systemPromptToUse += '\n\nExemples:\n' + fewShotsText;
-        }
-      } else if (chatSettings.systemPrompt.trim()) {
-        systemPromptToUse = chatSettings.systemPrompt;
-      }
-
-      if (systemPromptToUse) {
-        messagesToSend.push({
-          role: 'system',
-          content: systemPromptToUse,
-        });
-      }
-
-      messagesToSend.push(...updatedMessages);
-
-      // Déterminer les paramètres à utiliser (persona ou settings)
-      const temperature = currentPersona?.temperature ?? chatSettings.temperature;
-      const maxTokens = currentPersona?.maxTokens ?? chatSettings.maxTokens;
-
-      // Relancer la génération avec le même contexte
-      await window.electronAPI.ollama.chatStream({
-        model: selectedModel,
-        messages: messagesToSend,
-        stream: true,
-        options: {
-          temperature,
-          num_ctx: maxTokens,
-          top_p: chatSettings.topP,
-        },
-      });
-
-      console.log('[ChatPage] ✅ Régénération lancée');
-    } catch (error: any) {
-      console.error('Erreur lors de la régénération:', error);
-      setIsGenerating(false);
-
-      const errorMessage: OllamaMessage = {
-        role: 'system',
-        content: `❌ Erreur: ${error.message || 'Erreur inconnue'}`,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    }
+    deleteFolder(folderId);
+    console.log('[ChatPage] 🗑️ Dossier supprimé:', folderId);
   };
 
-  // Mapper les raccourcis personnalisés aux actions
+  // === RACCOURCIS CLAVIER ===
+
   const keyboardShortcuts: KeyboardShortcut[] = useMemo(() => {
-    // Map d'actions par ID de raccourci
     const actionMap: Record<string, () => void> = {
       toggle_sidebar: () => setIsSidebarOpen(!isSidebarOpen),
       search_in_conversation: () => setIsChatSearchOpen(true),
@@ -862,7 +345,6 @@ export function ChatPage() {
       show_shortcuts_2: () => setIsShortcutsModalOpen(true),
     };
 
-    // Convertir les raccourcis personnalisés en KeyboardShortcut avec actions
     return customShortcuts.map((shortcut) => ({
       key: shortcut.key,
       ctrl: shortcut.ctrl,
@@ -873,7 +355,7 @@ export function ChatPage() {
       category: shortcut.category,
       action: actionMap[shortcut.id] || (() => {}),
     }));
-  }, [customShortcuts, isSidebarOpen, isGenerating, handleNewConversation, handleClearChat, handleRegenerate]);
+  }, [customShortcuts, isSidebarOpen, isGenerating]);
 
   // Activer les raccourcis clavier
   useKeyboardShortcuts({
@@ -881,176 +363,7 @@ export function ChatPage() {
     enabled: !isSettingsOpen && !isTagModalOpen && !isFolderModalOpen && !isShortcutsModalOpen && !isStatisticsModalOpen && !isPersonaModalOpen,
   });
 
-  // Éditer le dernier message utilisateur et régénérer la réponse
-  const handleEditUserMessage = async (newContent: string) => {
-    if (isGenerating) {
-      return;
-    }
-
-    // Trouver le dernier message utilisateur
-    const lastUserIndex = messages.findLastIndex((m) => m.role === 'user');
-    if (lastUserIndex === -1) {
-      return;
-    }
-
-    // Mettre à jour le message utilisateur
-    const updatedMessages = [...messages];
-    updatedMessages[lastUserIndex] = {
-      ...updatedMessages[lastUserIndex],
-      content: newContent,
-    };
-
-    // Trouver et supprimer le dernier message assistant s'il existe
-    const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant');
-    if (lastAssistantIndex > lastUserIndex) {
-      // Il y a une réponse après le message utilisateur, la supprimer
-      updatedMessages.splice(lastAssistantIndex, 1);
-    }
-
-    setMessages(updatedMessages);
-
-    try {
-      console.log('[ChatPage] ✏️ Édition du message et régénération');
-
-      // Construire la liste des messages avec le system prompt
-      const messagesToSend: OllamaMessage[] = [];
-
-      // Utiliser le persona si disponible, sinon les settings
-      let systemPromptToUse = '';
-
-      if (currentPersona?.systemPrompt) {
-        systemPromptToUse = currentPersona.systemPrompt;
-
-        // Ajouter les few-shots si demandé
-        if (chatSettings.includeFewShots && currentPersona.fewShotExamples?.length) {
-          const fewShotsText = currentPersona.fewShotExamples
-            .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
-            .join('\n\n');
-          systemPromptToUse += '\n\nExemples:\n' + fewShotsText;
-        }
-      } else if (chatSettings.systemPrompt.trim()) {
-        systemPromptToUse = chatSettings.systemPrompt;
-      }
-
-      if (systemPromptToUse) {
-        messagesToSend.push({
-          role: 'system',
-          content: systemPromptToUse,
-        });
-      }
-
-      messagesToSend.push(...updatedMessages);
-
-      // Déterminer les paramètres à utiliser (persona ou settings)
-      const temperature = currentPersona?.temperature ?? chatSettings.temperature;
-      const maxTokens = currentPersona?.maxTokens ?? chatSettings.maxTokens;
-
-      // Relancer la génération avec le message édité
-      await window.electronAPI.ollama.chatStream({
-        model: selectedModel,
-        messages: messagesToSend,
-        stream: true,
-        options: {
-          temperature,
-          num_ctx: maxTokens,
-          top_p: chatSettings.topP,
-        },
-      });
-
-      console.log('[ChatPage] ✅ Régénération lancée après édition');
-    } catch (error: any) {
-      console.error('Erreur lors de la régénération après édition:', error);
-      setIsGenerating(false);
-
-      const errorMessage: OllamaMessage = {
-        role: 'system',
-        content: `❌ Erreur: ${error.message || 'Erreur inconnue'}`,
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    }
-  };
-
-  // Supprimer un dossier et remettre ses conversations dans "sans dossier"
-  const handleDeleteFolder = (folderId: string) => {
-    // Trouver toutes les conversations dans ce dossier
-    const conversationsInFolder = conversations.filter((conv) => conv.folderId === folderId);
-
-    // Déplacer chaque conversation vers "sans dossier"
-    conversationsInFolder.forEach((conv) => {
-      moveToFolder(conv.id, null);
-    });
-
-    // Supprimer le dossier
-    deleteFolder(folderId);
-
-    console.log('[ChatPage] 🗑️ Dossier supprimé:', folderId, 'Conversations déplacées:', conversationsInFolder.length);
-  };
-
-  // Gestion de la recherche dans le chat
-  const handleChatSearchChange = (query: string) => {
-    setChatSearchQuery(query);
-    setCurrentSearchIndex(0);
-  };
-
-  const handleSearchNext = () => {
-    if (searchResults.totalCount > 0) {
-      setCurrentSearchIndex((prev) => (prev + 1) % searchResults.totalCount);
-    }
-  };
-
-  const handleSearchPrevious = () => {
-    if (searchResults.totalCount > 0) {
-      setCurrentSearchIndex((prev) => (prev - 1 + searchResults.totalCount) % searchResults.totalCount);
-    }
-  };
-
-  const handleCloseChatSearch = () => {
-    setIsChatSearchOpen(false);
-    setChatSearchQuery('');
-    setCurrentSearchIndex(0);
-  };
-
-  // Raccourcis clavier pour la recherche
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+F ou Cmd+F pour ouvrir la recherche
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault();
-        setIsChatSearchOpen(true);
-      }
-
-      // Escape pour fermer la recherche
-      if (e.key === 'Escape' && isChatSearchOpen) {
-        handleCloseChatSearch();
-      }
-
-      // Enter pour aller au suivant, Shift+Enter pour aller au précédent
-      if (isChatSearchOpen && e.key === 'Enter') {
-        e.preventDefault();
-        if (e.shiftKey) {
-          handleSearchPrevious();
-        } else {
-          handleSearchNext();
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isChatSearchOpen, searchResults.totalCount]);
-
-  // Auto-scroll vers le résultat actif
-  useEffect(() => {
-    if (isChatSearchOpen && chatSearchQuery && searchResults.totalCount > 0) {
-      // Utiliser setTimeout pour laisser le DOM se mettre à jour
-      setTimeout(() => {
-        const activeElement = document.getElementById('active-search-result');
-        if (activeElement) {
-          activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 100);
-    }
-  }, [currentSearchIndex, isChatSearchOpen, chatSearchQuery, searchResults.totalCount]);
+  // === RENDU ===
 
   return (
     <div className="h-full flex">
@@ -1104,99 +417,25 @@ export function ChatPage() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 glass-card border-b border-white/10 relative z-10">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="header-btn glass-hover"
-              title={isSidebarOpen ? 'Masquer la sidebar' : 'Afficher la sidebar'}
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <h1 className="text-xl font-bold">Chat</h1>
-            <ModelSelector selectedModel={selectedModel} onModelChange={setSelectedModel} />
-
-            {/* Persona Selection Button */}
-            <button
-              onClick={() => setIsPersonaModalOpen(true)}
-              className={`header-btn gap-2 px-3 ${
-                currentPersona
-                  ? 'glass-card border border-white/20'
-                  : 'glass-hover'
-              }`}
-              title={currentPersona ? `Persona: ${currentPersona.name}` : 'Sélectionner un persona'}
-            >
-              {currentPersona ? (
-                <>
-                  <div
-                    className={`w-6 h-6 rounded-lg bg-gradient-to-br ${
-                      PERSONA_COLOR_CLASSES[currentPersona.color] || PERSONA_COLOR_CLASSES.purple
-                    } flex items-center justify-center text-sm flex-shrink-0`}
-                  >
-                    {currentPersona.avatar}
-                  </div>
-                  <span className="text-sm font-medium">{currentPersona.name}</span>
-                </>
-              ) : (
-                <>
-                  <User className="w-5 h-5 flex-shrink-0" />
-                  <span className="text-sm">Persona</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <ExportMenu
-              messages={messages}
-              conversationTitle={
-                currentConversationId
-                  ? conversations.find((c) => c.id === currentConversationId)?.title
-                  : 'Conversation'
-              }
-              conversation={
-                currentConversationId
-                  ? conversations.find((c) => c.id === currentConversationId)
-                  : undefined
-              }
-            />
-            <ImportExportMenu
-              conversations={conversations}
-              folders={folders}
-              tags={tags}
-              onImportConversation={handleImportConversation}
-              onImportBackup={handleImportBackup}
-            />
-            <button
-              onClick={() => setIsStatisticsModalOpen(true)}
-              className="header-btn glass-hover"
-              title="Statistiques d'utilisation (Ctrl+Shift+S)"
-            >
-              <BarChart3 className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setIsChatSearchOpen(true)}
-              className="header-btn glass-hover"
-              title="Rechercher dans la conversation (Ctrl+F)"
-            >
-              <Search className="w-5 h-5" />
-            </button>
-            <button
-              onClick={handleClearChat}
-              className="header-btn glass-hover hover:bg-red-500/20"
-              title="Effacer la conversation"
-            >
-              <Trash2 className="w-5 h-5 text-red-400" />
-            </button>
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="header-btn glass-hover"
-              title="Paramètres du Chat"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+        <ChatHeader
+          isSidebarOpen={isSidebarOpen}
+          setIsSidebarOpen={setIsSidebarOpen}
+          setIsChatSearchOpen={setIsChatSearchOpen}
+          setIsSettingsOpen={setIsSettingsOpen}
+          setIsStatisticsModalOpen={setIsStatisticsModalOpen}
+          setIsPersonaModalOpen={setIsPersonaModalOpen}
+          selectedModel={selectedModel}
+          setSelectedModel={setSelectedModel}
+          currentPersona={currentPersona}
+          messages={messages}
+          conversations={conversations}
+          folders={folders}
+          tags={tags}
+          currentConversationId={currentConversationId}
+          handleClearChat={handleClearChat}
+          handleImportConversation={handleImportConversation}
+          handleImportBackup={handleImportBackup}
+        />
 
         {/* Search Bar */}
         {isChatSearchOpen && (
@@ -1212,87 +451,23 @@ export function ChatPage() {
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 relative">
-        {messages.length === 0 && !streamingMessage ? (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center max-w-md">
-              <div className="text-6xl mb-4">💬</div>
-              <h2 className="text-2xl font-bold mb-2">Commencez une conversation</h2>
-              <p className="text-muted-foreground mb-6">
-                Posez une question ou démarrez une discussion avec l'IA
-              </p>
-              {!selectedModel && (
-                <div className="glass-card px-4 py-2 rounded-xl text-sm text-yellow-400 inline-block">
-                  ⚠️ Sélectionnez d'abord un modèle
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="max-w-4xl mx-auto">
-            {messages.map((message, index) => {
-              // Déterminer si c'est le dernier message assistant
-              const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant');
-              const isLastAssistantMessage = message.role === 'assistant' && index === lastAssistantIndex && !isGenerating;
-
-              // Déterminer si c'est le dernier message utilisateur
-              const lastUserIndex = messages.findLastIndex((m) => m.role === 'user');
-              const isLastUserMessage = message.role === 'user' && index === lastUserIndex && !isGenerating;
-
-              // Calculer les props de recherche pour ce message
-              const messageOccurrence = searchResults.messageOccurrences.find(
-                (occ) => occ.messageIndex === index
-              );
-
-              // Récupérer les personas mentionnés pour ce message
-              const metadata = messageMetadata[index];
-              const mentionedPersonas = metadata?.personaIds
-                ? metadata.personaIds.map(id => personas.find((p) => p.id === id)).filter((p): p is Persona => p !== undefined)
-                : (metadata?.personaId
-                    ? [personas.find((p) => p.id === metadata.personaId)].filter((p): p is Persona => p !== undefined)
-                    : undefined);
-
-              return (
-                <ChatMessage
-                  key={index}
-                  message={message}
-                  regenerationCount={regenerationCounts.get(index) || 0}
-                  onRegenerate={isLastAssistantMessage ? handleRegenerate : undefined}
-                  isLastAssistantMessage={isLastAssistantMessage}
-                  isLastUserMessage={isLastUserMessage}
-                  onEdit={isLastUserMessage ? handleEditUserMessage : undefined}
-                  searchQuery={chatSearchQuery}
-                  searchStartIndex={messageOccurrence?.startIndex}
-                  activeGlobalIndex={currentSearchIndex}
-                  syntaxTheme={chatSettings.syntaxTheme}
-                  showLineNumbers={chatSettings.showLineNumbers}
-                  mentionedPersonas={mentionedPersonas}
-                />
-              );
-            })}
-
-            {/* Message en cours de streaming */}
-            {streamingMessage && (
-              <ChatMessage
-                message={{
-                  role: 'assistant',
-                  content: streamingMessage,
-                }}
-                isStreaming={true}
-                syntaxTheme={chatSettings.syntaxTheme}
-                showLineNumbers={chatSettings.showLineNumbers}
-                mentionedPersonas={
-                  currentMentionedPersonaIdsRef.current
-                    ? currentMentionedPersonaIdsRef.current.map(id => personas.find((p) => p.id === id)).filter((p): p is Persona => p !== undefined)
-                    : undefined
-                }
-              />
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-        </div>
+        <ChatMessages
+          messages={messages}
+          messageMetadata={messageMetadata}
+          streamingMessage={streamingMessage}
+          isGenerating={isGenerating}
+          regenerationCounts={regenerationCounts}
+          selectedModel={selectedModel}
+          personas={personas}
+          currentMentionedPersonaIdsRef={currentMentionedPersonaIdsRef}
+          chatSearchQuery={chatSearchQuery}
+          searchResults={searchResults}
+          currentSearchIndex={currentSearchIndex}
+          chatSettings={chatSettings}
+          handleRegenerate={handleRegenerate}
+          handleEditUserMessage={handleEditUserMessage}
+          messagesEndRef={messagesEndRef}
+        />
 
         {/* Input */}
         <div className="p-4">
@@ -1321,72 +496,32 @@ export function ChatPage() {
         </div>
       </div>
 
-      {/* Settings Modal */}
-      <ChatSettings
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={chatSettings}
-        onSave={(newSettings) => {
-          console.log('[ChatPage] 💾 Nouveaux settings sauvegardés:', newSettings);
-          setChatSettings(newSettings);
-          // Persister dans localStorage
-          localStorage.setItem('chatSettings', JSON.stringify(newSettings));
-        }}
-      />
-
-      {/* Tag Modal */}
-      <TagModal
-        isOpen={isTagModalOpen}
-        onClose={() => setIsTagModalOpen(false)}
-        onSave={(name, color, icon) => {
-          createTag(name, color, icon);
-          setIsTagModalOpen(false);
-        }}
-      />
-
-      {/* Folder Modal */}
-      <FolderModal
-        isOpen={isFolderModalOpen}
-        onClose={() => {
-          setIsFolderModalOpen(false);
-          setEditingFolder(null);
-        }}
-        onSave={(name, color) => {
-          if (editingFolder) {
-            renameFolder(editingFolder.id, name);
-            // Note: pour changer la couleur, il faudrait ajouter une méthode updateFolderColor
-          } else {
-            createFolder(name, color);
-          }
-          setIsFolderModalOpen(false);
-          setEditingFolder(null);
-        }}
-        initialName={editingFolder?.name}
-        initialColor={editingFolder?.color}
-        title={editingFolder ? 'Modifier le dossier' : 'Nouveau dossier'}
-      />
-
-      {/* Keyboard Shortcuts Modal */}
-      <KeyboardShortcutsModal
-        isOpen={isShortcutsModalOpen}
-        onClose={() => setIsShortcutsModalOpen(false)}
-        shortcuts={keyboardShortcuts}
-      />
-
-      {/* Statistics Modal */}
-      <StatisticsModal
-        isOpen={isStatisticsModalOpen}
-        onClose={() => setIsStatisticsModalOpen(false)}
+      {/* Modals */}
+      <ChatModals
+        isSettingsOpen={isSettingsOpen}
+        setIsSettingsOpen={setIsSettingsOpen}
+        chatSettings={chatSettings}
+        updateChatSettings={updateChatSettings}
+        isTagModalOpen={isTagModalOpen}
+        setIsTagModalOpen={setIsTagModalOpen}
+        createTag={createTag}
+        isFolderModalOpen={isFolderModalOpen}
+        setIsFolderModalOpen={setIsFolderModalOpen}
+        editingFolder={editingFolder}
+        setEditingFolder={setEditingFolder}
+        createFolder={createFolder}
+        renameFolder={renameFolder}
+        isShortcutsModalOpen={isShortcutsModalOpen}
+        setIsShortcutsModalOpen={setIsShortcutsModalOpen}
+        keyboardShortcuts={keyboardShortcuts}
+        isStatisticsModalOpen={isStatisticsModalOpen}
+        setIsStatisticsModalOpen={setIsStatisticsModalOpen}
         statistics={statistics}
-      />
-
-      {/* Persona Selection Modal */}
-      <PersonaSelectionModal
-        isOpen={isPersonaModalOpen}
-        onClose={() => setIsPersonaModalOpen(false)}
-        onSelect={handleSelectPersona}
+        isPersonaModalOpen={isPersonaModalOpen}
+        setIsPersonaModalOpen={setIsPersonaModalOpen}
         personas={personas}
-        currentPersonaId={currentPersona?.id}
+        currentPersona={currentPersona}
+        handleSelectPersona={handleSelectPersona}
       />
     </div>
   );

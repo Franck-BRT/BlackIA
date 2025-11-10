@@ -1,0 +1,420 @@
+import { Dispatch, SetStateAction, MutableRefObject } from 'react';
+import type { OllamaMessage } from '@blackia/ollama';
+import type { Persona } from '../types/persona';
+import type { ChatSettingsData } from '../components/chat/ChatSettings';
+import type { MessageMetadata } from './useConversations';
+
+interface UseChatActionsParams {
+  // États
+  messages: OllamaMessage[];
+  setMessages: Dispatch<SetStateAction<OllamaMessage[]>>;
+  messageMetadata: Record<number, MessageMetadata>;
+  setMessageMetadata: Dispatch<SetStateAction<Record<number, MessageMetadata>>>;
+  streamingMessage: string;
+  setStreamingMessage: Dispatch<SetStateAction<string>>;
+  isGenerating: boolean;
+  setIsGenerating: Dispatch<SetStateAction<boolean>>;
+  selectedModel: string;
+  setRegenerationCounts: Dispatch<SetStateAction<Map<number, number>>>;
+
+  // Refs
+  currentStreamIdRef: MutableRefObject<string | null>;
+  currentMentionedPersonaIdRef: MutableRefObject<string | undefined>;
+  currentMentionedPersonaIdsRef: MutableRefObject<string[] | undefined>;
+
+  // Conversations
+  currentConversationId: string | null;
+  createConversation: (model: string, title?: string) => any;
+
+  // Personas & Settings
+  personas: Persona[];
+  currentPersona: Persona | null;
+  chatSettings: ChatSettingsData;
+  incrementPersonaUsage: (personaId: string) => void;
+}
+
+/**
+ * Hook pour gérer toutes les actions principales du chat
+ * Send, Stop, Clear, Regenerate, Edit
+ */
+export function useChatActions({
+  messages,
+  setMessages,
+  messageMetadata,
+  setMessageMetadata,
+  streamingMessage,
+  setStreamingMessage,
+  isGenerating,
+  setIsGenerating,
+  selectedModel,
+  setRegenerationCounts,
+  currentStreamIdRef,
+  currentMentionedPersonaIdRef,
+  currentMentionedPersonaIdsRef,
+  currentConversationId,
+  createConversation,
+  personas,
+  currentPersona,
+  chatSettings,
+  incrementPersonaUsage,
+}: UseChatActionsParams) {
+
+  // Envoyer un message
+  const handleSendMessage = async (
+    content: string,
+    mentionedPersonaIds?: string[],
+    includeMentionFewShots: boolean = false
+  ) => {
+    console.log('[useChatActions] 📥 handleSendMessage reçu:', { mentionedPersonaIds, includeMentionFewShots });
+
+    if (!selectedModel) {
+      alert('Veuillez sélectionner un modèle');
+      return;
+    }
+
+    // Stocker les mentionedPersonaIds dans le ref
+    currentMentionedPersonaIdsRef.current = mentionedPersonaIds;
+    currentMentionedPersonaIdRef.current = mentionedPersonaIds?.[0];
+
+    // Créer une nouvelle conversation si nécessaire
+    if (!currentConversationId && messages.length === 0) {
+      const newConv = createConversation(selectedModel);
+      console.log('[useChatActions] ✨ Nouvelle conversation créée automatiquement:', newConv.id);
+    }
+
+    // Ajouter le message de l'utilisateur
+    const userMessage: OllamaMessage = {
+      role: 'user',
+      content,
+    };
+
+    const userMessageIndex = messages.length;
+    setMessages((prev) => [...prev, userMessage]);
+
+    // Si des personas ont été mentionnés, stocker les métadonnées
+    if (mentionedPersonaIds && mentionedPersonaIds.length > 0) {
+      setMessageMetadata((prev) => ({
+        ...prev,
+        [userMessageIndex]: {
+          personaId: mentionedPersonaIds[0],
+          personaIds: mentionedPersonaIds,
+          timestamp: Date.now(),
+        },
+      }));
+      console.log('[useChatActions] 📝 Métadonnées ajoutées pour message utilisateur index', userMessageIndex);
+    }
+
+    try {
+      console.log('[useChatActions] 📤 Envoi du message au backend');
+
+      // Déterminer quels personas utiliser
+      const mentionedPersonas = mentionedPersonaIds
+        ? mentionedPersonaIds.map(id => personas.find(p => p.id === id)).filter((p): p is Persona => p !== undefined)
+        : [];
+
+      const personasToUse = mentionedPersonas.length > 0 ? mentionedPersonas : (currentPersona ? [currentPersona] : []);
+
+      if (mentionedPersonas.length > 0) {
+        console.log('[useChatActions] 📧 Personas mentionnés (@mention):', mentionedPersonas.map(p => p.name).join(', '));
+        mentionedPersonas.forEach(p => incrementPersonaUsage(p.id));
+      } else if (currentPersona) {
+        incrementPersonaUsage(currentPersona.id);
+      }
+
+      // Construire la liste des messages avec le system prompt
+      const messagesToSend: OllamaMessage[] = [];
+      let systemPromptToUse = '';
+
+      if (personasToUse.length > 0) {
+        if (personasToUse.length === 1) {
+          systemPromptToUse = personasToUse[0].systemPrompt || '';
+        } else {
+          const combinedPrompts = personasToUse
+            .filter(p => p.systemPrompt)
+            .map((p, index) => `[Rôle ${index + 1}: ${p.name}]\n${p.systemPrompt}`)
+            .join('\n\n---\n\n');
+
+          systemPromptToUse = `Vous devez combiner les perspectives de plusieurs rôles pour répondre. Voici les rôles à adopter :\n\n${combinedPrompts}\n\nRépondez en intégrant les perspectives de tous ces rôles.`;
+        }
+
+        // Ajouter les few-shots si demandé
+        const shouldIncludeFewShots = mentionedPersonas.length > 0
+          ? includeMentionFewShots
+          : chatSettings.includeFewShots;
+
+        if (shouldIncludeFewShots) {
+          const allFewShots = personasToUse
+            .filter(p => p.fewShotExamples && p.fewShotExamples.length > 0)
+            .flatMap(p => p.fewShotExamples || []);
+
+          if (allFewShots.length > 0) {
+            const fewShotsText = allFewShots
+              .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
+              .join('\n\n');
+            systemPromptToUse += '\n\nExemples:\n' + fewShotsText;
+          }
+        }
+      } else if (chatSettings.systemPrompt.trim()) {
+        systemPromptToUse = chatSettings.systemPrompt;
+      }
+
+      if (systemPromptToUse) {
+        messagesToSend.push({
+          role: 'system',
+          content: systemPromptToUse,
+        });
+      }
+
+      messagesToSend.push(...messages, userMessage);
+
+      // Déterminer les paramètres à utiliser
+      const firstPersona = personasToUse[0];
+      const temperature = firstPersona?.temperature ?? chatSettings.temperature;
+      const maxTokens = firstPersona?.maxTokens ?? chatSettings.maxTokens;
+
+      // Déterminer le modèle à utiliser
+      let modelToUse = selectedModel;
+      if (firstPersona?.model) {
+        modelToUse = firstPersona.model;
+      }
+
+      // Envoyer la requête de chat avec streaming
+      await window.electronAPI.ollama.chatStream({
+        model: modelToUse,
+        messages: messagesToSend,
+        stream: true,
+        options: {
+          temperature,
+          num_ctx: maxTokens,
+          top_p: chatSettings.topP,
+        },
+      });
+
+      console.log('[useChatActions] ✅ Handler chatStream terminé');
+    } catch (error: any) {
+      console.error('Erreur lors de l\'envoi du message:', error);
+      setIsGenerating(false);
+
+      const errorMessage: OllamaMessage = {
+        role: 'system',
+        content: `❌ Erreur: ${error.message || 'Erreur inconnue'}`,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
+  };
+
+  // Arrêter la génération
+  const handleStop = async () => {
+    const streamId = currentStreamIdRef.current;
+    if (!streamId) {
+      console.log('[useChatActions] ⚠️ Aucun stream actif à stopper');
+      return;
+    }
+
+    try {
+      console.log('[useChatActions] 🛑 Demande d\'arrêt du stream:', streamId);
+      const result = await window.electronAPI.ollama.stopStream(streamId);
+      console.log('[useChatActions] ✅ Réponse stopStream:', result);
+    } catch (error: any) {
+      console.error('[useChatActions] ❌ Erreur lors du stop:', error);
+
+      // Cleanup local en cas d'erreur
+      setIsGenerating(false);
+      currentStreamIdRef.current = null;
+
+      if (streamingMessage) {
+        const partialMessage: OllamaMessage = {
+          role: 'assistant',
+          content: streamingMessage + ' [interrompu]',
+        };
+        setMessages((prev) => [...prev, partialMessage]);
+        setStreamingMessage('');
+      }
+    }
+  };
+
+  // Effacer la conversation
+  const handleClearChat = () => {
+    if (confirm('Voulez-vous vraiment effacer toute la conversation ?')) {
+      setMessages([]);
+      setMessageMetadata({});
+      setStreamingMessage('');
+      setIsGenerating(false);
+      currentStreamIdRef.current = null;
+      currentMentionedPersonaIdRef.current = undefined;
+      currentMentionedPersonaIdsRef.current = undefined;
+      setRegenerationCounts(new Map());
+    }
+  };
+
+  // Régénérer la dernière réponse
+  const handleRegenerate = async () => {
+    if (isGenerating) {
+      return;
+    }
+
+    // Trouver le dernier message assistant
+    const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant');
+    if (lastAssistantIndex === -1) {
+      return;
+    }
+
+    // Supprimer le dernier message assistant
+    const updatedMessages = messages.slice(0, lastAssistantIndex);
+    setMessages(updatedMessages);
+
+    // Incrémenter le compteur de régénération
+    setRegenerationCounts((prev) => {
+      const newCounts = new Map(prev);
+      const currentCount = newCounts.get(lastAssistantIndex) || 0;
+      newCounts.set(lastAssistantIndex, currentCount + 1);
+      return newCounts;
+    });
+
+    try {
+      console.log('[useChatActions] 🔄 Régénération de la réponse');
+
+      // Construire les messages
+      const messagesToSend: OllamaMessage[] = [];
+      let systemPromptToUse = '';
+
+      if (currentPersona?.systemPrompt) {
+        systemPromptToUse = currentPersona.systemPrompt;
+
+        if (chatSettings.includeFewShots && currentPersona.fewShotExamples?.length) {
+          const fewShotsText = currentPersona.fewShotExamples
+            .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
+            .join('\n\n');
+          systemPromptToUse += '\n\nExemples:\n' + fewShotsText;
+        }
+      } else if (chatSettings.systemPrompt.trim()) {
+        systemPromptToUse = chatSettings.systemPrompt;
+      }
+
+      if (systemPromptToUse) {
+        messagesToSend.push({
+          role: 'system',
+          content: systemPromptToUse,
+        });
+      }
+
+      messagesToSend.push(...updatedMessages);
+
+      const temperature = currentPersona?.temperature ?? chatSettings.temperature;
+      const maxTokens = currentPersona?.maxTokens ?? chatSettings.maxTokens;
+
+      await window.electronAPI.ollama.chatStream({
+        model: selectedModel,
+        messages: messagesToSend,
+        stream: true,
+        options: {
+          temperature,
+          num_ctx: maxTokens,
+          top_p: chatSettings.topP,
+        },
+      });
+
+      console.log('[useChatActions] ✅ Régénération lancée');
+    } catch (error: any) {
+      console.error('Erreur lors de la régénération:', error);
+      setIsGenerating(false);
+
+      const errorMessage: OllamaMessage = {
+        role: 'system',
+        content: `❌ Erreur: ${error.message || 'Erreur inconnue'}`,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
+  };
+
+  // Éditer le dernier message utilisateur
+  const handleEditUserMessage = async (newContent: string) => {
+    if (isGenerating) {
+      return;
+    }
+
+    // Trouver le dernier message utilisateur
+    const lastUserIndex = messages.findLastIndex((m) => m.role === 'user');
+    if (lastUserIndex === -1) {
+      return;
+    }
+
+    // Mettre à jour le message utilisateur
+    const updatedMessages = [...messages];
+    updatedMessages[lastUserIndex] = {
+      ...updatedMessages[lastUserIndex],
+      content: newContent,
+    };
+
+    // Supprimer la réponse assistant si elle existe
+    const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant');
+    if (lastAssistantIndex > lastUserIndex) {
+      updatedMessages.splice(lastAssistantIndex, 1);
+    }
+
+    setMessages(updatedMessages);
+
+    try {
+      console.log('[useChatActions] ✏️ Édition du message et régénération');
+
+      // Construire les messages
+      const messagesToSend: OllamaMessage[] = [];
+      let systemPromptToUse = '';
+
+      if (currentPersona?.systemPrompt) {
+        systemPromptToUse = currentPersona.systemPrompt;
+
+        if (chatSettings.includeFewShots && currentPersona.fewShotExamples?.length) {
+          const fewShotsText = currentPersona.fewShotExamples
+            .map((example) => `Utilisateur: ${example.input}\nAssistant: ${example.output}`)
+            .join('\n\n');
+          systemPromptToUse += '\n\nExemples:\n' + fewShotsText;
+        }
+      } else if (chatSettings.systemPrompt.trim()) {
+        systemPromptToUse = chatSettings.systemPrompt;
+      }
+
+      if (systemPromptToUse) {
+        messagesToSend.push({
+          role: 'system',
+          content: systemPromptToUse,
+        });
+      }
+
+      messagesToSend.push(...updatedMessages);
+
+      const temperature = currentPersona?.temperature ?? chatSettings.temperature;
+      const maxTokens = currentPersona?.maxTokens ?? chatSettings.maxTokens;
+
+      await window.electronAPI.ollama.chatStream({
+        model: selectedModel,
+        messages: messagesToSend,
+        stream: true,
+        options: {
+          temperature,
+          num_ctx: maxTokens,
+          top_p: chatSettings.topP,
+        },
+      });
+
+      console.log('[useChatActions] ✅ Régénération lancée après édition');
+    } catch (error: any) {
+      console.error('Erreur lors de la régénération après édition:', error);
+      setIsGenerating(false);
+
+      const errorMessage: OllamaMessage = {
+        role: 'system',
+        content: `❌ Erreur: ${error.message || 'Erreur inconnue'}`,
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    }
+  };
+
+  return {
+    handleSendMessage,
+    handleStop,
+    handleClearChat,
+    handleRegenerate,
+    handleEditUserMessage,
+  };
+}
