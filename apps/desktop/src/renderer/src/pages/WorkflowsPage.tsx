@@ -96,18 +96,12 @@ export function WorkflowsPage() {
   };
 
   const handleDuplicateWorkflow = async (id: string) => {
-    const duplicated = await duplicateWorkflow(id);
-    if (duplicated) {
-      console.log('Workflow dupliqué:', duplicated.name);
-    }
+    await duplicateWorkflow(id);
   };
 
   const handleDeleteWorkflow = async (id: string) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce workflow ?')) {
-      const success = await deleteWorkflow(id);
-      if (success) {
-        console.log('Workflow supprimé');
-      }
+      await deleteWorkflow(id);
     }
   };
 

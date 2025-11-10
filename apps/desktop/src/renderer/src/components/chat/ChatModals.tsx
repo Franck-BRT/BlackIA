@@ -85,10 +85,7 @@ export function ChatModals({
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         settings={chatSettings}
-        onSave={(newSettings) => {
-          console.log('[ChatModals] 💾 Nouveaux settings sauvegardés:', newSettings);
-          updateChatSettings(newSettings);
-        }}
+        onSave={updateChatSettings}
       />
 
       {/* Tag Modal */}
