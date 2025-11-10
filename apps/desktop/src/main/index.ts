@@ -10,7 +10,9 @@ import { personaSuggestionService } from './services/persona-suggestion-service'
 import './handlers/persona-suggestion-handlers';
 import { registerPromptHandlers } from './handlers/prompt-handlers';
 import { registerWorkflowHandlers as registerWorkflowAdvancedHandlers } from './handlers/workflow-handlers';
+import { registerDocumentationHandlers } from './handlers/documentation-handlers';
 import { initDatabase, runMigrations } from './database/client';
+import { DocumentationService } from './services/documentation-db-service';
 
 // __dirname and __filename are available in CommonJS mode
 
@@ -76,6 +78,16 @@ app.whenReady().then(async () => {
     runMigrations();
     console.log('[App] ✅ Migrations completed');
 
+    // Initialiser la recherche FTS5 pour la documentation
+    console.log('[App] Initializing Documentation FTS5...');
+    await DocumentationService.initializeFTS();
+    console.log('[App] ✅ Documentation FTS5 initialized');
+
+    // Auto-importer la documentation par défaut si nécessaire
+    console.log('[App] Checking for documentation auto-import...');
+    await DocumentationService.autoImport();
+    console.log('[App] ✅ Documentation auto-import completed');
+
     // Initialiser le service personas
     console.log('[App] Initializing PersonaService...');
     await PersonaService.initialize();
@@ -130,6 +142,7 @@ app.whenReady().then(async () => {
     registerPromptHandlers();
     registerWorkflowHandlers();
     registerWorkflowAdvancedHandlers(); // Templates, Versions, Variables
+    registerDocumentationHandlers(); // Documentation
     registerTagSyncHandlers();
     console.log('[App] ✅ IPC handlers registered');
 

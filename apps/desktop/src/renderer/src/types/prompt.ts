@@ -24,13 +24,18 @@ export interface Prompt {
   defaultPersonaId?: string | null;
   defaultIncludeFewShots: boolean;
 
+  // Éditeur
+  availableInEditor: boolean; // Si true, le prompt est disponible dans l'éditeur
+  editorTitle: string | null; // Titre personnalisé pour l'éditeur (si différent de name)
+  editorVariable: string | null; // Variable qui recevra le texte sélectionné dans l'éditeur
+
   // Métadonnées
   isFavorite: boolean;
   usageCount: number;
 
   // Timestamps
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string; // ISO date string from backend
+  updatedAt: string; // ISO date string from backend
 }
 
 export type PromptColor = 'purple' | 'blue' | 'pink' | 'green' | 'orange';
@@ -46,6 +51,9 @@ export interface PromptFormData {
   tags: string[];
   defaultPersonaId?: string;
   defaultIncludeFewShots: boolean;
+  availableInEditor: boolean;
+  editorTitle?: string;
+  editorVariable?: string;
 }
 
 export interface CreatePromptData {
@@ -59,6 +67,9 @@ export interface CreatePromptData {
   tags: string; // JSON string
   defaultPersonaId?: string;
   defaultIncludeFewShots: boolean;
+  availableInEditor?: boolean;
+  editorTitle?: string;
+  editorVariable?: string;
   isFavorite?: boolean;
 }
 
@@ -73,6 +84,9 @@ export interface UpdatePromptData {
   tags?: string;
   defaultPersonaId?: string | null;
   defaultIncludeFewShots?: boolean;
+  availableInEditor?: boolean;
+  editorTitle?: string | null;
+  editorVariable?: string | null;
   isFavorite?: boolean;
 }
 

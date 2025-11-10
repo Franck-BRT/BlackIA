@@ -226,6 +226,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeAllListeners(channel);
     },
   },
+
+  // Documentation API
+  documentation: {
+    create: (data: any) => ipcRenderer.invoke('documentation:create', data),
+    getById: (id: string) => ipcRenderer.invoke('documentation:getById', id),
+    getBySlug: (slug: string) => ipcRenderer.invoke('documentation:getBySlug', slug),
+    getAll: () => ipcRenderer.invoke('documentation:getAll'),
+    getByCategory: (category: string) => ipcRenderer.invoke('documentation:getByCategory', category),
+    getByParent: (parentSlug: string | null) => ipcRenderer.invoke('documentation:getByParent', parentSlug),
+    update: (id: string, data: any) => ipcRenderer.invoke('documentation:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('documentation:delete', id),
+    search: (query: string, limit?: number) => ipcRenderer.invoke('documentation:search', query, limit),
+    getTree: () => ipcRenderer.invoke('documentation:getTree'),
+    getBreadcrumbs: (slug: string) => ipcRenderer.invoke('documentation:getBreadcrumbs', slug),
+    getStats: () => ipcRenderer.invoke('documentation:getStats'),
+  },
 });
 
 // Type definitions for the exposed API
@@ -394,6 +410,21 @@ export interface ElectronAPI {
 
     // Nettoyage des listeners
     removeAllListeners: (channel: string) => void;
+  };
+
+  documentation: {
+    create: (data: any) => Promise<any>;
+    getById: (id: string) => Promise<any>;
+    getBySlug: (slug: string) => Promise<any>;
+    getAll: () => Promise<any>;
+    getByCategory: (category: string) => Promise<any>;
+    getByParent: (parentSlug: string | null) => Promise<any>;
+    update: (id: string, data: any) => Promise<any>;
+    delete: (id: string) => Promise<any>;
+    search: (query: string, limit?: number) => Promise<any>;
+    getTree: () => Promise<any>;
+    getBreadcrumbs: (slug: string) => Promise<any>;
+    getStats: () => Promise<any>;
   };
 }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User } from 'lucide-react';
+import { User, FileText, X, Plus } from 'lucide-react';
 import type { Prompt, PromptFormData, PromptColor } from '../../types/prompt';
 import { PROMPT_CATEGORIES, PROMPT_COLORS, SUGGESTED_PROMPT_ICONS, extractVariables } from '../../types/prompt';
 import { usePersonas } from '../../hooks/usePersonas';
@@ -35,9 +35,14 @@ export function PromptForm({
     tags: [],
     defaultPersonaId: undefined,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: undefined,
+    editorVariable: undefined,
   });
 
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [manualVariables, setManualVariables] = useState(false);
+  const [newVariable, setNewVariable] = useState('');
 
   // Trouver le persona sélectionné
   const selectedPersona = personas.find((p) => p.id === formData.defaultPersonaId);
@@ -70,15 +75,51 @@ export function PromptForm({
         tags,
         defaultPersonaId: prompt.defaultPersonaId || undefined,
         defaultIncludeFewShots: prompt.defaultIncludeFewShots || false,
+        availableInEditor: prompt.availableInEditor || false,
+        editorTitle: prompt.editorTitle || undefined,
+        editorVariable: prompt.editorVariable || undefined,
       });
     }
   }, [prompt]);
 
-  // Auto-détecter les variables depuis le contenu
+  // Auto-détecter les variables depuis le contenu (seulement si mode automatique)
   useEffect(() => {
-    const detectedVariables = extractVariables(formData.content);
-    setFormData((prev) => ({ ...prev, variables: detectedVariables }));
-  }, [formData.content]);
+    if (!manualVariables) {
+      const detectedVariables = extractVariables(formData.content);
+      setFormData((prev) => ({ ...prev, variables: detectedVariables }));
+    }
+  }, [formData.content, manualVariables]);
+
+  // Vérifier si une variable d'éditeur est sélectionnée
+  const hasEditorVariable = formData.variables.length > 0 && (
+    formData.editorVariable ? formData.variables.includes(formData.editorVariable) : false
+  );
+
+  // Désactiver automatiquement si la variable n'existe plus
+  useEffect(() => {
+    if (formData.availableInEditor && !hasEditorVariable) {
+      setFormData((prev) => ({
+        ...prev,
+        availableInEditor: false,
+        editorTitle: undefined,
+      }));
+    }
+  }, [hasEditorVariable]);
+
+  // Auto-sélectionner une variable d'éditeur si aucune n'est sélectionnée
+  useEffect(() => {
+    if (formData.variables.length > 0 && !formData.editorVariable) {
+      // Priorité aux variables standard de l'éditeur
+      const preferredVars = ['texte', 'text', 'contenu', 'content', 'selection'];
+      const foundPreferred = formData.variables.find(v => preferredVars.includes(v));
+      if (foundPreferred) {
+        setFormData(prev => ({ ...prev, editorVariable: foundPreferred }));
+      } else {
+        // Sinon prendre la première variable
+        setFormData(prev => ({ ...prev, editorVariable: formData.variables[0] }));
+      }
+    }
+  }, [formData.variables]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,6 +137,33 @@ export function PromptForm({
   const handleCreateTag = (name: string, color: string, icon?: string) => {
     const newTag = createTag(name, color, icon);
     setFormData({ ...formData, tags: [...formData.tags, newTag.id] });
+  };
+
+  const handleAddVariable = () => {
+    const trimmedVar = newVariable.trim();
+    if (trimmedVar && !formData.variables.includes(trimmedVar)) {
+      setFormData({ ...formData, variables: [...formData.variables, trimmedVar] });
+      setNewVariable('');
+    }
+  };
+
+  const handleRemoveVariable = (varToRemove: string) => {
+    setFormData({
+      ...formData,
+      variables: formData.variables.filter((v) => v !== varToRemove),
+    });
+  };
+
+  const handleToggleManualVariables = () => {
+    if (!manualVariables) {
+      // Passer en mode manuel : garder les variables actuelles
+      setManualVariables(true);
+    } else {
+      // Revenir en mode auto : re-détecter les variables
+      setManualVariables(false);
+      const detectedVariables = extractVariables(formData.content);
+      setFormData({ ...formData, variables: detectedVariables });
+    }
   };
 
   return (
@@ -143,11 +211,6 @@ export function PromptForm({
           className="w-full px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none font-mono text-sm"
           placeholder="Votre prompt ici... Utilisez {{variable}} pour définir des variables"
         />
-        {formData.variables.length > 0 && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Variables détectées : {formData.variables.join(', ')}
-          </p>
-        )}
       </div>
 
       {/* Icône et Couleur */}
@@ -285,6 +348,225 @@ export function PromptForm({
             </div>
           </div>
         )}
+      </div>
+
+      {/* Configuration de l'éditeur */}
+      <div className="p-4 glass-card rounded-xl space-y-6">
+        <div>
+          <label className="block text-sm font-medium mb-3 flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            Configuration de l'éditeur
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Configurez les variables et la disponibilité de ce prompt dans l'éditeur de documentation.
+          </p>
+        </div>
+
+        {/* Gestion des variables */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <label className="text-sm font-medium">
+              Variables {manualVariables ? '(gestion manuelle)' : '(détection automatique)'}
+            </label>
+            <button
+              type="button"
+              onClick={handleToggleManualVariables}
+              className="text-xs px-3 py-1.5 glass-hover rounded-lg transition-colors"
+            >
+              {manualVariables ? '🔄 Mode automatique' : '✏️ Mode manuel'}
+            </button>
+          </div>
+
+          {/* Liste des variables */}
+          {formData.variables.length > 0 ? (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {formData.variables.map((variable) => {
+                const isSelectedForEditor = formData.editorVariable === variable;
+                return (
+                  <div
+                    key={variable}
+                    className={`flex items-center gap-2 px-3 py-1.5 glass-card rounded-lg text-sm ${
+                      isSelectedForEditor ? 'ring-1 ring-green-500/30 bg-green-500/5' : ''
+                    }`}
+                    title={isSelectedForEditor ? 'Variable utilisée pour l\'éditeur' : 'Variable standard'}
+                  >
+                    <span className={`font-mono ${isSelectedForEditor ? 'text-green-400' : 'text-purple-400'}`}>
+                      {'{{' + variable + '}}'}
+                    </span>
+                    {isSelectedForEditor && <span className="text-green-400 text-xs">📝</span>}
+                    {manualVariables && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveVariable(variable)}
+                        className="text-red-400 hover:text-red-300 transition-colors"
+                        title="Supprimer cette variable"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground mb-3">
+              {manualVariables
+                ? 'Aucune variable définie. Ajoutez-en ci-dessous.'
+                : 'Aucune variable détectée dans le contenu.'}
+            </p>
+          )}
+
+          {/* Ajouter une variable (mode manuel uniquement) */}
+          {manualVariables && (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newVariable}
+                onChange={(e) => setNewVariable(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddVariable();
+                  }
+                }}
+                placeholder="Nom de la variable (sans {{}})"
+                className="flex-1 px-3 py-2 glass-card rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              />
+              <button
+                type="button"
+                onClick={handleAddVariable}
+                disabled={!newVariable.trim()}
+                className="px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-sm">Ajouter</span>
+              </button>
+            </div>
+          )}
+
+          <p className="mt-3 text-xs text-muted-foreground">
+            {manualVariables
+              ? 'En mode manuel, vous gérez les variables vous-même. Elles ne seront pas détectées automatiquement.'
+              : 'Les variables sont automatiquement détectées depuis le contenu du prompt (format {{variable}}).'}
+          </p>
+        </div>
+
+        {/* Séparateur */}
+        <div className="border-t border-white/10"></div>
+
+        {/* Disponibilité dans l'éditeur */}
+        <div>
+          <label className="text-sm font-medium mb-3 block">Disponibilité dans l'éditeur</label>
+
+          {/* Sélecteur de variable pour l'éditeur */}
+          {formData.variables.length > 0 ? (
+            <div className="mb-3 p-3 glass-card rounded-lg">
+              <label className="text-xs font-medium mb-2 block">
+                Variable qui recevra le texte sélectionné dans l'éditeur
+              </label>
+              <select
+                value={formData.editorVariable || ''}
+                onChange={(e) => setFormData({ ...formData, editorVariable: e.target.value })}
+                className="w-full px-3 py-2 glass-card rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+              >
+                <option value="">Sélectionner une variable...</option>
+                {formData.variables.map((variable) => (
+                  <option key={variable} value={variable}>
+                    {`{{${variable}}}`}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Le texte sélectionné dans l'éditeur remplacera cette variable lors de l'application du prompt.
+              </p>
+            </div>
+          ) : (
+            <div className="mb-3 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+              <p className="text-xs text-orange-400 mb-2">
+                ⚠️ Ajoutez au moins une variable à votre prompt pour l'utiliser dans l'éditeur.
+              </p>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {['texte', 'text', 'Sujet', 'contenu', 'description'].map((varName) => (
+                  <button
+                    key={varName}
+                    type="button"
+                    onClick={() => {
+                      if (!formData.variables.includes(varName)) {
+                        setFormData({
+                          ...formData,
+                          variables: [...formData.variables, varName],
+                        });
+                        setManualVariables(true);
+                      }
+                    }}
+                    className="px-2 py-1 bg-orange-500/20 hover:bg-orange-500/30 rounded text-xs font-mono text-orange-300 transition-colors"
+                    title={`Ajouter {{${varName}}}`}
+                  >
+                    + {'{{' + varName + '}}'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Vous pouvez utiliser n'importe quel nom de variable selon votre besoin.
+              </p>
+            </div>
+          )}
+
+          {/* Checkbox pour activer dans l'éditeur */}
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="availableInEditor"
+              checked={formData.availableInEditor}
+              disabled={!hasEditorVariable}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  availableInEditor: e.target.checked,
+                  // Réinitialiser le titre si désactivé
+                  editorTitle: e.target.checked ? formData.editorTitle : undefined,
+                })
+              }
+              className={`w-4 h-4 rounded accent-purple-500 mt-1 ${!hasEditorVariable ? 'opacity-50 cursor-not-allowed' : ''}`}
+            />
+            <div className="flex-1">
+              <label
+                htmlFor="availableInEditor"
+                className={`text-sm ${hasEditorVariable ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+              >
+                Rendre disponible dans l'éditeur de documentation
+              </label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Ce prompt apparaîtra dans le menu contextuel (clic droit) et le menu déroulant de l'éditeur
+              </p>
+            </div>
+          </div>
+
+          {/* Champ pour le titre personnalisé */}
+          {formData.availableInEditor && (
+            <div className="mt-4">
+              <label className="block text-sm font-medium mb-2">
+                Titre dans l'éditeur
+                <span className="text-xs text-muted-foreground ml-2">(optionnel)</span>
+              </label>
+              <input
+                type="text"
+                value={formData.editorTitle || ''}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    editorTitle: e.target.value || undefined,
+                  })
+                }
+                className="w-full px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                placeholder={`Par défaut : ${formData.name}`}
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Titre court affiché dans le menu contextuel. Si vide, le nom du prompt sera utilisé.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Boutons */}

@@ -19,6 +19,9 @@ export interface Prompt {
   tags: string; // JSON array
   defaultPersonaId?: string | null;
   defaultIncludeFewShots: boolean;
+  availableInEditor: boolean; // Disponible dans l'éditeur
+  editorTitle: string | null; // Titre personnalisé pour l'éditeur
+  editorVariable: string | null; // Variable qui recevra le texte de l'éditeur
   isFavorite: boolean;
   usageCount: number;
   createdAt: string;
@@ -36,7 +39,7 @@ const USER_DATA_PATH = app.getPath('userData');
 const PROMPTS_FILE = path.join(USER_DATA_PATH, 'prompts.json');
 
 // Version du schéma des prompts par défaut
-const CURRENT_SCHEMA_VERSION = 1;
+const CURRENT_SCHEMA_VERSION = 4; // v4: Ajout de editorVariable pour spécifier quelle variable reçoit le texte
 
 // Cache en mémoire
 let cachedData: PromptsData | null = null;
@@ -69,6 +72,9 @@ Niveau de détail : {{niveau}}`,
     tags: JSON.stringify(['code', 'review', 'qualité', 'debug']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
+    editorVariable: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -99,6 +105,9 @@ Format : {{format}}`,
     tags: JSON.stringify(['documentation', 'code', 'commentaires']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
+    editorVariable: null,
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -136,6 +145,9 @@ Aide-moi à :
     tags: JSON.stringify(['debug', 'bug', 'erreur', 'fix']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
+    editorVariable: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -167,6 +179,9 @@ Utilise des noms de test descriptifs et ajoute des commentaires explicatifs.`,
     tags: JSON.stringify(['tests', 'unit-tests', 'TDD', 'qualité']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
+    editorVariable: null,
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -199,6 +214,9 @@ Fournis :
     tags: JSON.stringify(['refactoring', 'clean-code', 'optimisation']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
+    editorVariable: null,
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -229,6 +247,9 @@ Angle d'approche : {{angle}}`,
     tags: JSON.stringify(['blog', 'article', 'contenu', 'rédaction']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
+    editorVariable: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -258,6 +279,9 @@ L'email doit être :
     tags: JSON.stringify(['email', 'communication', 'professionnel']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
+    editorVariable: null,
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -287,6 +311,9 @@ Fournis également des recommandations stratégiques basées sur cette analyse.`
     tags: JSON.stringify(['analyse', 'stratégie', 'SWOT', 'business']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
+    editorVariable: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -318,6 +345,9 @@ Le compte-rendu doit inclure :
     tags: JSON.stringify(['réunion', 'compte-rendu', 'notes', 'synthèse']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
+    editorVariable: null,
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -347,6 +377,9 @@ Assure-toi que l'explication soit accessible tout en restant précise.`,
     tags: JSON.stringify(['explication', 'simplification', 'pédagogie', 'ELI5']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
+    editorVariable: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -379,6 +412,9 @@ Privilégie l'originalité et la créativité !`,
     tags: JSON.stringify(['brainstorm', 'idées', 'créativité', 'innovation']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
+    editorVariable: null,
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -410,6 +446,154 @@ Angle éditorial : {{angle}}`,
     tags: JSON.stringify(['SEO', 'contenu', 'référencement', 'marketing']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
+    editorVariable: null,
+    isFavorite: false,
+    usageCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  // === PROMPTS POUR L'ÉDITEUR ===
+  {
+    id: 'editor-translate-fr',
+    name: 'Traduire en Français',
+    description: 'Traduit le texte sélectionné en français',
+    content: `Traduis le texte suivant en français. Conserve le format markdown si présent.
+
+{{texte}}
+
+Fournis uniquement la traduction, sans commentaire additionnel.`,
+    variables: JSON.stringify(['texte']),
+    icon: '🌍',
+    color: 'blue',
+    category: 'Écriture',
+    tags: JSON.stringify(['traduction', 'français', 'éditeur']),
+    defaultPersonaId: null,
+    defaultIncludeFewShots: false,
+    availableInEditor: true,
+    editorTitle: 'Traduire en français',
+    editorVariable: 'texte',
+    isFavorite: true,
+    usageCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'editor-correct',
+    name: 'Corriger l\'Orthographe et la Grammaire',
+    description: 'Corrige les fautes d\'orthographe, grammaire et ponctuation',
+    content: `Corrige les fautes d'orthographe, de grammaire et de ponctuation dans le texte suivant. Conserve le format markdown si présent.
+
+{{texte}}
+
+Fournis uniquement le texte corrigé, sans commentaire additionnel.`,
+    variables: JSON.stringify(['texte']),
+    icon: '✅',
+    color: 'green',
+    category: 'Écriture',
+    tags: JSON.stringify(['correction', 'orthographe', 'grammaire', 'éditeur']),
+    defaultPersonaId: null,
+    defaultIncludeFewShots: false,
+    availableInEditor: true,
+    editorTitle: 'Corriger',
+    editorVariable: 'texte',
+    isFavorite: true,
+    usageCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'editor-summarize',
+    name: 'Résumer le Texte',
+    description: 'Crée un résumé concis du texte',
+    content: `Résume le texte suivant de manière concise et claire. Garde les points essentiels.
+
+{{texte}}
+
+Fournis uniquement le résumé, sans introduction.`,
+    variables: JSON.stringify(['texte']),
+    icon: '📝',
+    color: 'purple',
+    category: 'Analyse',
+    tags: JSON.stringify(['résumé', 'synthèse', 'éditeur']),
+    defaultPersonaId: null,
+    defaultIncludeFewShots: false,
+    availableInEditor: true,
+    editorTitle: 'Résumer',
+    editorVariable: 'texte',
+    isFavorite: true,
+    usageCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'editor-improve',
+    name: 'Améliorer le Style',
+    description: 'Améliore la qualité et la clarté du texte',
+    content: `Améliore le style et la clarté du texte suivant tout en conservant son sens. Rends-le plus fluide et professionnel. Conserve le format markdown si présent.
+
+{{texte}}
+
+Fournis uniquement le texte amélioré, sans commentaire additionnel.`,
+    variables: JSON.stringify(['texte']),
+    icon: '✨',
+    color: 'pink',
+    category: 'Écriture',
+    tags: JSON.stringify(['amélioration', 'style', 'qualité', 'éditeur']),
+    defaultPersonaId: null,
+    defaultIncludeFewShots: false,
+    availableInEditor: true,
+    editorTitle: 'Améliorer',
+    editorVariable: 'texte',
+    isFavorite: true,
+    usageCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'editor-simplify',
+    name: 'Simplifier le Langage',
+    description: 'Simplifie le texte pour le rendre plus accessible',
+    content: `Simplifie le texte suivant pour le rendre plus accessible et facile à comprendre. Utilise un vocabulaire simple. Conserve le format markdown si présent.
+
+{{texte}}
+
+Fournis uniquement le texte simplifié, sans commentaire additionnel.`,
+    variables: JSON.stringify(['texte']),
+    icon: '💡',
+    color: 'orange',
+    category: 'Écriture',
+    tags: JSON.stringify(['simplification', 'accessibilité', 'éditeur']),
+    defaultPersonaId: null,
+    defaultIncludeFewShots: false,
+    availableInEditor: true,
+    editorTitle: 'Simplifier',
+    editorVariable: 'texte',
+    isFavorite: false,
+    usageCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'editor-expand',
+    name: 'Développer le Texte',
+    description: 'Développe et enrichit le texte avec plus de détails',
+    content: `Développe le texte suivant en ajoutant plus de détails, d'exemples et d'explications. Enrichis le contenu tout en restant cohérent. Conserve le format markdown si présent.
+
+{{texte}}
+
+Fournis uniquement le texte développé, sans commentaire additionnel.`,
+    variables: JSON.stringify(['texte']),
+    icon: '📈',
+    color: 'blue',
+    category: 'Écriture',
+    tags: JSON.stringify(['développement', 'enrichissement', 'éditeur']),
+    defaultPersonaId: null,
+    defaultIncludeFewShots: false,
+    availableInEditor: true,
+    editorTitle: 'Développer',
+    editorVariable: 'texte',
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -449,6 +633,75 @@ async function initializePromptsFile(): Promise<void> {
 /**
  * Charge les données depuis le fichier
  */
+/**
+ * Migre les prompts de l'ancienne version vers la nouvelle
+ */
+function migratePrompts(data: PromptsData): PromptsData {
+  const currentVersion = data.schemaVersion || 1;
+
+  // Migration v1 -> v2: Ajout de availableInEditor et editorTitle
+  if (currentVersion < 2) {
+    console.log('[PromptService] Migration v1->v2: Ajout des champs éditeur');
+
+    // Ajouter les champs aux prompts existants
+    data.prompts = data.prompts.map(prompt => ({
+      ...prompt,
+      availableInEditor: false, // Par défaut, non disponible dans l'éditeur
+      editorTitle: null,
+    }));
+
+    data.schemaVersion = 2;
+  }
+
+  // Migration v2 -> v3: Ajout des prompts d'éditeur par défaut
+  if (currentVersion < 3) {
+    console.log('[PromptService] Migration v2->v3: Ajout des prompts d\'éditeur par défaut');
+
+    // S'assurer que tous les prompts ont les champs nécessaires
+    data.prompts = data.prompts.map(prompt => ({
+      ...prompt,
+      availableInEditor: prompt.availableInEditor ?? false,
+      editorTitle: prompt.editorTitle ?? null,
+    }));
+
+    // Ajouter les nouveaux prompts d'éditeur s'ils ne sont pas déjà présents
+    const editorPromptIds = [
+      'editor-translate-fr',
+      'editor-correct',
+      'editor-summarize',
+      'editor-improve',
+      'editor-simplify',
+      'editor-expand',
+    ];
+
+    const existingIds = new Set(data.prompts.map(p => p.id));
+    const editorPromptsToAdd = DEFAULT_PROMPTS.filter(
+      p => editorPromptIds.includes(p.id) && !existingIds.has(p.id)
+    );
+
+    if (editorPromptsToAdd.length > 0) {
+      console.log(`[PromptService] Ajout de ${editorPromptsToAdd.length} nouveaux prompts d'éditeur`);
+      data.prompts.push(...editorPromptsToAdd);
+    }
+
+    data.schemaVersion = 3;
+  }
+
+  // Migration v3 -> v4: Ajout de editorVariable
+  if (currentVersion < 4) {
+    console.log('[PromptService] Migration v3->v4: Ajout de editorVariable');
+
+    data.prompts = data.prompts.map(prompt => ({
+      ...prompt,
+      editorVariable: prompt.editorVariable ?? null,
+    }));
+
+    data.schemaVersion = 4;
+  }
+
+  return data;
+}
+
 async function loadData(): Promise<PromptsData> {
   if (cachedData) {
     return cachedData;
@@ -456,7 +709,16 @@ async function loadData(): Promise<PromptsData> {
 
   try {
     const fileContent = await fs.readFile(PROMPTS_FILE, 'utf-8');
-    const data: PromptsData = JSON.parse(fileContent);
+    let data: PromptsData = JSON.parse(fileContent);
+
+    // Appliquer les migrations si nécessaire
+    data = migratePrompts(data);
+
+    // Sauvegarder si des migrations ont été appliquées
+    if ((data.schemaVersion || 1) < CURRENT_SCHEMA_VERSION) {
+      await fs.writeFile(PROMPTS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    }
+
     cachedData = data;
     return cachedData;
   } catch (error) {

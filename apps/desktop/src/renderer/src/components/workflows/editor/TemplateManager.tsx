@@ -1,6 +1,29 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Save, Folder, Search, X, Download, Upload, Star, Copy } from 'lucide-react';
 import type { WorkflowTemplate, WorkflowNode, WorkflowEdge } from './types';
+import { defaultTemplates } from '../../../../../shared/default-templates';
+import {
+  templateCategories,
+  getCategoryIcon,
+  getCategoryLabel,
+} from '../../../../../shared/template-categories';
+
+// Clé localStorage pour les templates par défaut
+const DEFAULT_TEMPLATES_KEY = 'blackia_default_templates_initialized';
+
+/**
+ * Vérifier si les templates par défaut ont déjà été initialisés
+ */
+function areDefaultTemplatesInitialized(): boolean {
+  return localStorage.getItem(DEFAULT_TEMPLATES_KEY) === 'true';
+}
+
+/**
+ * Marquer les templates par défaut comme initialisés
+ */
+function markDefaultTemplatesAsInitialized(): void {
+  localStorage.setItem(DEFAULT_TEMPLATES_KEY, 'true');
+}
 
 interface TemplateManagerProps {
   isOpen: boolean;
@@ -53,7 +76,30 @@ export function TemplateManager({
 
   // Charger les templates au montage
   useEffect(() => {
+    const initializeDefaultTemplates = async () => {
+      // Vérifier si les templates par défaut ont déjà été créés
+      if (!areDefaultTemplatesInitialized()) {
+        console.log('Initializing default templates...');
+
+        // Créer chaque template par défaut
+        for (const template of defaultTemplates) {
+          try {
+            await window.electronAPI.workflowTemplates.create(template);
+          } catch (error) {
+            console.error(`Failed to create default template "${template.name}":`, error);
+          }
+        }
+
+        // Marquer comme initialisés
+        markDefaultTemplatesAsInitialized();
+        console.log('Default templates initialized successfully');
+      }
+    };
+
     const loadTemplates = async () => {
+      // Initialiser les templates par défaut si nécessaire
+      await initializeDefaultTemplates();
+
       const result = await window.electronAPI.workflowTemplates.getAll();
       if (result.success) {
         // Parse nodes and edges from JSON strings to objects for display
@@ -209,9 +255,10 @@ export function TemplateManager({
             className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white
                      focus:outline-none focus:border-purple-500/50"
           >
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat === 'all' ? 'Toutes les catégories' : cat}
+            <option value="all">📚 Toutes les catégories</option>
+            {templateCategories.map((cat) => (
+              <option key={cat.value} value={cat.value}>
+                {cat.icon} {cat.label}
               </option>
             ))}
           </select>
@@ -266,14 +313,21 @@ export function TemplateManager({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">Catégorie</label>
-                  <input
-                    type="text"
+                  <select
                     value={newTemplateCategory}
                     onChange={(e) => setNewTemplateCategory(e.target.value)}
-                    placeholder="general"
                     className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white
-                             placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
-                  />
+                             focus:outline-none focus:border-purple-500/50"
+                  >
+                    {templateCategories.map((category) => (
+                      <option key={category.value} value={category.value}>
+                        {category.icon} {category.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {templateCategories.find((c) => c.value === newTemplateCategory)?.description}
+                  </p>
                 </div>
                 <div className="flex gap-3 pt-4">
                   <button
@@ -302,7 +356,10 @@ export function TemplateManager({
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <h4 className="font-semibold text-white">{template.name}</h4>
-                      <p className="text-xs text-gray-400 mt-1">{template.category}</p>
+                      <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
+                        <span>{getCategoryIcon(template.category)}</span>
+                        <span>{getCategoryLabel(template.category)}</span>
+                      </div>
                     </div>
                     {template.usageCount && template.usageCount > 0 && (
                       <div className="flex items-center gap-1 text-xs text-yellow-400">

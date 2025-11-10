@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Bot, RefreshCw, Copy, Check, Edit2, X } from 'lucide-react';
+import { User, Bot, RefreshCw, Copy, Check, Edit2, X, Plus } from 'lucide-react';
 import type { OllamaMessage } from '@blackia/ollama';
 import type { Persona } from '../../types/persona';
 import { PERSONA_COLOR_CLASSES } from '../../types/persona';
@@ -14,6 +14,7 @@ interface ChatMessageProps {
   isLastAssistantMessage?: boolean;
   isLastUserMessage?: boolean;
   onEdit?: (newContent: string) => void;
+  onInsert?: () => void; // Callback pour insérer le contenu dans l'éditeur
   searchQuery?: string;
   searchStartIndex?: number;
   activeGlobalIndex?: number;
@@ -31,6 +32,7 @@ export function ChatMessage({
   isLastAssistantMessage = false,
   isLastUserMessage = false,
   onEdit,
+  onInsert,
   searchQuery,
   searchStartIndex,
   activeGlobalIndex,
@@ -223,6 +225,18 @@ export function ChatMessage({
                 </>
               )}
             </button>
+
+            {/* Insert button - only if onInsert callback is provided */}
+            {onInsert && (
+              <button
+                onClick={onInsert}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg glass-hover hover:bg-white/10 transition-colors text-sm text-muted-foreground"
+                title="Insérer dans le document"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Insérer</span>
+              </button>
+            )}
 
             {/* Regenerate button - only for last assistant message */}
             {isLastAssistantMessage && onRegenerate && (

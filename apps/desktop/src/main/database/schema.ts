@@ -263,3 +263,37 @@ export type WorkflowVersion = typeof workflowVersions.$inferSelect;
 export type NewWorkflowVersion = typeof workflowVersions.$inferInsert;
 export type WorkflowVariable = typeof workflowVariables.$inferSelect;
 export type NewWorkflowVariable = typeof workflowVariables.$inferInsert;
+
+/**
+ * Table Documentation
+ * Documentation intégrée à l'application avec recherche full-text
+ */
+export const documentation = sqliteTable('documentation', {
+  id: text('id').primaryKey(),
+  slug: text('slug').notNull().unique(), // URL-friendly identifier (e.g., 'guide/installation')
+  title: text('title').notNull(),
+  content: text('content').notNull(), // Markdown content
+
+  // Organisation
+  category: text('category', {
+    enum: ['guide', 'features', 'roadmap', 'api', 'faq', 'changelog']
+  }).notNull(),
+  parentSlug: text('parent_slug'), // Pour structure hiérarchique (e.g., 'guide' -> 'guide/installation')
+  order: integer('order').notNull().default(0), // Ordre d'affichage dans la navigation
+
+  // Métadonnées
+  icon: text('icon'), // Emoji pour l'affichage
+  description: text('description'), // Courte description pour la recherche
+  tags: text('tags').notNull().default('[]'), // JSON array pour filtrage
+  version: text('version'), // Version de doc (e.g., '1.0', '1.1')
+
+  // Visibilité
+  published: integer('published', { mode: 'boolean' }).notNull().default(true),
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export type Documentation = typeof documentation.$inferSelect;
+export type NewDocumentation = typeof documentation.$inferInsert;
