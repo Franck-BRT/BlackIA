@@ -127,18 +127,58 @@ export class ExecutionContext {
       // 1. Try exact match first
       let value = this.getVariable(varName);
       if (value !== undefined) {
-        return String(value);
+        return this.formatValue(value);
       }
 
       // 2. Try smart aliases based on semantic patterns
       value = this.resolveSemanticVariable(varName);
       if (value !== undefined) {
-        return String(value);
+        return this.formatValue(value);
       }
 
       // 3. Variable not found - return original placeholder
       return match;
     });
+  }
+
+  /**
+   * Formater une valeur pour l'affichage dans les prompts
+   */
+  private formatValue(value: unknown): string {
+    // Handle null/undefined
+    if (value === null || value === undefined) {
+      return String(value);
+    }
+
+    // Handle arrays - format as numbered list for better readability
+    if (Array.isArray(value)) {
+      // If array is empty
+      if (value.length === 0) {
+        return '[]';
+      }
+
+      // If all items are simple strings/numbers, format as numbered list
+      const allSimple = value.every(
+        item => typeof item === 'string' || typeof item === 'number'
+      );
+
+      if (allSimple) {
+        return value
+          .map((item, index) => `${index + 1}. ${String(item)}`)
+          .join('\n\n---\n\n');
+      }
+
+      // For complex arrays, use JSON formatting
+      return JSON.stringify(value, null, 2);
+    }
+
+    // Handle objects - format as JSON
+    if (typeof value === 'object') {
+      return JSON.stringify(value, null, 2);
+    }
+
+    // Handle primitives (string, number, boolean)
+    return String(value);
   }
 
   /**
