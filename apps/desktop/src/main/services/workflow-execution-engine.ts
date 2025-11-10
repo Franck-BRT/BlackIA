@@ -248,11 +248,15 @@ export class WorkflowExecutionEngine {
     const temperature = (node.data.temperature as number) ?? 0.7;
     const maxTokens = (node.data.maxTokens as number) || 2000;
 
+    // Log pour debug : afficher les variables disponibles
+    const availableVars = this.context.getAllVariables();
     this.context.log(node.id, 'info', 'AI Prompt node starting', {
-      template: promptTemplate,
-      interpolated: interpolatedPrompt,
+      template: promptTemplate.substring(0, 200),
+      interpolated: interpolatedPrompt.substring(0, 200),
       model,
       temperature,
+      availableVariables: Object.keys(availableVars),
+      lastValuePreview: String(availableVars.lastValue || 'undefined').substring(0, 100)
     });
 
     try {
@@ -365,15 +369,44 @@ export class WorkflowExecutionEngine {
     // Marquer le loop comme exécuté
     this.context.markNodeExecuted(node.id);
 
-    // Trouver les nœuds du corps de la boucle (edges avec sourceHandle='body')
-    const bodyEdges = this.workflow.edges.filter(
+    // Trouver les nœuds du corps de la boucle
+    // 1. D'abord essayer avec sourceHandle='body' (recommandé)
+    let bodyEdges = this.workflow.edges.filter(
       e => e.source === node.id && e.sourceHandle === 'body'
     );
+
+    // 2. Si aucun trouvé, utiliser tous les edges sortants comme corps de boucle (fallback)
+    // SAUF ceux explicitement marqués comme 'out' ou qui sont des edges de sortie
+    if (bodyEdges.length === 0) {
+      const allOutgoingEdges = this.workflow.edges.filter(e => e.source === node.id);
+      bodyEdges = allOutgoingEdges.filter(e =>
+        e.sourceHandle !== 'out' &&
+        e.sourceHandle !== 'exit' &&
+        e.sourceHandle !== 'done'
+      );
+
+      this.context.log(node.id, 'info', `No body edges found, using fallback: all outgoing edges`, {
+        totalOutgoingEdges: allOutgoingEdges.length,
+        usingAsFallback: bodyEdges.length
+      });
+    }
+
+    // Debug: afficher tous les edges sortants pour comprendre le problème
+    const allOutgoingEdges = this.workflow.edges.filter(e => e.source === node.id);
+    this.context.log(node.id, 'info', `Loop edges analysis`, {
+      totalOutgoingEdges: allOutgoingEdges.length,
+      edgesDetails: allOutgoingEdges.map(e => ({
+        target: e.target,
+        sourceHandle: e.sourceHandle || 'none',
+        targetHandle: e.targetHandle || 'none'
+      })),
+      bodyEdgesFound: bodyEdges.length
+    });
 
     const bodyNodeIds = bodyEdges.map(e => e.target);
     const results: unknown[] = [];
 
-    this.context.log(node.id, 'info', `Loop body contains ${bodyNodeIds.length} direct node(s)`);
+    this.context.log(node.id, 'info', `Loop body contains ${bodyNodeIds.length} node(s)`);
 
     // Exécuter les itérations
     for (let i = 0; i < loopCount; i++) {
@@ -382,7 +415,9 @@ export class WorkflowExecutionEngine {
       this.context.setVariable('loopCount', loopCount);
       this.context.setVariable('loopIteration', i + 1); // 1-based pour l'affichage
 
-      this.context.log(node.id, 'info', `Loop iteration ${i + 1}/${loopCount}`);
+      this.context.log(node.id, 'info', `Loop iteration ${i + 1}/${loopCount}`, {
+        currentLastValue: String(this.context.getVariable('lastValue') || 'undefined').substring(0, 100)
+      });
 
       // Pour permettre la ré-exécution des nœuds du corps, on doit les "démarquer"
       // On collecte tous les nœuds qui ont été exécutés avant cette itération
@@ -407,7 +442,7 @@ export class WorkflowExecutionEngine {
       results.push(iterationResult);
 
       this.context.log(node.id, 'info', `Iteration ${i + 1} completed`, {
-        result: iterationResult
+        resultPreview: String(iterationResult).substring(0, 100)
       });
     }
 
@@ -417,13 +452,18 @@ export class WorkflowExecutionEngine {
     this.context.setVariable('loopResults', results);
 
     this.context.log(node.id, 'success', `Loop completed (${loopCount} iterations)`, {
-      resultsCount: results.length
+      resultsCount: results.length,
+      resultsPreview: results.map(r => String(r).substring(0, 50))
     });
 
-    // Trouver et exécuter les nœuds suivants après le loop (edges sans handle ou avec handle='out')
+    // Trouver et exécuter les nœuds suivants après le loop
+    // Si on a utilisé des handles explicites (body), chercher 'out'
+    // Sinon, ne pas exécuter de nœuds de sortie car ils ont été traités dans la boucle
     const exitEdges = this.workflow.edges.filter(
-      e => e.source === node.id && (e.sourceHandle === 'out' || !e.sourceHandle || e.sourceHandle === '')
+      e => e.source === node.id && (e.sourceHandle === 'out' || e.sourceHandle === 'exit' || e.sourceHandle === 'done')
     );
+
+    this.context.log(node.id, 'info', `Loop exit: ${exitEdges.length} edge(s) found`);
 
     for (const edge of exitEdges) {
       const nextNode = this.workflow.nodes.find(n => n.id === edge.target);
