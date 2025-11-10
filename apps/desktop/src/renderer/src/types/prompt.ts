@@ -27,6 +27,7 @@ export interface Prompt {
   // Éditeur
   availableInEditor: boolean; // Si true, le prompt est disponible dans l'éditeur
   editorTitle: string | null; // Titre personnalisé pour l'éditeur (si différent de name)
+  editorVariable: string | null; // Variable qui recevra le texte sélectionné dans l'éditeur
 
   // Métadonnées
   isFavorite: boolean;
@@ -52,6 +53,7 @@ export interface PromptFormData {
   defaultIncludeFewShots: boolean;
   availableInEditor: boolean;
   editorTitle?: string;
+  editorVariable?: string;
 }
 
 export interface CreatePromptData {
@@ -67,6 +69,7 @@ export interface CreatePromptData {
   defaultIncludeFewShots: boolean;
   availableInEditor?: boolean;
   editorTitle?: string;
+  editorVariable?: string;
   isFavorite?: boolean;
 }
 
@@ -83,6 +86,7 @@ export interface UpdatePromptData {
   defaultIncludeFewShots?: boolean;
   availableInEditor?: boolean;
   editorTitle?: string | null;
+  editorVariable?: string | null;
   isFavorite?: boolean;
 }
 

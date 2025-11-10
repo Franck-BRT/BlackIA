@@ -21,6 +21,7 @@ export interface Prompt {
   defaultIncludeFewShots: boolean;
   availableInEditor: boolean; // Disponible dans l'éditeur
   editorTitle: string | null; // Titre personnalisé pour l'éditeur
+  editorVariable: string | null; // Variable qui recevra le texte de l'éditeur
   isFavorite: boolean;
   usageCount: number;
   createdAt: string;
@@ -38,7 +39,7 @@ const USER_DATA_PATH = app.getPath('userData');
 const PROMPTS_FILE = path.join(USER_DATA_PATH, 'prompts.json');
 
 // Version du schéma des prompts par défaut
-const CURRENT_SCHEMA_VERSION = 3; // v3: Ajout des prompts d'éditeur par défaut
+const CURRENT_SCHEMA_VERSION = 4; // v4: Ajout de editorVariable pour spécifier quelle variable reçoit le texte
 
 // Cache en mémoire
 let cachedData: PromptsData | null = null;
@@ -73,6 +74,7 @@ Niveau de détail : {{niveau}}`,
     defaultIncludeFewShots: false,
     availableInEditor: false,
     editorTitle: null,
+    editorVariable: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -144,6 +146,7 @@ Aide-moi à :
     defaultIncludeFewShots: false,
     availableInEditor: false,
     editorTitle: null,
+    editorVariable: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -243,6 +246,7 @@ Angle d'approche : {{angle}}`,
     defaultIncludeFewShots: false,
     availableInEditor: false,
     editorTitle: null,
+    editorVariable: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -305,6 +309,7 @@ Fournis également des recommandations stratégiques basées sur cette analyse.`
     defaultIncludeFewShots: false,
     availableInEditor: false,
     editorTitle: null,
+    editorVariable: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -369,6 +374,7 @@ Assure-toi que l'explication soit accessible tout en restant précise.`,
     defaultIncludeFewShots: false,
     availableInEditor: false,
     editorTitle: null,
+    editorVariable: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -460,6 +466,7 @@ Fournis uniquement la traduction, sans commentaire additionnel.`,
     defaultIncludeFewShots: false,
     availableInEditor: true,
     editorTitle: 'Traduire en français',
+    editorVariable: 'texte',
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -483,6 +490,7 @@ Fournis uniquement le texte corrigé, sans commentaire additionnel.`,
     defaultIncludeFewShots: false,
     availableInEditor: true,
     editorTitle: 'Corriger',
+    editorVariable: 'texte',
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -506,6 +514,7 @@ Fournis uniquement le résumé, sans introduction.`,
     defaultIncludeFewShots: false,
     availableInEditor: true,
     editorTitle: 'Résumer',
+    editorVariable: 'texte',
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -529,6 +538,7 @@ Fournis uniquement le texte amélioré, sans commentaire additionnel.`,
     defaultIncludeFewShots: false,
     availableInEditor: true,
     editorTitle: 'Améliorer',
+    editorVariable: 'texte',
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -552,6 +562,7 @@ Fournis uniquement le texte simplifié, sans commentaire additionnel.`,
     defaultIncludeFewShots: false,
     availableInEditor: true,
     editorTitle: 'Simplifier',
+    editorVariable: 'texte',
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -575,6 +586,7 @@ Fournis uniquement le texte développé, sans commentaire additionnel.`,
     defaultIncludeFewShots: false,
     availableInEditor: true,
     editorTitle: 'Développer',
+    editorVariable: 'texte',
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -666,6 +678,18 @@ function migratePrompts(data: PromptsData): PromptsData {
     }
 
     data.schemaVersion = 3;
+  }
+
+  // Migration v3 -> v4: Ajout de editorVariable
+  if (currentVersion < 4) {
+    console.log('[PromptService] Migration v3->v4: Ajout de editorVariable');
+
+    data.prompts = data.prompts.map(prompt => ({
+      ...prompt,
+      editorVariable: prompt.editorVariable ?? null,
+    }));
+
+    data.schemaVersion = 4;
   }
 
   return data;

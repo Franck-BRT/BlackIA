@@ -285,14 +285,23 @@ export function ChatInterface({
     const textToUse = selectedText || documentContext || '';
 
     // Remplacer les variables dans le prompt
-    const filledContent = replaceVariables(prompt.content, {
-      texte: textToUse,
-      text: textToUse,
-      contenu: textToUse,
-      content: textToUse,
-      selection: textToUse,
+    const replacements: Record<string, string> = {
       document: documentContext || '',
-    });
+    };
+
+    // Si le prompt a une editorVariable définie, utiliser celle-ci
+    if (prompt.editorVariable) {
+      replacements[prompt.editorVariable] = textToUse;
+    } else {
+      // Rétrocompatibilité : remplacer les variables standard
+      replacements.texte = textToUse;
+      replacements.text = textToUse;
+      replacements.contenu = textToUse;
+      replacements.content = textToUse;
+      replacements.selection = textToUse;
+    }
+
+    const filledContent = replaceVariables(prompt.content, replacements);
 
     // Pré-remplir l'input avec le prompt
     setPrefilledMessage(filledContent);

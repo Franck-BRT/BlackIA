@@ -53,6 +53,7 @@ export function registerPromptHandlers() {
       const normalizedData = {
         ...data,
         editorTitle: data.editorTitle ?? null,
+        editorVariable: data.editorVariable ?? null,
       };
       const newPrompt = await PromptService.create(normalizedData);
       return { success: true, data: newPrompt };
