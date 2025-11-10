@@ -597,11 +597,11 @@ export function ChatInput({
         )}
       </div>
 
-      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-        <span>↵ Entrée pour envoyer</span>
-        <span>⇧ + ↵ pour nouvelle ligne</span>
-        <span>@ pour mentionner un persona</span>
-        <span>/ pour insérer un prompt</span>
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 text-xs text-muted-foreground">
+        <span className="hidden sm:inline">↵ Entrée pour envoyer</span>
+        <span className="hidden md:inline">⇧ + ↵ pour nouvelle ligne</span>
+        <span className="truncate">@ mention</span>
+        <span className="truncate">/ prompt</span>
       </div>
     </form>
   );

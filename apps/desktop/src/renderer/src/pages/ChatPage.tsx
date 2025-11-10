@@ -18,6 +18,7 @@ import { useChatStreaming } from '../hooks/useChatStreaming';
 import { useChatPersona } from '../hooks/useChatPersona';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { useChatActions } from '../hooks/useChatActions';
+import { useResponsive } from '../hooks/useResponsive';
 import type { BackupData } from '../components/chat/ImportExportMenu';
 import type { Folder } from '../hooks/useConversations';
 
@@ -34,6 +35,9 @@ export function ChatPage() {
   const location = useLocation();
 
   // === HOOKS PERSONNALISÉS ===
+
+  // 0. Responsive
+  const { chatSidebarWidth, isMobile, isTablet } = useResponsive();
 
   // 1. États centralisés
   const {
@@ -366,10 +370,10 @@ export function ChatPage() {
   // === RENDU ===
 
   return (
-    <div className="h-full flex">
-      {/* Sidebar */}
-      {isSidebarOpen && (
-        <div className="w-80 flex-shrink-0">
+    <div className="h-full flex relative">
+      {/* Sidebar avec largeur adaptive */}
+      {isSidebarOpen && !isMobile && (
+        <div style={{ width: chatSidebarWidth }} className="flex-shrink-0">
           <ConversationSidebar
             conversations={conversations}
             folders={folders}
@@ -412,6 +416,67 @@ export function ChatPage() {
             }}
           />
         </div>
+      )}
+
+      {/* Mobile Drawer pour conversation sidebar */}
+      {isMobile && isSidebarOpen && (
+        <>
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+          {/* Drawer */}
+          <div className="fixed top-0 left-0 bottom-0 w-80 z-50 glass-sidebar">
+            <ConversationSidebar
+              conversations={conversations}
+              folders={folders}
+              tags={tags}
+              personas={personas}
+              currentConversationId={currentConversationId}
+              onSelectConversation={(id) => {
+                handleSelectConversation(id);
+                setIsSidebarOpen(false); // Fermer après sélection sur mobile
+              }}
+              onNewConversation={() => {
+                handleNewConversation();
+                setIsSidebarOpen(false);
+              }}
+              onDeleteConversation={deleteConversation}
+              onCreateFolder={createFolder}
+              onRenameFolder={renameFolder}
+              onDeleteFolder={handleDeleteFolder}
+              onMoveToFolder={moveToFolder}
+              onRenameConversation={renameConversation}
+              onOpenFolderModal={(folder) => {
+                setEditingFolder(folder || null);
+                setIsFolderModalOpen(true);
+              }}
+              onCreateTag={(name, color, icon) => {
+                createTag(name, color, icon);
+              }}
+              onOpenTagModal={() => {
+                setIsTagModalOpen(true);
+              }}
+              onToggleConversationTag={(conversationId, tagId) => {
+                const conversation = conversations.find(c => c.id === conversationId);
+                if (conversation?.tagIds?.includes(tagId)) {
+                  removeTagFromConversation(conversationId, tagId);
+                } else {
+                  addTagToConversation(conversationId, tagId);
+                }
+              }}
+              onToggleFavorite={toggleFavorite}
+              onOpenChatSearch={(initialQuery) => {
+                setIsChatSearchOpen(true);
+                if (initialQuery) {
+                  setChatSearchQuery(initialQuery);
+                  setCurrentSearchIndex(0);
+                }
+              }}
+            />
+          </div>
+        </>
       )}
 
       {/* Main Chat Area */}

@@ -62,22 +62,25 @@ export function ChatHeader({
   handleImportBackup,
 }: ChatHeaderProps) {
   return (
-    <div className="flex items-center justify-between p-4 glass-card border-b border-white/10 relative z-10">
-      <div className="flex items-center gap-4">
+    <div className="flex items-center justify-between p-2 sm:p-4 glass-card border-b border-white/10 relative z-10">
+      {/* Left side - Menu, Title, Model, Persona */}
+      <div className="flex items-center gap-1 sm:gap-2 md:gap-4 min-w-0 flex-1">
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="header-btn glass-hover"
+          className="header-btn glass-hover flex-shrink-0"
           title={isSidebarOpen ? 'Masquer la sidebar' : 'Afficher la sidebar'}
         >
           <Menu className="w-5 h-5" />
         </button>
-        <h1 className="text-xl font-bold">Chat</h1>
-        <ModelSelector selectedModel={selectedModel} onModelChange={setSelectedModel} />
+        <h1 className="text-lg sm:text-xl font-bold hidden sm:block">Chat</h1>
+        <div className="hidden md:block">
+          <ModelSelector selectedModel={selectedModel} onModelChange={setSelectedModel} />
+        </div>
 
         {/* Persona Selection Button */}
         <button
           onClick={() => setIsPersonaModalOpen(true)}
-          className={`header-btn gap-2 px-3 ${
+          className={`header-btn gap-1 sm:gap-2 px-2 sm:px-3 ${
             currentPersona
               ? 'glass-card border border-white/20'
               : 'glass-hover'
@@ -87,61 +90,67 @@ export function ChatHeader({
           {currentPersona ? (
             <>
               <div
-                className={`w-6 h-6 rounded-lg bg-gradient-to-br ${
+                className={`w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-gradient-to-br ${
                   PERSONA_COLOR_CLASSES[currentPersona.color] || PERSONA_COLOR_CLASSES.purple
-                } flex items-center justify-center text-sm flex-shrink-0`}
+                } flex items-center justify-center text-xs sm:text-sm flex-shrink-0`}
               >
                 {currentPersona.avatar}
               </div>
-              <span className="text-sm font-medium">{currentPersona.name}</span>
+              <span className="text-xs sm:text-sm font-medium truncate max-w-[80px] sm:max-w-none">{currentPersona.name}</span>
             </>
           ) : (
             <>
-              <User className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm">Persona</span>
+              <User className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+              <span className="text-xs sm:text-sm hidden sm:inline">Persona</span>
             </>
           )}
         </button>
       </div>
 
-      <div className="flex items-center gap-2">
-        <ExportMenu
-          messages={messages}
-          conversationTitle={
-            currentConversationId
-              ? conversations.find((c) => c.id === currentConversationId)?.title
-              : 'Conversation'
-          }
-          conversation={
-            currentConversationId
-              ? conversations.find((c) => c.id === currentConversationId)
-              : undefined
-          }
-        />
-        <ImportExportMenu
-          conversations={conversations}
-          folders={folders}
-          tags={tags}
-          onImportConversation={handleImportConversation}
-          onImportBackup={handleImportBackup}
-        />
-        <button
-          onClick={() => setIsStatisticsModalOpen(true)}
-          className="header-btn glass-hover"
-          title="Statistiques d'utilisation (Ctrl+Shift+S)"
-        >
-          <BarChart3 className="w-5 h-5" />
-        </button>
+      {/* Right side - Actions (adaptés pour mobile) */}
+      <div className="flex items-center gap-1 sm:gap-2">
+        {/* Boutons masqués sur mobile */}
+        <div className="hidden md:flex items-center gap-2">
+          <ExportMenu
+            messages={messages}
+            conversationTitle={
+              currentConversationId
+                ? conversations.find((c) => c.id === currentConversationId)?.title
+                : 'Conversation'
+            }
+            conversation={
+              currentConversationId
+                ? conversations.find((c) => c.id === currentConversationId)
+                : undefined
+            }
+          />
+          <ImportExportMenu
+            conversations={conversations}
+            folders={folders}
+            tags={tags}
+            onImportConversation={handleImportConversation}
+            onImportBackup={handleImportBackup}
+          />
+          <button
+            onClick={() => setIsStatisticsModalOpen(true)}
+            className="header-btn glass-hover"
+            title="Statistiques d'utilisation (Ctrl+Shift+S)"
+          >
+            <BarChart3 className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Boutons essentiels visibles sur tous les écrans */}
         <button
           onClick={() => setIsChatSearchOpen(true)}
           className="header-btn glass-hover"
           title="Rechercher dans la conversation (Ctrl+F)"
         >
-          <Search className="w-5 h-5" />
+          <Search className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
         <button
           onClick={handleClearChat}
-          className="header-btn glass-hover hover:bg-red-500/20"
+          className="header-btn glass-hover hover:bg-red-500/20 hidden sm:flex"
           title="Effacer la conversation"
         >
           <Trash2 className="w-5 h-5 text-red-400" />
@@ -151,7 +160,7 @@ export function ChatHeader({
           className="header-btn glass-hover"
           title="Paramètres du Chat"
         >
-          <Settings className="w-5 h-5" />
+          <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
       </div>
     </div>
