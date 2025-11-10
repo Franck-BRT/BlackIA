@@ -84,6 +84,22 @@ export function PromptForm({
     setFormData((prev) => ({ ...prev, variables: detectedVariables }));
   }, [formData.content]);
 
+  // Vérifier si le prompt contient la variable {{texte}} requise pour l'éditeur
+  const hasTexteVariable = formData.variables.some(v =>
+    v === 'texte' || v === 'text' || v === 'contenu' || v === 'content' || v === 'selection'
+  );
+
+  // Désactiver automatiquement si la variable n'existe plus
+  useEffect(() => {
+    if (formData.availableInEditor && !hasTexteVariable) {
+      setFormData((prev) => ({
+        ...prev,
+        availableInEditor: false,
+        editorTitle: undefined,
+      }));
+    }
+  }, [hasTexteVariable]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(formData);
@@ -298,12 +314,28 @@ export function PromptForm({
           Disponibilité dans l'éditeur
         </label>
 
+        {/* Message d'information si variable manquante */}
+        {!hasTexteVariable && (
+          <div className="mb-3 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+            <p className="text-xs text-orange-400">
+              ⚠️ Pour rendre ce prompt disponible dans l'éditeur, il doit contenir au moins une de ces variables dans son contenu :
+            </p>
+            <p className="text-xs text-orange-300 mt-1 font-mono">
+              {'{{texte}}'}, {'{{text}}'}, {'{{contenu}}'}, {'{{content}}'} ou {'{{selection}}'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Cette variable sera remplacée par le texte sélectionné dans l'éditeur.
+            </p>
+          </div>
+        )}
+
         {/* Checkbox pour activer dans l'éditeur */}
         <div className="flex items-start gap-3">
           <input
             type="checkbox"
             id="availableInEditor"
             checked={formData.availableInEditor}
+            disabled={!hasTexteVariable}
             onChange={(e) =>
               setFormData({
                 ...formData,
@@ -312,10 +344,13 @@ export function PromptForm({
                 editorTitle: e.target.checked ? formData.editorTitle : undefined,
               })
             }
-            className="w-4 h-4 rounded accent-purple-500 mt-1"
+            className={`w-4 h-4 rounded accent-purple-500 mt-1 ${!hasTexteVariable ? 'opacity-50 cursor-not-allowed' : ''}`}
           />
           <div className="flex-1">
-            <label htmlFor="availableInEditor" className="text-sm cursor-pointer">
+            <label
+              htmlFor="availableInEditor"
+              className={`text-sm ${hasTexteVariable ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+            >
               Rendre disponible dans l'éditeur de documentation
             </label>
             <p className="text-xs text-muted-foreground mt-1">
