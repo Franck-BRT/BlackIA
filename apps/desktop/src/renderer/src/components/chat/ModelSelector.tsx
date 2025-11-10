@@ -23,11 +23,20 @@ export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorPro
       setError(null);
 
       console.log('=== DEBUG ModelSelector ===');
+      console.log('Ollama enabled:', ollama.enabled);
       console.log('window.electronAPI:', window.electronAPI);
       console.log('window.electronAPI.ollama:', window.electronAPI?.ollama);
 
+      // Vérifier si Ollama est activé dans les paramètres
+      if (!ollama.enabled) {
+        setError('Ollama est désactivé. Activez-le dans Paramètres > AI Locale.');
+        setModels([]);
+        return;
+      }
+
       if (!window.electronAPI?.ollama) {
         setError('API Ollama non disponible. Redémarrez l\'application.');
+        setModels([]);
         return;
       }
 
@@ -36,6 +45,7 @@ export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorPro
 
       if (!isAvailable) {
         setError('Ollama n\'est pas accessible. Assurez-vous qu\'il est démarré.');
+        setModels([]);
         return;
       }
 
@@ -57,11 +67,18 @@ export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorPro
 
   useEffect(() => {
     loadModels();
-  }, []);
+  }, [ollama.enabled]); // Recharger quand Ollama est activé/désactivé
 
   const selectedModelDisplayName = selectedModel
     ? getModelDisplayName(selectedModel, ollama.modelAliases)
     : 'Sélectionner un modèle';
+
+  // Déterminer la couleur de l'indicateur
+  const indicatorColor = error
+    ? 'bg-red-400'
+    : models.length > 0
+      ? 'bg-green-400'
+      : 'bg-yellow-400';
 
   return (
     <div className="relative">
@@ -69,9 +86,9 @@ export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorPro
         onClick={() => setIsOpen(!isOpen)}
         className="header-btn glass-card gap-3 px-4 min-w-[200px]"
       >
-        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+        <div className={`w-2 h-2 rounded-full ${indicatorColor} animate-pulse`} />
         <span className="flex-1 text-left truncate">
-          {isLoading ? 'Chargement...' : selectedModelDisplayName}
+          {isLoading ? 'Chargement...' : error ? 'Erreur' : selectedModelDisplayName}
         </span>
         <RefreshCw
           className={`w-4 h-4 text-muted-foreground ${isLoading ? 'animate-spin' : ''}`}
@@ -91,9 +108,19 @@ export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorPro
           />
           <div className="absolute top-full left-0 mt-2 w-80 glass-card bg-gray-900/95 rounded-xl p-2 z-[9999] max-h-96 overflow-y-auto">
             {error ? (
-              <div className="flex items-center gap-2 p-3 text-red-400 text-sm">
-                <AlertCircle className="w-4 h-4" />
-                <span>{error}</span>
+              <div className="p-4 space-y-2">
+                <div className="flex items-center gap-2 text-red-400 text-sm font-medium">
+                  <AlertCircle className="w-5 h-5" />
+                  <span>Connexion perdue</span>
+                </div>
+                <p className="text-xs text-muted-foreground pl-7">{error}</p>
+                {!ollama.enabled && (
+                  <div className="mt-3 pt-3 border-t border-white/10">
+                    <p className="text-xs text-blue-400">
+                      💡 Allez dans <span className="font-semibold">Paramètres → AI Locale</span> pour activer Ollama
+                    </p>
+                  </div>
+                )}
               </div>
             ) : models.length === 0 ? (
               <div className="p-4 text-center text-muted-foreground text-sm">
