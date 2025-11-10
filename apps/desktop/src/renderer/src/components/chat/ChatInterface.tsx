@@ -360,6 +360,7 @@ export function ChatInterface({
                   syntaxTheme={chatSettings.syntaxTheme}
                   showLineNumbers={chatSettings.showLineNumbers}
                   onRegenerate={message.role === 'assistant' ? () => handleRegenerate(index) : undefined}
+                  onInsert={message.role === 'assistant' && onInsertText ? () => onInsertText(message.content) : undefined}
                   isLastAssistantMessage={message.role === 'assistant' && index === messages.length - 1 && !isGenerating}
                 />
               );
@@ -371,6 +372,7 @@ export function ChatInterface({
                 isStreaming={true}
                 syntaxTheme={chatSettings.syntaxTheme}
                 showLineNumbers={chatSettings.showLineNumbers}
+                onInsert={onInsertText ? () => onInsertText(streamingMessage) : undefined}
               />
             )}
 
