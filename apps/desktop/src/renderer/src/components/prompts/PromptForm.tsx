@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, FileText } from 'lucide-react';
+import { User, FileText, X, Plus } from 'lucide-react';
 import type { Prompt, PromptFormData, PromptColor } from '../../types/prompt';
 import { PROMPT_CATEGORIES, PROMPT_COLORS, SUGGESTED_PROMPT_ICONS, extractVariables } from '../../types/prompt';
 import { usePersonas } from '../../hooks/usePersonas';
@@ -40,6 +40,8 @@ export function PromptForm({
   });
 
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [manualVariables, setManualVariables] = useState(false);
+  const [newVariable, setNewVariable] = useState('');
 
   // Trouver le persona sélectionné
   const selectedPersona = personas.find((p) => p.id === formData.defaultPersonaId);
@@ -78,11 +80,13 @@ export function PromptForm({
     }
   }, [prompt]);
 
-  // Auto-détecter les variables depuis le contenu
+  // Auto-détecter les variables depuis le contenu (seulement si mode automatique)
   useEffect(() => {
-    const detectedVariables = extractVariables(formData.content);
-    setFormData((prev) => ({ ...prev, variables: detectedVariables }));
-  }, [formData.content]);
+    if (!manualVariables) {
+      const detectedVariables = extractVariables(formData.content);
+      setFormData((prev) => ({ ...prev, variables: detectedVariables }));
+    }
+  }, [formData.content, manualVariables]);
 
   // Vérifier si le prompt contient la variable {{texte}} requise pour l'éditeur
   const hasTexteVariable = formData.variables.some(v =>
@@ -116,6 +120,33 @@ export function PromptForm({
   const handleCreateTag = (name: string, color: string, icon?: string) => {
     const newTag = createTag(name, color, icon);
     setFormData({ ...formData, tags: [...formData.tags, newTag.id] });
+  };
+
+  const handleAddVariable = () => {
+    const trimmedVar = newVariable.trim();
+    if (trimmedVar && !formData.variables.includes(trimmedVar)) {
+      setFormData({ ...formData, variables: [...formData.variables, trimmedVar] });
+      setNewVariable('');
+    }
+  };
+
+  const handleRemoveVariable = (varToRemove: string) => {
+    setFormData({
+      ...formData,
+      variables: formData.variables.filter((v) => v !== varToRemove),
+    });
+  };
+
+  const handleToggleManualVariables = () => {
+    if (!manualVariables) {
+      // Passer en mode manuel : garder les variables actuelles
+      setManualVariables(true);
+    } else {
+      // Revenir en mode auto : re-détecter les variables
+      setManualVariables(false);
+      const detectedVariables = extractVariables(formData.content);
+      setFormData({ ...formData, variables: detectedVariables });
+    }
   };
 
   return (
@@ -163,11 +194,86 @@ export function PromptForm({
           className="w-full px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 resize-none font-mono text-sm"
           placeholder="Votre prompt ici... Utilisez {{variable}} pour définir des variables"
         />
-        {formData.variables.length > 0 && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Variables détectées : {formData.variables.join(', ')}
+      </div>
+
+      {/* Gestion des variables */}
+      <div className="p-4 glass-card rounded-xl">
+        <div className="flex items-center justify-between mb-3">
+          <label className="text-sm font-medium">
+            Variables {manualVariables ? '(gestion manuelle)' : '(détection automatique)'}
+          </label>
+          <button
+            type="button"
+            onClick={handleToggleManualVariables}
+            className="text-xs px-3 py-1.5 glass-hover rounded-lg transition-colors"
+          >
+            {manualVariables ? '🔄 Mode automatique' : '✏️ Mode manuel'}
+          </button>
+        </div>
+
+        {/* Liste des variables */}
+        {formData.variables.length > 0 ? (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {formData.variables.map((variable) => (
+              <div
+                key={variable}
+                className="flex items-center gap-2 px-3 py-1.5 glass-card rounded-lg text-sm"
+              >
+                <span className="font-mono text-purple-400">{'{{' + variable + '}}'}</span>
+                {manualVariables && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveVariable(variable)}
+                    className="text-red-400 hover:text-red-300 transition-colors"
+                    title="Supprimer cette variable"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground mb-3">
+            {manualVariables
+              ? 'Aucune variable définie. Ajoutez-en ci-dessous.'
+              : 'Aucune variable détectée dans le contenu.'}
           </p>
         )}
+
+        {/* Ajouter une variable (mode manuel uniquement) */}
+        {manualVariables && (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newVariable}
+              onChange={(e) => setNewVariable(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddVariable();
+                }
+              }}
+              placeholder="Nom de la variable (sans {{}})"
+              className="flex-1 px-3 py-2 glass-card rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+            />
+            <button
+              type="button"
+              onClick={handleAddVariable}
+              disabled={!newVariable.trim()}
+              className="px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-sm">Ajouter</span>
+            </button>
+          </div>
+        )}
+
+        <p className="mt-3 text-xs text-muted-foreground">
+          {manualVariables
+            ? 'En mode manuel, vous gérez les variables vous-même. Elles ne seront pas détectées automatiquement.'
+            : 'Les variables sont automatiquement détectées depuis le contenu du prompt (format {{variable}}).'}
+        </p>
       </div>
 
       {/* Icône et Couleur */}
