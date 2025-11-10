@@ -443,6 +443,145 @@ Angle éditorial : {{angle}}`,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  // === PROMPTS POUR L'ÉDITEUR ===
+  {
+    id: 'editor-translate-fr',
+    name: 'Traduire en Français',
+    description: 'Traduit le texte sélectionné en français',
+    content: `Traduis le texte suivant en français. Conserve le format markdown si présent.
+
+{{texte}}
+
+Fournis uniquement la traduction, sans commentaire additionnel.`,
+    variables: JSON.stringify(['texte']),
+    icon: '🌍',
+    color: 'blue',
+    category: 'Écriture',
+    tags: JSON.stringify(['traduction', 'français', 'éditeur']),
+    defaultPersonaId: null,
+    defaultIncludeFewShots: false,
+    availableInEditor: true,
+    editorTitle: 'Traduire en français',
+    isFavorite: true,
+    usageCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'editor-correct',
+    name: 'Corriger l\'Orthographe et la Grammaire',
+    description: 'Corrige les fautes d\'orthographe, grammaire et ponctuation',
+    content: `Corrige les fautes d'orthographe, de grammaire et de ponctuation dans le texte suivant. Conserve le format markdown si présent.
+
+{{texte}}
+
+Fournis uniquement le texte corrigé, sans commentaire additionnel.`,
+    variables: JSON.stringify(['texte']),
+    icon: '✅',
+    color: 'green',
+    category: 'Écriture',
+    tags: JSON.stringify(['correction', 'orthographe', 'grammaire', 'éditeur']),
+    defaultPersonaId: null,
+    defaultIncludeFewShots: false,
+    availableInEditor: true,
+    editorTitle: 'Corriger',
+    isFavorite: true,
+    usageCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'editor-summarize',
+    name: 'Résumer le Texte',
+    description: 'Crée un résumé concis du texte',
+    content: `Résume le texte suivant de manière concise et claire. Garde les points essentiels.
+
+{{texte}}
+
+Fournis uniquement le résumé, sans introduction.`,
+    variables: JSON.stringify(['texte']),
+    icon: '📝',
+    color: 'purple',
+    category: 'Analyse',
+    tags: JSON.stringify(['résumé', 'synthèse', 'éditeur']),
+    defaultPersonaId: null,
+    defaultIncludeFewShots: false,
+    availableInEditor: true,
+    editorTitle: 'Résumer',
+    isFavorite: true,
+    usageCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'editor-improve',
+    name: 'Améliorer le Style',
+    description: 'Améliore la qualité et la clarté du texte',
+    content: `Améliore le style et la clarté du texte suivant tout en conservant son sens. Rends-le plus fluide et professionnel. Conserve le format markdown si présent.
+
+{{texte}}
+
+Fournis uniquement le texte amélioré, sans commentaire additionnel.`,
+    variables: JSON.stringify(['texte']),
+    icon: '✨',
+    color: 'pink',
+    category: 'Écriture',
+    tags: JSON.stringify(['amélioration', 'style', 'qualité', 'éditeur']),
+    defaultPersonaId: null,
+    defaultIncludeFewShots: false,
+    availableInEditor: true,
+    editorTitle: 'Améliorer',
+    isFavorite: true,
+    usageCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'editor-simplify',
+    name: 'Simplifier le Langage',
+    description: 'Simplifie le texte pour le rendre plus accessible',
+    content: `Simplifie le texte suivant pour le rendre plus accessible et facile à comprendre. Utilise un vocabulaire simple. Conserve le format markdown si présent.
+
+{{texte}}
+
+Fournis uniquement le texte simplifié, sans commentaire additionnel.`,
+    variables: JSON.stringify(['texte']),
+    icon: '💡',
+    color: 'orange',
+    category: 'Écriture',
+    tags: JSON.stringify(['simplification', 'accessibilité', 'éditeur']),
+    defaultPersonaId: null,
+    defaultIncludeFewShots: false,
+    availableInEditor: true,
+    editorTitle: 'Simplifier',
+    isFavorite: false,
+    usageCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'editor-expand',
+    name: 'Développer le Texte',
+    description: 'Développe et enrichit le texte avec plus de détails',
+    content: `Développe le texte suivant en ajoutant plus de détails, d'exemples et d'explications. Enrichis le contenu tout en restant cohérent. Conserve le format markdown si présent.
+
+{{texte}}
+
+Fournis uniquement le texte développé, sans commentaire additionnel.`,
+    variables: JSON.stringify(['texte']),
+    icon: '📈',
+    color: 'blue',
+    category: 'Écriture',
+    tags: JSON.stringify(['développement', 'enrichissement', 'éditeur']),
+    defaultPersonaId: null,
+    defaultIncludeFewShots: false,
+    availableInEditor: true,
+    editorTitle: 'Développer',
+    isFavorite: false,
+    usageCount: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 /**
