@@ -541,6 +541,8 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
             <EditorAIAssistant
               documentContent={content}
               selectedModel={selectedModel}
+              availableModels={availableModels}
+              onModelChange={setSelectedModel}
               onInsertText={insertTextFromAI}
             />
           </div>
