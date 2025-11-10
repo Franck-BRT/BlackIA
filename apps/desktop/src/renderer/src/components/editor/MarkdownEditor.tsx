@@ -310,6 +310,10 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
 
   const handleExport = async () => {
     try {
+      console.log('[MarkdownEditor] Tentative d\'ouverture de la fenêtre de dialogue...');
+      console.log('[MarkdownEditor] window.electronAPI:', window.electronAPI);
+      console.log('[MarkdownEditor] window.electronAPI.file:', window.electronAPI?.file);
+
       // Ouvrir la fenêtre de dialogue pour choisir où sauvegarder
       const result = await window.electronAPI.file.saveDialog({
         title: 'Sauvegarder le document',
@@ -321,24 +325,33 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
         ]
       });
 
+      console.log('[MarkdownEditor] Résultat de saveDialog:', result);
+
       // Si l'utilisateur a annulé
       if (result.canceled || !result.filePath) {
+        console.log('[MarkdownEditor] Sauvegarde annulée par l\'utilisateur');
         return;
       }
 
+      console.log('[MarkdownEditor] Écriture du fichier vers:', result.filePath);
+
       // Écrire le fichier
       const writeResult = await window.electronAPI.file.writeFile(result.filePath, content);
+
+      console.log('[MarkdownEditor] Résultat de writeFile:', writeResult);
 
       if (writeResult.success) {
         // Mettre à jour l'état après la sauvegarde réussie
         initialContentRef.current = content;
         setIsDirty(false);
+        console.log('[MarkdownEditor] Fichier sauvegardé avec succès');
       } else {
-        console.error('Erreur lors de la sauvegarde:', writeResult.error);
-        // Optionnel: afficher un message d'erreur à l'utilisateur
+        console.error('[MarkdownEditor] Erreur lors de la sauvegarde:', writeResult.error);
+        alert(`Erreur lors de la sauvegarde: ${writeResult.error}`);
       }
     } catch (error) {
-      console.error('Erreur lors de la sauvegarde:', error);
+      console.error('[MarkdownEditor] Exception lors de la sauvegarde:', error);
+      alert(`Exception lors de la sauvegarde: ${error}`);
     }
   };
 
