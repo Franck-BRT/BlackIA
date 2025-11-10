@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { getDatabase } from '../database/client';
 import { documents, type Document, type NewDocument } from '../database/schema';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 /**
  * Service pour gérer les documents généraux de l'éditeur
@@ -16,7 +16,7 @@ export class DocumentService {
     const now = new Date();
 
     const newDocument: NewDocument = {
-      id: uuidv4(),
+      id: randomUUID(),
       title: data.title,
       content: data.content,
       tags: data.tags || '[]',
