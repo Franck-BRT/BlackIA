@@ -24,6 +24,10 @@ export interface Prompt {
   defaultPersonaId?: string | null;
   defaultIncludeFewShots: boolean;
 
+  // Éditeur
+  availableInEditor: boolean; // Si true, le prompt est disponible dans l'éditeur
+  editorTitle?: string | null; // Titre personnalisé pour l'éditeur (si différent de name)
+
   // Métadonnées
   isFavorite: boolean;
   usageCount: number;
@@ -46,6 +50,8 @@ export interface PromptFormData {
   tags: string[];
   defaultPersonaId?: string;
   defaultIncludeFewShots: boolean;
+  availableInEditor: boolean;
+  editorTitle?: string;
 }
 
 export interface CreatePromptData {
@@ -59,6 +65,8 @@ export interface CreatePromptData {
   tags: string; // JSON string
   defaultPersonaId?: string;
   defaultIncludeFewShots: boolean;
+  availableInEditor?: boolean;
+  editorTitle?: string;
   isFavorite?: boolean;
 }
 
@@ -73,6 +81,8 @@ export interface UpdatePromptData {
   tags?: string;
   defaultPersonaId?: string | null;
   defaultIncludeFewShots?: boolean;
+  availableInEditor?: boolean;
+  editorTitle?: string | null;
   isFavorite?: boolean;
 }
 

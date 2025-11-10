@@ -19,6 +19,10 @@ export interface Prompt {
   tags: string; // JSON array
   defaultPersonaId?: string | null;
   defaultIncludeFewShots: boolean;
+    availableInEditor: false,
+    editorTitle: null,
+  availableInEditor: boolean; // Disponible dans l'éditeur
+  editorTitle?: string | null; // Titre personnalisé pour l'éditeur
   isFavorite: boolean;
   usageCount: number;
   createdAt: string;
@@ -36,7 +40,7 @@ const USER_DATA_PATH = app.getPath('userData');
 const PROMPTS_FILE = path.join(USER_DATA_PATH, 'prompts.json');
 
 // Version du schéma des prompts par défaut
-const CURRENT_SCHEMA_VERSION = 1;
+const CURRENT_SCHEMA_VERSION = 2; // v2: Ajout de availableInEditor et editorTitle
 
 // Cache en mémoire
 let cachedData: PromptsData | null = null;
@@ -69,6 +73,8 @@ Niveau de détail : {{niveau}}`,
     tags: JSON.stringify(['code', 'review', 'qualité', 'debug']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -99,6 +105,8 @@ Format : {{format}}`,
     tags: JSON.stringify(['documentation', 'code', 'commentaires']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -136,6 +144,8 @@ Aide-moi à :
     tags: JSON.stringify(['debug', 'bug', 'erreur', 'fix']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -167,6 +177,8 @@ Utilise des noms de test descriptifs et ajoute des commentaires explicatifs.`,
     tags: JSON.stringify(['tests', 'unit-tests', 'TDD', 'qualité']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -199,6 +211,8 @@ Fournis :
     tags: JSON.stringify(['refactoring', 'clean-code', 'optimisation']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -229,6 +243,8 @@ Angle d'approche : {{angle}}`,
     tags: JSON.stringify(['blog', 'article', 'contenu', 'rédaction']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -258,6 +274,8 @@ L'email doit être :
     tags: JSON.stringify(['email', 'communication', 'professionnel']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -287,6 +305,8 @@ Fournis également des recommandations stratégiques basées sur cette analyse.`
     tags: JSON.stringify(['analyse', 'stratégie', 'SWOT', 'business']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -318,6 +338,8 @@ Le compte-rendu doit inclure :
     tags: JSON.stringify(['réunion', 'compte-rendu', 'notes', 'synthèse']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -347,6 +369,8 @@ Assure-toi que l'explication soit accessible tout en restant précise.`,
     tags: JSON.stringify(['explication', 'simplification', 'pédagogie', 'ELI5']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
     isFavorite: true,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -379,6 +403,8 @@ Privilégie l'originalité et la créativité !`,
     tags: JSON.stringify(['brainstorm', 'idées', 'créativité', 'innovation']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -410,6 +436,8 @@ Angle éditorial : {{angle}}`,
     tags: JSON.stringify(['SEO', 'contenu', 'référencement', 'marketing']),
     defaultPersonaId: null,
     defaultIncludeFewShots: false,
+    availableInEditor: false,
+    editorTitle: null,
     isFavorite: false,
     usageCount: 0,
     createdAt: new Date().toISOString(),
@@ -449,6 +477,26 @@ async function initializePromptsFile(): Promise<void> {
 /**
  * Charge les données depuis le fichier
  */
+/**
+ * Migre les prompts de l'ancienne version vers la nouvelle
+ */
+function migratePrompts(data: PromptsData): PromptsData {
+  const currentVersion = data.schemaVersion || 1;
+
+  // Migration v1 -> v2: Ajout de availableInEditor et editorTitle
+  if (currentVersion < 2) {
+    console.log('[PromptService] Migration v1->v2: Ajout des champs éditeur');
+    data.prompts = data.prompts.map(prompt => ({
+      ...prompt,
+      availableInEditor: false, // Par défaut, non disponible dans l'éditeur
+      editorTitle: null,
+    }));
+    data.schemaVersion = 2;
+  }
+
+  return data;
+}
+
 async function loadData(): Promise<PromptsData> {
   if (cachedData) {
     return cachedData;
@@ -456,7 +504,16 @@ async function loadData(): Promise<PromptsData> {
 
   try {
     const fileContent = await fs.readFile(PROMPTS_FILE, 'utf-8');
-    const data: PromptsData = JSON.parse(fileContent);
+    let data: PromptsData = JSON.parse(fileContent);
+
+    // Appliquer les migrations si nécessaire
+    data = migratePrompts(data);
+
+    // Sauvegarder si des migrations ont été appliquées
+    if ((data.schemaVersion || 1) < CURRENT_SCHEMA_VERSION) {
+      await fs.writeFile(PROMPTS_FILE, JSON.stringify(data, null, 2), 'utf-8');
+    }
+
     cachedData = data;
     return cachedData;
   } catch (error) {
