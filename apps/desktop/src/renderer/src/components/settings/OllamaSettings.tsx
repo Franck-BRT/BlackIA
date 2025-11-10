@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSettings } from '../../contexts/SettingsContext';
-import { Server, RefreshCw, CheckCircle, XCircle, Clock, Settings2, Edit2, X, Check } from 'lucide-react';
+import { Server, RefreshCw, CheckCircle, XCircle, Clock, Settings2, Edit2, X, Check, Download, Trash2, Loader2 } from 'lucide-react';
 
 export function OllamaSettings() {
   const { settings, updateOllamaSettings } = useSettings();
@@ -11,6 +11,16 @@ export function OllamaSettings() {
   const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [editingModel, setEditingModel] = useState<string | null>(null);
   const [editingAlias, setEditingAlias] = useState('');
+
+  // Pull model states
+  const [showPullModal, setShowPullModal] = useState(false);
+  const [pullModelName, setPullModelName] = useState('');
+  const [isPulling, setIsPulling] = useState(false);
+  const [pullProgress, setPullProgress] = useState('');
+  const [pullError, setPullError] = useState('');
+
+  // Delete model states
+  const [deletingModel, setDeletingModel] = useState<string | null>(null);
 
   // Helper pour obtenir le nom d'affichage (alias ou nom d'origine)
   const getDisplayName = (modelName: string): string => {
@@ -54,6 +64,101 @@ export function OllamaSettings() {
       console.error('Erreur lors de la récupération des modèles:', error);
     } finally {
       setIsFetchingModels(false);
+    }
+  };
+
+  const pullModel = async () => {
+    if (!pullModelName.trim()) return;
+
+    setIsPulling(true);
+    setPullProgress('Démarrage du téléchargement...');
+    setPullError('');
+
+    try {
+      const response = await fetch(`${ollama.baseUrl}/api/pull`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: pullModelName.trim() }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n').filter(line => line.trim());
+
+          for (const line of lines) {
+            try {
+              const data = JSON.parse(line);
+              if (data.status) {
+                setPullProgress(data.status);
+              }
+              if (data.error) {
+                setPullError(data.error);
+              }
+            } catch (e) {
+              // Ignorer les lignes mal formées
+            }
+          }
+        }
+      }
+
+      // Rafraîchir la liste des modèles
+      await fetchModels();
+
+      // Fermer le modal après succès
+      setPullProgress('Téléchargement terminé !');
+      setTimeout(() => {
+        setShowPullModal(false);
+        setPullModelName('');
+        setPullProgress('');
+      }, 2000);
+
+    } catch (error) {
+      setPullError(error instanceof Error ? error.message : 'Erreur lors du téléchargement');
+    } finally {
+      setIsPulling(false);
+    }
+  };
+
+  const deleteModel = async (modelName: string) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer le modèle "${getDisplayName(modelName)}" ?`)) {
+      return;
+    }
+
+    setDeletingModel(modelName);
+
+    try {
+      const response = await fetch(`${ollama.baseUrl}/api/delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: modelName }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
+      // Supprimer l'alias si présent
+      const newAliases = { ...ollama.modelAliases };
+      delete newAliases[modelName];
+      updateOllamaSettings({ modelAliases: newAliases });
+
+      // Rafraîchir la liste des modèles
+      await fetchModels();
+    } catch (error) {
+      alert(`Erreur lors de la suppression: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    } finally {
+      setDeletingModel(null);
     }
   };
 
@@ -223,7 +328,7 @@ export function OllamaSettings() {
         </div>
       </div>
 
-      {/* Models */}
+      {/* Models Management */}
       <div className="glass-card rounded-xl p-6 space-y-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
@@ -231,26 +336,40 @@ export function OllamaSettings() {
               <Server className="w-5 h-5 text-green-400" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold">Modèles disponibles</h3>
+              <h3 className="text-lg font-semibold">Gestion des modèles</h3>
               <p className="text-sm text-muted-foreground">
                 {ollama.models.length > 0
-                  ? `${ollama.models.length} modèle(s) détecté(s)`
-                  : 'Aucun modèle détecté'}
+                  ? `${ollama.models.length} modèle(s) installé(s)`
+                  : 'Aucun modèle installé'}
               </p>
             </div>
           </div>
-          <button
-            onClick={fetchModels}
-            disabled={isFetchingModels || !ollama.enabled}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-              ollama.enabled
-                ? 'glass-lg hover:glass text-foreground'
-                : 'glass-card text-muted-foreground cursor-not-allowed'
-            }`}
-          >
-            <RefreshCw className={`w-4 h-4 ${isFetchingModels ? 'animate-spin' : ''}`} />
-            <span>Actualiser</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowPullModal(true)}
+              disabled={!ollama.enabled}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                ollama.enabled
+                  ? 'glass-lg hover:glass text-foreground'
+                  : 'glass-card text-muted-foreground cursor-not-allowed'
+              }`}
+            >
+              <Download className="w-4 h-4" />
+              <span>Télécharger</span>
+            </button>
+            <button
+              onClick={fetchModels}
+              disabled={isFetchingModels || !ollama.enabled}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                ollama.enabled
+                  ? 'glass-lg hover:glass text-foreground'
+                  : 'glass-card text-muted-foreground cursor-not-allowed'
+              }`}
+            >
+              <RefreshCw className={`w-4 h-4 ${isFetchingModels ? 'animate-spin' : ''}`} />
+              <span>Actualiser</span>
+            </button>
+          </div>
         </div>
 
         {ollama.models.length > 0 ? (
@@ -278,9 +397,9 @@ export function OllamaSettings() {
             {/* Models List */}
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">
-                Liste des modèles :
+                Liste des modèles installés :
               </p>
-              <div className="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
+              <div className="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto">
                 {ollama.models.map((model) => (
                   <div
                     key={model}
@@ -347,12 +466,24 @@ export function OllamaSettings() {
                           {ollama.modelAliases[model] && (
                             <button
                               onClick={() => resetModelAlias(model)}
-                              className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors"
-                              title="Réinitialiser"
+                              className="p-1.5 rounded-lg hover:bg-yellow-500/20 text-yellow-400 transition-colors"
+                              title="Réinitialiser le nom"
                             >
                               <X className="w-4 h-4" />
                             </button>
                           )}
+                          <button
+                            onClick={() => deleteModel(model)}
+                            disabled={deletingModel === model}
+                            className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors disabled:opacity-50"
+                            title="Supprimer"
+                          >
+                            {deletingModel === model ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
                         </div>
                       </div>
                     )}
@@ -364,14 +495,118 @@ export function OllamaSettings() {
         ) : (
           <div className="py-8 text-center">
             <Server className="w-12 h-12 mx-auto text-muted-foreground opacity-50 mb-3" />
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mb-4">
               {ollama.enabled
-                ? 'Aucun modèle détecté. Cliquez sur "Tester la connexion" ou "Actualiser" pour charger les modèles.'
-                : 'Activez Ollama pour voir les modèles disponibles.'}
+                ? 'Aucun modèle installé. Téléchargez votre premier modèle !'
+                : 'Activez Ollama pour gérer vos modèles.'}
             </p>
+            {ollama.enabled && (
+              <button
+                onClick={() => setShowPullModal(true)}
+                className="glass-lg hover:glass px-4 py-2 rounded-lg text-sm font-medium transition-all"
+              >
+                <Download className="w-4 h-4 inline mr-2" />
+                Télécharger un modèle
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {/* Pull Model Modal */}
+      {showPullModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="glass-card bg-gray-900/95 rounded-2xl w-full max-w-md p-6 m-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold">Télécharger un modèle</h3>
+              <button
+                onClick={() => {
+                  setShowPullModal(false);
+                  setPullModelName('');
+                  setPullProgress('');
+                  setPullError('');
+                }}
+                disabled={isPulling}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Nom du modèle
+                </label>
+                <input
+                  type="text"
+                  value={pullModelName}
+                  onChange={(e) => setPullModelName(e.target.value)}
+                  placeholder="llama2, mistral, codellama..."
+                  disabled={isPulling}
+                  className="w-full px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !isPulling) pullModel();
+                  }}
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Exemples : llama2, mistral, codellama, gemma
+                </p>
+              </div>
+
+              {pullProgress && (
+                <div className="p-3 glass-card rounded-lg">
+                  <div className="flex items-center gap-2 text-blue-400 text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{pullProgress}</span>
+                  </div>
+                </div>
+              )}
+
+              {pullError && (
+                <div className="p-3 glass-card rounded-lg">
+                  <div className="flex items-center gap-2 text-red-400 text-sm">
+                    <XCircle className="w-4 h-4" />
+                    <span>{pullError}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowPullModal(false);
+                    setPullModelName('');
+                    setPullProgress('');
+                    setPullError('');
+                  }}
+                  disabled={isPulling}
+                  className="flex-1 px-4 py-3 glass-card rounded-xl font-medium transition-all hover:bg-white/5 disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={pullModel}
+                  disabled={isPulling || !pullModelName.trim()}
+                  className="flex-1 px-4 py-3 glass-lg rounded-xl font-medium transition-all hover:glass disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isPulling ? (
+                    <>
+                      <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
+                      Téléchargement...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 inline mr-2" />
+                      Télécharger
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Help */}
       <div className="glass-card rounded-xl p-6">
@@ -392,15 +627,16 @@ export function OllamaSettings() {
               ollama.ai
             </a>
           </p>
-          <p>
-            Après l'installation, lancez Ollama et téléchargez des modèles avec la commande :<br />
-            <code className="px-2 py-1 glass-card rounded text-xs font-mono">
-              ollama pull llama2
-            </code>
-          </p>
           <p className="pt-2 border-t border-white/10">
-            <span className="font-semibold text-foreground">Astuce :</span> Cliquez sur l'icône{' '}
-            <Edit2 className="inline w-3 h-3" /> pour donner un nom plus parlant à vos modèles.
+            <span className="font-semibold text-foreground">Gestion des modèles :</span>
+          </p>
+          <ul className="list-disc list-inside space-y-1 pl-2">
+            <li>Cliquez sur <Download className="inline w-3 h-3" /> pour télécharger un nouveau modèle</li>
+            <li>Cliquez sur <Edit2 className="inline w-3 h-3" /> pour renommer un modèle</li>
+            <li>Cliquez sur <Trash2 className="inline w-3 h-3" /> pour supprimer un modèle</li>
+          </ul>
+          <p className="pt-2 text-xs">
+            💡 Modèles populaires : llama2, mistral, codellama, gemma, phi
           </p>
         </div>
       </div>
