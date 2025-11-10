@@ -66,9 +66,15 @@ export function EditorAIAssistant({
       console.log('[EditorAI] Stream reçu, début de lecture...');
       let fullResponse = '';
       let chunkCount = 0;
+      let isDone = false;
 
       for await (const chunk of stream as AsyncIterable<OllamaChatStreamChunk>) {
         chunkCount++;
+        console.log(`[EditorAI] Chunk #${chunkCount}:`, {
+          hasContent: !!chunk.message?.content,
+          contentLength: chunk.message?.content?.length || 0,
+          done: chunk.done
+        });
 
         if (currentStreamIdRef.current !== streamId) {
           console.log('[EditorAI] Stream interrompu par l\'utilisateur');
@@ -78,21 +84,39 @@ export function EditorAIAssistant({
         if (chunk.message?.content) {
           fullResponse += chunk.message.content;
           setStreamingMessage(fullResponse);
+          console.log('[EditorAI] Réponse actuelle (longueur):', fullResponse.length);
         }
 
         if (chunk.done) {
+          isDone = true;
           console.log('[EditorAI] Stream terminé. Total chunks:', chunkCount, 'Longueur réponse:', fullResponse.length);
           const assistantMessage: OllamaMessage = {
             role: 'assistant',
             content: fullResponse,
           };
-          setMessages(prevMessages => [...prevMessages, assistantMessage]);
+          setMessages(prevMessages => {
+            console.log('[EditorAI] Ajout du message assistant aux messages existants');
+            return [...prevMessages, assistantMessage];
+          });
           setStreamingMessage('');
           setIsGenerating(false);
         }
       }
 
-      console.log('[EditorAI] Fin de la boucle de streaming');
+      console.log('[EditorAI] Fin de la boucle de streaming. isDone:', isDone);
+
+      // Si le stream n'a pas signalé done mais qu'on a une réponse, on l'ajoute quand même
+      if (!isDone && fullResponse) {
+        console.log('[EditorAI] Stream terminé sans flag done, ajout de la réponse quand même');
+        const assistantMessage: OllamaMessage = {
+          role: 'assistant',
+          content: fullResponse,
+        };
+        setMessages(prevMessages => [...prevMessages, assistantMessage]);
+        setStreamingMessage('');
+      }
+
+      setIsGenerating(false);
     } catch (error) {
       console.error('[EditorAI] Erreur lors de la génération:', error);
       setIsGenerating(false);
