@@ -22,6 +22,8 @@ import {
   Minus,
   Code2,
   Bot,
+  FilePlus,
+  X,
 } from 'lucide-react';
 import { cn } from '@blackia/ui';
 import { ChatInterface } from '../chat/ChatInterface';
@@ -36,21 +38,34 @@ interface MarkdownEditorProps {
 
 type ViewMode = 'edit' | 'preview' | 'split' | 'ai-assist';
 
+type ConfirmAction = 'new' | 'close' | null;
+
 export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorProps) {
   const [content, setContent] = useState(initialContent);
   const [viewMode, setViewMode] = useState<ViewMode>('split');
   const [selectedText, setSelectedText] = useState('');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [promptToApply, setPromptToApply] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<ConfirmAction>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  const initialContentRef = useRef(initialContent);
   const { personas } = usePersonas();
   const { prompts } = usePrompts();
 
   // Synchroniser le contenu quand initialContent change
   useEffect(() => {
     setContent(initialContent);
+    initialContentRef.current = initialContent;
+    setIsDirty(false);
   }, [initialContent]);
+
+  // Suivre les modifications du contenu
+  useEffect(() => {
+    setIsDirty(content !== initialContentRef.current);
+  }, [content]);
 
   // Fermer le menu contextuel quand on clique ailleurs
   useEffect(() => {
@@ -315,6 +330,77 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
     input.click();
   };
 
+  // Gestion du nouveau fichier
+  const handleNewFile = () => {
+    if (isDirty) {
+      setPendingAction('new');
+      setShowConfirmModal(true);
+    } else {
+      confirmNewFile();
+    }
+  };
+
+  const confirmNewFile = () => {
+    setContent('');
+    initialContentRef.current = '';
+    setIsDirty(false);
+    setShowConfirmModal(false);
+    setPendingAction(null);
+  };
+
+  // Gestion de la fermeture
+  const handleClose = () => {
+    if (isDirty) {
+      setPendingAction('close');
+      setShowConfirmModal(true);
+    } else {
+      confirmClose();
+    }
+  };
+
+  const confirmClose = () => {
+    setContent('');
+    initialContentRef.current = '';
+    setIsDirty(false);
+    setShowConfirmModal(false);
+    setPendingAction(null);
+  };
+
+  // Gestion de la confirmation (enregistrer + action)
+  const handleSaveAndContinue = () => {
+    if (onSave) {
+      onSave(content);
+      initialContentRef.current = content;
+      setIsDirty(false);
+    } else {
+      handleExport();
+    }
+
+    // Exécuter l'action après la sauvegarde
+    setTimeout(() => {
+      if (pendingAction === 'new') {
+        confirmNewFile();
+      } else if (pendingAction === 'close') {
+        confirmClose();
+      }
+    }, 100);
+  };
+
+  // Gestion de la confirmation (continuer sans enregistrer)
+  const handleContinueWithoutSaving = () => {
+    if (pendingAction === 'new') {
+      confirmNewFile();
+    } else if (pendingAction === 'close') {
+      confirmClose();
+    }
+  };
+
+  // Annuler l'action
+  const handleCancelAction = () => {
+    setShowConfirmModal(false);
+    setPendingAction(null);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
@@ -471,6 +557,23 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
         {/* Action buttons */}
         <div className="flex items-center gap-1">
           <button
+            onClick={handleNewFile}
+            className="p-2 rounded hover:bg-white/10 transition-colors"
+            title="Nouveau fichier"
+          >
+            <FilePlus className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleClose}
+            className="p-2 rounded hover:bg-white/10 transition-colors"
+            title="Fermer le fichier"
+          >
+            <X className="w-4 h-4" />
+          </button>
+
+          <div className="w-px h-6 bg-white/10 mx-1" />
+
+          <button
             onClick={handleImport}
             className="p-2 rounded hover:bg-white/10 transition-colors"
             title="Importer un fichier"
@@ -487,11 +590,16 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
           {onSave && (
             <button
               onClick={handleSave}
-              className="px-3 py-2 rounded bg-purple-500/20 hover:bg-purple-500/30 transition-colors flex items-center gap-2"
+              className={cn(
+                "px-3 py-2 rounded transition-colors flex items-center gap-2",
+                isDirty
+                  ? "bg-purple-500/30 hover:bg-purple-500/40"
+                  : "bg-purple-500/20 hover:bg-purple-500/30"
+              )}
               title="Sauvegarder (Ctrl+S)"
             >
               <Save className="w-4 h-4" />
-              <span className="text-sm">Sauvegarder</span>
+              <span className="text-sm">Sauvegarder{isDirty ? ' *' : ''}</span>
             </button>
           )}
         </div>
@@ -621,6 +729,44 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
               <span>{prompt.editorTitle || prompt.name}</span>
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="glass-card border border-white/10 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold mb-2">
+              {pendingAction === 'new' ? 'Nouveau fichier' : 'Fermer le fichier'}
+            </h3>
+            <p className="text-muted-foreground mb-6">
+              Vous avez des modifications non enregistrées. Que souhaitez-vous faire ?
+            </p>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={handleSaveAndContinue}
+                className="w-full px-4 py-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 transition-colors flex items-center justify-center gap-2 font-medium"
+              >
+                <Save className="w-4 h-4" />
+                <span>{onSave ? 'Enregistrer et continuer' : 'Exporter et continuer'}</span>
+              </button>
+
+              <button
+                onClick={handleContinueWithoutSaving}
+                className="w-full px-4 py-3 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 transition-colors font-medium text-orange-300"
+              >
+                Continuer sans enregistrer
+              </button>
+
+              <button
+                onClick={handleCancelAction}
+                className="w-full px-4 py-3 rounded-lg glass-hover transition-colors font-medium"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
