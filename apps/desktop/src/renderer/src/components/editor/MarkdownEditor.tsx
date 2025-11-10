@@ -49,14 +49,17 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
   useEffect(() => {
     const loadModels = async () => {
       try {
-        const models = await window.electronAPI.ollama.list();
-        const modelNames = models.models.map((m: any) => m.name);
+        console.log('[Editor] Chargement des modèles...');
+        const modelsList = await window.electronAPI.ollama.listModels();
+        console.log('[Editor] Modèles chargés:', modelsList);
+        const modelNames = modelsList.map((m: any) => m.name);
         setAvailableModels(modelNames);
         if (modelNames.length > 0) {
           setSelectedModel(modelNames[0]);
+          console.log('[Editor] Modèle sélectionné par défaut:', modelNames[0]);
         }
       } catch (error) {
-        console.error('Erreur lors du chargement des modèles:', error);
+        console.error('[Editor] Erreur lors du chargement des modèles:', error);
       }
     };
     loadModels();
