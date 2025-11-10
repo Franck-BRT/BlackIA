@@ -140,14 +140,14 @@ export function EditorAIAssistant({
     setIsGenerating(true);
 
     try {
-      console.log('[EditorAI] 🚀 Appel API ollama.chat avec', newMessages.length, 'messages');
+      console.log('[EditorAI] 🚀 Appel API ollama.chatStream avec', newMessages.length, 'messages');
       // L'appel lance le stream, les événements onStreamStart/onStreamChunk/onStreamEnd géreront la suite
-      await window.electronAPI.ollama.chat({
+      const result = await window.electronAPI.ollama.chatStream({
         model: selectedModel,
         messages: newMessages,
         stream: true,
       });
-      console.log('[EditorAI] ✅ Requête envoyée, attente des événements de stream...');
+      console.log('[EditorAI] ✅ Requête envoyée, streamId:', result.streamId, '- Attente des événements de stream...');
     } catch (error) {
       console.error('[EditorAI] ❌ Erreur lors de la génération:', error);
       setIsGenerating(false);
