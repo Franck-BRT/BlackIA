@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Download, Check, AlertCircle, RefreshCw } from 'lucide-react';
 import type { OllamaModel } from '@blackia/ollama';
+import { useSettings } from '../../contexts/SettingsContext';
+import { getModelDisplayName } from '../../utils/modelAliases';
 
 interface ModelSelectorProps {
   selectedModel: string;
@@ -8,6 +10,8 @@ interface ModelSelectorProps {
 }
 
 export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorProps) {
+  const { settings } = useSettings();
+  const { ollama } = settings;
   const [models, setModels] = useState<OllamaModel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
@@ -55,7 +59,9 @@ export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorPro
     loadModels();
   }, []);
 
-  const selectedModelName = models.find((m) => m.name === selectedModel)?.name || selectedModel;
+  const selectedModelDisplayName = selectedModel
+    ? getModelDisplayName(selectedModel, ollama.modelAliases)
+    : 'Sélectionner un modèle';
 
   return (
     <div className="relative">
@@ -65,7 +71,7 @@ export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorPro
       >
         <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
         <span className="flex-1 text-left truncate">
-          {isLoading ? 'Chargement...' : selectedModelName || 'Sélectionner un modèle'}
+          {isLoading ? 'Chargement...' : selectedModelDisplayName}
         </span>
         <RefreshCw
           className={`w-4 h-4 text-muted-foreground ${isLoading ? 'animate-spin' : ''}`}
@@ -98,26 +104,36 @@ export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorPro
                 </p>
               </div>
             ) : (
-              models.map((model) => (
-                <button
-                  key={model.name}
-                  onClick={() => {
-                    onModelChange(model.name);
-                    setIsOpen(false);
-                  }}
-                  className="w-full px-3 py-2 rounded-lg hover:bg-white/10 transition-colors flex items-center gap-3 text-left"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{model.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {(model.size / 1024 / 1024 / 1024).toFixed(1)} GB • {model.details.parameter_size}
+              models.map((model) => {
+                const displayName = getModelDisplayName(model.name, ollama.modelAliases);
+                const hasAlias = ollama.modelAliases[model.name] !== undefined;
+
+                return (
+                  <button
+                    key={model.name}
+                    onClick={() => {
+                      onModelChange(model.name);
+                      setIsOpen(false);
+                    }}
+                    className="w-full px-3 py-2 rounded-lg hover:bg-white/10 transition-colors flex items-center gap-3 text-left"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">{displayName}</div>
+                      {hasAlias && (
+                        <div className="text-xs text-muted-foreground/70 font-mono truncate">
+                          {model.name}
+                        </div>
+                      )}
+                      <div className="text-xs text-muted-foreground">
+                        {(model.size / 1024 / 1024 / 1024).toFixed(1)} GB • {model.details.parameter_size}
+                      </div>
                     </div>
-                  </div>
-                  {model.name === selectedModel && (
-                    <Check className="w-4 h-4 text-green-400" />
-                  )}
-                </button>
-              ))
+                    {model.name === selectedModel && (
+                      <Check className="w-4 h-4 text-green-400" />
+                    )}
+                  </button>
+                );
+              })
             )}
           </div>
         </>
