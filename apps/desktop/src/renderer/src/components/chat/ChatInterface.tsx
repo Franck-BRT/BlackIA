@@ -24,6 +24,7 @@ interface ChatInterfaceProps {
   documentContext?: string; // Contexte du document pour l'éditeur
   selectedText?: string; // Texte sélectionné dans l'éditeur
   onInsertText?: (text: string) => void; // Callback pour insérer du texte dans l'éditeur
+  promptToApply?: string | null; // ID du prompt à appliquer automatiquement
 
   // Props pour les personas
   personas?: Persona[];
@@ -39,6 +40,7 @@ export function ChatInterface({
   documentContext,
   selectedText,
   onInsertText,
+  promptToApply,
   personas = [],
   currentPersona: externalPersona,
   onPersonaChange,
@@ -81,6 +83,26 @@ export function ChatInterface({
       setCurrentPersona(externalPersona);
     }
   }, [externalPersona]);
+
+  // Appliquer automatiquement un prompt quand promptToApply change
+  useEffect(() => {
+    if (promptToApply) {
+      const prompt = prompts.find(p => p.id === promptToApply);
+      if (!prompt) return;
+
+      const textToUse = selectedText || documentContext || '';
+      const filledContent = replaceVariables(prompt.content, {
+        texte: textToUse,
+        text: textToUse,
+        contenu: textToUse,
+        content: textToUse,
+        selection: textToUse,
+        document: documentContext || '',
+      });
+
+      setPrefilledMessage(filledContent);
+    }
+  }, [promptToApply, prompts, selectedText, documentContext]);
 
   // Setup des listeners pour le streaming
   useEffect(() => {

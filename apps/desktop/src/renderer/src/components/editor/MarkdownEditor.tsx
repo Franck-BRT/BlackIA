@@ -26,6 +26,8 @@ import {
 import { cn } from '@blackia/ui';
 import { ChatInterface } from '../chat/ChatInterface';
 import { usePersonas } from '../../hooks/usePersonas';
+import { usePrompts } from '../../hooks/usePrompts';
+import { replaceVariables } from '../../types/prompt';
 
 interface MarkdownEditorProps {
   initialContent?: string;
@@ -37,13 +39,32 @@ type ViewMode = 'edit' | 'preview' | 'split' | 'ai-assist';
 export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorProps) {
   const [content, setContent] = useState(initialContent);
   const [viewMode, setViewMode] = useState<ViewMode>('split');
+  const [selectedText, setSelectedText] = useState('');
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [promptToApply, setPromptToApply] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
   const { personas } = usePersonas();
+  const { prompts } = usePrompts();
 
   // Synchroniser le contenu quand initialContent change
   useEffect(() => {
     setContent(initialContent);
   }, [initialContent]);
+
+  // Fermer le menu contextuel quand on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null);
+      }
+    };
+
+    if (contextMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [contextMenu]);
 
   // Fonction pour insérer du texte à la position du curseur
   const insertText = (before: string, after: string = '', placeholder: string = '') => {
@@ -183,6 +204,48 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
       textarea.setSelectionRange(newPosition, newPosition);
     }, 0);
   };
+
+  // Gestion du menu contextuel
+  const handleContextMenu = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = content.substring(start, end);
+
+    // N'afficher le menu que si du texte est sélectionné
+    if (selected && selected.trim()) {
+      setSelectedText(selected);
+      setContextMenu({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  // Appliquer un prompt depuis le menu contextuel
+  const handleApplyPromptFromContextMenu = (promptId: string) => {
+    if (!selectedText) return;
+
+    // Fermer le menu contextuel
+    setContextMenu(null);
+
+    // Basculer vers le mode AI assist si nécessaire
+    if (viewMode !== 'ai-assist') {
+      setViewMode('ai-assist');
+    }
+
+    // Déclencher l'application du prompt dans ChatInterface
+    // On utilise setTimeout pour s'assurer que ChatInterface est monté
+    setTimeout(() => {
+      setPromptToApply(promptId);
+      // Reset après un court délai pour permettre un nouveau déclenchement
+      setTimeout(() => setPromptToApply(null), 100);
+    }, 100);
+  };
+
+  // Filtrer les prompts disponibles pour l'éditeur
+  const editorPrompts = prompts.filter(p => p.availableInEditor);
 
   // Gestion des raccourcis clavier
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -449,6 +512,7 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
               value={content}
               onChange={(e) => setContent(e.target.value)}
               onKeyDown={handleKeyDown}
+              onContextMenu={handleContextMenu}
               className="flex-1 w-full p-6 bg-transparent resize-none focus:outline-none font-mono text-sm leading-relaxed"
               placeholder="Commencez à écrire en markdown..."
               spellCheck={false}
@@ -525,12 +589,40 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
               title="Assistant de rédaction"
               hideImportExport={true}
               documentContext={content}
+              selectedText={selectedText}
+              promptToApply={promptToApply}
               onInsertText={insertTextFromAI}
               personas={personas}
             />
           </div>
         )}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && editorPrompts.length > 0 && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-50 min-w-[220px] glass-card border border-white/10 rounded-lg shadow-xl py-1"
+          style={{
+            left: `${contextMenu.x}px`,
+            top: `${contextMenu.y}px`,
+          }}
+        >
+          <div className="px-3 py-2 text-xs font-semibold text-gray-400 border-b border-white/10">
+            Actions sur le texte sélectionné
+          </div>
+          {editorPrompts.map((prompt) => (
+            <button
+              key={prompt.id}
+              onClick={() => handleApplyPromptFromContextMenu(prompt.id)}
+              className="w-full px-3 py-2 text-left text-sm hover:bg-white/10 transition-colors flex items-center gap-2"
+            >
+              <span className="text-lg">{prompt.icon}</span>
+              <span>{prompt.editorTitle || prompt.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
