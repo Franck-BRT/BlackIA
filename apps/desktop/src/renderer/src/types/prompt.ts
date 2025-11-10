@@ -26,15 +26,15 @@ export interface Prompt {
 
   // Éditeur
   availableInEditor: boolean; // Si true, le prompt est disponible dans l'éditeur
-  editorTitle?: string | null; // Titre personnalisé pour l'éditeur (si différent de name)
+  editorTitle: string | null; // Titre personnalisé pour l'éditeur (si différent de name)
 
   // Métadonnées
   isFavorite: boolean;
   usageCount: number;
 
   // Timestamps
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string; // ISO date string from backend
+  updatedAt: string; // ISO date string from backend
 }
 
 export type PromptColor = 'purple' | 'blue' | 'pink' | 'green' | 'orange';
