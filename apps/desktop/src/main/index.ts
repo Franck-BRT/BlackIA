@@ -11,6 +11,7 @@ import './handlers/persona-suggestion-handlers';
 import { registerPromptHandlers } from './handlers/prompt-handlers';
 import { registerWorkflowHandlers as registerWorkflowAdvancedHandlers } from './handlers/workflow-handlers';
 import { registerDocumentationHandlers } from './handlers/documentation-handlers';
+import { registerDocumentHandlers } from './handlers/document-handlers';
 import { initDatabase, runMigrations } from './database/client';
 import { DocumentationService } from './services/documentation-db-service';
 
@@ -143,6 +144,7 @@ app.whenReady().then(async () => {
     registerWorkflowHandlers();
     registerWorkflowAdvancedHandlers(); // Templates, Versions, Variables
     registerDocumentationHandlers(); // Documentation
+    registerDocumentHandlers(); // General documents
     registerTagSyncHandlers();
     console.log('[App] ✅ IPC handlers registered');
 

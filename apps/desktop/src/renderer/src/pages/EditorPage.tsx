@@ -18,6 +18,7 @@ export function EditorPage() {
 
   const [initialContent, setInitialContent] = useState(state.documentContent || '');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [currentDocumentId, setCurrentDocumentId] = useState<string | undefined>(state.documentId);
 
   useEffect(() => {
     if (state.documentContent) {
@@ -51,8 +52,45 @@ export function EditorPage() {
       }
     } else {
       // Pour les autres documents (non-documentation)
-      console.log('Saving content:', content);
-      // TODO: Implement save to database or file system
+      setSaveStatus('saving');
+      try {
+        let result;
+
+        if (currentDocumentId) {
+          // Mettre à jour un document existant
+          result = await window.electronAPI.documents.update(currentDocumentId, {
+            content,
+            title: state.documentTitle || 'Document sans titre',
+          });
+        } else {
+          // Créer un nouveau document
+          result = await window.electronAPI.documents.create({
+            title: state.documentTitle || 'Document sans titre',
+            content,
+            tags: '[]',
+            isFavorite: false,
+          });
+
+          // Sauvegarder l'ID du nouveau document pour les prochaines sauvegardes
+          if (result.success && result.data?.id) {
+            setCurrentDocumentId(result.data.id);
+          }
+        }
+
+        if (result.success) {
+          setSaveStatus('saved');
+          // Reset le status après 2 secondes
+          setTimeout(() => setSaveStatus('idle'), 2000);
+        } else {
+          console.error('Erreur lors de la sauvegarde:', result.error);
+          setSaveStatus('error');
+          setTimeout(() => setSaveStatus('idle'), 3000);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la sauvegarde:', error);
+        setSaveStatus('error');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+      }
     }
   };
 
