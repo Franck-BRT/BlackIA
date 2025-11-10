@@ -295,7 +295,7 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Si callback onSave fourni, l'utiliser
     if (onSave) {
       onSave(content);
@@ -304,20 +304,42 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
       return;
     }
 
-    // Sinon, ouvrir la boîte de dialogue de sauvegarde (comme Export)
-    handleExport();
-    initialContentRef.current = content;
-    setIsDirty(false);
+    // Sinon, ouvrir la boîte de dialogue de sauvegarde native
+    await handleExport();
   };
 
-  const handleExport = () => {
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'document.md';
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleExport = async () => {
+    try {
+      // Ouvrir la fenêtre de dialogue pour choisir où sauvegarder
+      const result = await window.electronAPI.file.saveDialog({
+        title: 'Sauvegarder le document',
+        defaultPath: 'document.md',
+        filters: [
+          { name: 'Markdown', extensions: ['md'] },
+          { name: 'Texte', extensions: ['txt'] },
+          { name: 'Tous les fichiers', extensions: ['*'] }
+        ]
+      });
+
+      // Si l'utilisateur a annulé
+      if (result.canceled || !result.filePath) {
+        return;
+      }
+
+      // Écrire le fichier
+      const writeResult = await window.electronAPI.file.writeFile(result.filePath, content);
+
+      if (writeResult.success) {
+        // Mettre à jour l'état après la sauvegarde réussie
+        initialContentRef.current = content;
+        setIsDirty(false);
+      } else {
+        console.error('Erreur lors de la sauvegarde:', writeResult.error);
+        // Optionnel: afficher un message d'erreur à l'utilisateur
+      }
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error);
+    }
   };
 
   const handleImport = () => {
@@ -377,13 +399,13 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
   };
 
   // Gestion de la confirmation (enregistrer + action)
-  const handleSaveAndContinue = () => {
+  const handleSaveAndContinue = async () => {
     if (onSave) {
       onSave(content);
       initialContentRef.current = content;
       setIsDirty(false);
     } else {
-      handleExport();
+      await handleExport();
     }
 
     // Exécuter l'action après la sauvegarde
