@@ -248,43 +248,8 @@ export function ConversationSidebar({
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 z-10">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setRenamingConversation(conv);
-          }}
-          className="p-1.5 rounded-lg hover:bg-blue-500/20 transition-all text-blue-400"
-          title="Renommer"
-        >
-          <Edit2 className="w-4 h-4" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleFavorite(conv.id);
-          }}
-          className={`p-1.5 rounded-lg transition-all ${
-            conv.isFavorite
-              ? 'bg-yellow-500/20 text-yellow-400'
-              : 'hover:bg-yellow-500/20 text-gray-400 hover:text-yellow-400'
-          }`}
-          title={conv.isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-        >
-          <Star className={`w-4 h-4 ${conv.isFavorite ? 'fill-yellow-400' : ''}`} />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            const rect = e.currentTarget.getBoundingClientRect();
-            setTagSelectorMenu({ conversationId: conv.id, x: rect.left, y: rect.bottom + 5 });
-          }}
-          className="p-1.5 rounded-lg hover:bg-purple-500/20 transition-all text-purple-400"
-          title="Gérer les tags"
-        >
-          <Tag className="w-4 h-4" />
-        </button>
+      {/* Actions - Options button only */}
+      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 z-10">
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -295,18 +260,6 @@ export function ConversationSidebar({
           title="Options"
         >
           <MoreVertical className="w-4 h-4" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            if (confirm(`Supprimer "${conv.title}" ?`)) {
-              onDeleteConversation(conv.id);
-            }
-          }}
-          className="p-1.5 rounded-lg hover:bg-red-500/20 transition-all text-red-400"
-          title="Supprimer"
-        >
-          <Trash2 className="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -481,6 +434,74 @@ export function ConversationSidebar({
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <div className="p-2">
+            {/* Renommer */}
+            <button
+              onClick={() => {
+                const conv = conversations.find(c => c.id === contextMenu.conversationId);
+                if (conv) {
+                  setRenamingConversation(conv);
+                }
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-left text-sm"
+            >
+              <Edit2 className="w-4 h-4 text-blue-400" />
+              <span>Renommer</span>
+            </button>
+
+            {/* Toggle Favoris */}
+            <button
+              onClick={() => {
+                onToggleFavorite(contextMenu.conversationId);
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-left text-sm"
+            >
+              <Star className={`w-4 h-4 ${
+                conversations.find(c => c.id === contextMenu.conversationId)?.isFavorite
+                  ? 'text-yellow-400 fill-yellow-400'
+                  : 'text-gray-400'
+              }`} />
+              <span>
+                {conversations.find(c => c.id === contextMenu.conversationId)?.isFavorite
+                  ? 'Retirer des favoris'
+                  : 'Ajouter aux favoris'}
+              </span>
+            </button>
+
+            {/* Gérer les tags */}
+            <button
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setTagSelectorMenu({ conversationId: contextMenu.conversationId, x: rect.right + 5, y: rect.top });
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors text-left text-sm"
+            >
+              <Tag className="w-4 h-4 text-purple-400" />
+              <span>Gérer les tags</span>
+            </button>
+
+            <div className="my-1 h-px bg-white/10" />
+
+            {/* Supprimer */}
+            <button
+              onClick={() => {
+                const conv = conversations.find(c => c.id === contextMenu.conversationId);
+                if (conv && confirm(`Supprimer "${conv.title}" ?`)) {
+                  onDeleteConversation(contextMenu.conversationId);
+                }
+                setContextMenu(null);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-red-500/20 transition-colors text-left text-sm text-red-400"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Supprimer</span>
+            </button>
+
+            <div className="my-1 h-px bg-white/10" />
+
+            {/* Déplacer vers dossiers */}
             <button
               onClick={() => {
                 onMoveToFolder(contextMenu.conversationId, null);
