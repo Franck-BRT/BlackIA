@@ -186,6 +186,7 @@ export type AppModule =
 // Settings sections
 export type SettingsSection =
   | 'general'
+  | 'aiLocal'
   | 'chat'
   | 'workflows'
   | 'prompts'
@@ -264,9 +265,19 @@ export interface CategoriesSettings {
   customCategories: PersonaCategory[]; // Catégories personnalisées
 }
 
+// Ollama settings
+export interface OllamaSettings {
+  enabled: boolean; // Activer/désactiver Ollama
+  baseUrl: string; // URL de base d'Ollama (ex: http://localhost:11434)
+  timeout: number; // Timeout des requêtes en ms
+  models: string[]; // Liste des modèles disponibles
+  defaultModel?: string; // Modèle par défaut
+}
+
 // Complete settings structure
 export interface AppSettings {
   general: GeneralSettings;
+  ollama: OllamaSettings;
   appearance: AppearanceSettings;
   keyboardShortcuts: KeyboardShortcut[];
   interface: InterfaceSettings;

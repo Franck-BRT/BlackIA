@@ -10,6 +10,7 @@ import type {
   PersonaSuggestionSettings,
   CategoriesSettings,
   PersonaCategory,
+  OllamaSettings,
 } from '@blackia/shared/types';
 
 // Catégories par défaut basées sur PERSONA_CATEGORIES
@@ -125,6 +126,13 @@ const defaultSettings: AppSettings = {
     notifications: true,
     startupPage: 'home',
   },
+  ollama: {
+    enabled: false,
+    baseUrl: 'http://localhost:11434',
+    timeout: 30000,
+    models: [],
+    defaultModel: undefined,
+  },
   appearance: {
     fontSize: 'medium',
     density: 'comfortable',
@@ -162,6 +170,7 @@ const defaultSettings: AppSettings = {
     sectionVisibilityByModule: {
       home: {
         general: true,
+        aiLocal: true,
         chat: true,
         workflows: true,
         prompts: true,
@@ -176,6 +185,7 @@ const defaultSettings: AppSettings = {
       },
       chat: {
         general: true,
+        aiLocal: true,
         chat: true,
         workflows: true,
         prompts: true,
@@ -190,6 +200,7 @@ const defaultSettings: AppSettings = {
       },
       workflows: {
         general: true,
+        aiLocal: true,
         chat: true,
         workflows: true,
         prompts: true,
@@ -204,6 +215,7 @@ const defaultSettings: AppSettings = {
       },
       prompts: {
         general: true,
+        aiLocal: true,
         chat: true,
         workflows: true,
         prompts: true,
@@ -218,6 +230,7 @@ const defaultSettings: AppSettings = {
       },
       personas: {
         general: true,
+        aiLocal: true,
         chat: true,
         workflows: true,
         prompts: true,
@@ -232,6 +245,7 @@ const defaultSettings: AppSettings = {
       },
       projects: {
         general: true,
+        aiLocal: true,
         chat: true,
         workflows: true,
         prompts: true,
@@ -246,6 +260,7 @@ const defaultSettings: AppSettings = {
       },
       logs: {
         general: true,
+        aiLocal: true,
         chat: true,
         workflows: true,
         prompts: true,
@@ -260,6 +275,7 @@ const defaultSettings: AppSettings = {
       },
       settings: {
         general: true,
+        aiLocal: true,
         chat: true,
         workflows: true,
         prompts: true,
@@ -288,6 +304,7 @@ const defaultSettings: AppSettings = {
 interface SettingsContextType {
   settings: AppSettings;
   updateGeneralSettings: (settings: Partial<GeneralSettings>) => void;
+  updateOllamaSettings: (settings: Partial<OllamaSettings>) => void;
   updateAppearanceSettings: (settings: Partial<AppearanceSettings>) => void;
   updateKeyboardShortcuts: (shortcuts: KeyboardShortcut[]) => void;
   updateInterfaceSettings: (settings: Partial<InterfaceSettings>) => void;
@@ -317,6 +334,11 @@ function deepMergeSettings(defaults: AppSettings, stored: Partial<AppSettings>):
   // Merge general
   if (stored.general) {
     result.general = { ...defaults.general, ...stored.general };
+  }
+
+  // Merge ollama
+  if (stored.ollama) {
+    result.ollama = { ...defaults.ollama, ...stored.ollama };
   }
 
   // Merge appearance
@@ -392,6 +414,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings((prev) => ({
       ...prev,
       general: { ...prev.general, ...newSettings },
+    }));
+  };
+
+  const updateOllamaSettings = (newSettings: Partial<OllamaSettings>) => {
+    setSettings((prev) => ({
+      ...prev,
+      ollama: { ...prev.ollama, ...newSettings },
     }));
   };
 
@@ -525,6 +554,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       value={{
         settings,
         updateGeneralSettings,
+        updateOllamaSettings,
         updateAppearanceSettings,
         updateKeyboardShortcuts,
         updateInterfaceSettings,
