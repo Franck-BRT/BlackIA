@@ -126,15 +126,21 @@ export class WorkflowExecutionEngine {
 
     try {
       // Exécuter la logique du nœud selon son type
-      await this.executeNodeLogic(node);
+      // Retourne true si le nœud gère lui-même la suite (condition, switch, loop)
+      const handledFlow = await this.executeNodeLogic(node);
 
-      // Marquer comme exécuté
-      this.context.markNodeExecuted(node.id);
+      // Marquer comme exécuté (sauf si géré manuellement par le nœud)
+      if (!handledFlow) {
+        this.context.markNodeExecuted(node.id);
+      }
+
       this.context.log(node.id, 'success', 'Node executed successfully');
       this.onProgress?.(node.id, 'completed');
 
-      // Trouver et exécuter les nœuds suivants
-      await this.executeNextNodes(node);
+      // Trouver et exécuter les nœuds suivants (sauf si géré manuellement)
+      if (!handledFlow) {
+        await this.executeNextNodes(node);
+      }
 
     } catch (error) {
       this.context.log(node.id, 'error', `Node execution failed: ${String(error)}`);
@@ -145,30 +151,31 @@ export class WorkflowExecutionEngine {
 
   /**
    * Exécuter la logique d'un nœud selon son type
+   * @returns true si le nœud gère lui-même le flow (marking + next nodes), false sinon
    */
-  private async executeNodeLogic(node: WorkflowNode): Promise<void> {
+  private async executeNodeLogic(node: WorkflowNode): Promise<boolean> {
     switch (node.type) {
       case 'input':
         await this.executeInputNode(node);
-        break;
+        return false;
       case 'output':
         await this.executeOutputNode(node);
-        break;
+        return false;
       case 'aiPrompt':
         await this.executeAIPromptNode(node);
-        break;
+        return false;
       case 'condition':
         await this.executeConditionNode(node);
-        break;
+        return true; // Gère le flow manuellement
       case 'loop':
         await this.executeLoopNode(node);
-        break;
+        return true; // Gère le flow manuellement
       case 'transform':
         await this.executeTransformNode(node);
-        break;
+        return false;
       case 'switch':
         await this.executeSwitchNode(node);
-        break;
+        return true; // Gère le flow manuellement
       default:
         throw new Error(`Unknown node type: ${node.type}`);
     }
@@ -176,10 +183,21 @@ export class WorkflowExecutionEngine {
 
   /**
    * Trouver et exécuter les nœuds suivants
+   * @param node Nœud actuel
+   * @param handle Handle source optionnel pour le branchement conditionnel (ex: 'yes', 'no', 'case1')
    */
-  private async executeNextNodes(node: WorkflowNode): Promise<void> {
-    const outgoingEdges = this.workflow.edges.filter(e => e.source === node.id);
+  private async executeNextNodes(node: WorkflowNode, handle?: string): Promise<void> {
+    let outgoingEdges = this.workflow.edges.filter(e => e.source === node.id);
 
+    // Si un handle est spécifié (branchement conditionnel), filtrer par sourceHandle
+    if (handle !== undefined) {
+      outgoingEdges = outgoingEdges.filter(e => e.sourceHandle === handle);
+      this.context.log(node.id, 'info', `Branching to handle: ${handle}`, {
+        edgesFound: outgoingEdges.length
+      });
+    }
+
+    // Exécuter les nœuds suivants en parallèle (peuvent être multiples)
     for (const edge of outgoingEdges) {
       const nextNode = this.workflow.nodes.find(n => n.id === edge.target);
       if (nextNode) {
@@ -316,37 +334,103 @@ export class WorkflowExecutionEngine {
 
   private async executeConditionNode(node: WorkflowNode): Promise<void> {
     const condition = node.data.condition as string || '';
+    const conditionType = (node.data.conditionType as string) || 'equals';
+
+    // Évaluer la condition
     const result = this.context.evaluateCondition(condition);
 
-    this.context.log(node.id, 'info', `Condition evaluated: ${condition} = ${result}`);
+    this.context.log(node.id, 'info', `Condition evaluated: ${condition} (${conditionType}) = ${result}`);
     this.context.setVariable(`condition_${node.id}`, result);
     this.context.setVariable('lastValue', result);
 
-    // Le prochain nœud sera déterminé par le handle (yes/no)
+    // Déterminer le handle à suivre en fonction du résultat
+    const handle = result ? 'yes' : 'no';
+
+    this.context.log(node.id, 'info', `Branching via '${handle}' path`);
+
+    // Marquer comme exécuté maintenant pour éviter les cycles
+    this.context.markNodeExecuted(node.id);
+
+    // Exécuter les nœuds suivants avec le handle approprié
+    await this.executeNextNodes(node, handle);
   }
 
   private async executeLoopNode(node: WorkflowNode): Promise<void> {
     const loopType = node.data.loopType as string || 'count';
     const loopCount = (node.data.loopCount as number) || 3;
+    const loopCondition = node.data.loopCondition as string || '';
 
     this.context.log(node.id, 'info', `Loop node: ${loopType} (${loopCount} iterations)`);
 
+    // Marquer le loop comme exécuté
+    this.context.markNodeExecuted(node.id);
+
+    // Trouver les nœuds du corps de la boucle (edges avec sourceHandle='body')
+    const bodyEdges = this.workflow.edges.filter(
+      e => e.source === node.id && e.sourceHandle === 'body'
+    );
+
+    const bodyNodeIds = bodyEdges.map(e => e.target);
     const results: unknown[] = [];
 
+    this.context.log(node.id, 'info', `Loop body contains ${bodyNodeIds.length} direct node(s)`);
+
+    // Exécuter les itérations
     for (let i = 0; i < loopCount; i++) {
+      // Mettre à jour les variables de boucle
       this.context.setVariable('loopIndex', i);
       this.context.setVariable('loopCount', loopCount);
+      this.context.setVariable('loopIteration', i + 1); // 1-based pour l'affichage
 
-      // Pour chaque itération, on exécute les nœuds enfants
-      // (simplifié pour l'instant)
-      const lastValue = this.context.getVariable('lastValue');
-      results.push(lastValue);
+      this.context.log(node.id, 'info', `Loop iteration ${i + 1}/${loopCount}`);
 
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Pour permettre la ré-exécution des nœuds du corps, on doit les "démarquer"
+      // On collecte tous les nœuds qui ont été exécutés avant cette itération
+      const executedBefore = new Set(this.context.getExecutedNodes());
+
+      // Exécuter chaque nœud du corps de la boucle
+      for (const targetId of bodyNodeIds) {
+        const targetNode = this.workflow.nodes.find(n => n.id === targetId);
+        if (targetNode) {
+          // Permettre la ré-exécution en retirant temporairement le flag
+          if (i > 0) {
+            this.context.unmarkNodeExecuted(targetId);
+          }
+
+          // Exécuter le nœud du corps
+          await this.executeNode(targetNode);
+        }
+      }
+
+      // Capturer le résultat de cette itération
+      const iterationResult = this.context.getVariable('lastValue');
+      results.push(iterationResult);
+
+      this.context.log(node.id, 'info', `Iteration ${i + 1} completed`, {
+        result: iterationResult
+      });
     }
 
+    // Stocker tous les résultats des itérations
     this.context.setVariable(`loop_${node.id}`, results);
     this.context.setVariable('lastValue', results);
+    this.context.setVariable('loopResults', results);
+
+    this.context.log(node.id, 'success', `Loop completed (${loopCount} iterations)`, {
+      resultsCount: results.length
+    });
+
+    // Trouver et exécuter les nœuds suivants après le loop (edges sans handle ou avec handle='out')
+    const exitEdges = this.workflow.edges.filter(
+      e => e.source === node.id && (e.sourceHandle === 'out' || !e.sourceHandle || e.sourceHandle === '')
+    );
+
+    for (const edge of exitEdges) {
+      const nextNode = this.workflow.nodes.find(n => n.id === edge.target);
+      if (nextNode) {
+        await this.executeNode(nextNode);
+      }
+    }
   }
 
   private async executeTransformNode(node: WorkflowNode): Promise<void> {
@@ -381,9 +465,37 @@ export class WorkflowExecutionEngine {
   private async executeSwitchNode(node: WorkflowNode): Promise<void> {
     const switchValue = this.context.getVariable('lastValue');
 
-    this.context.log(node.id, 'info', `Switch on value: ${switchValue}`);
-    this.context.setVariable(`switch_${node.id}`, switchValue);
+    // Convertir la valeur en string pour le matching de handle
+    const handleValue = String(switchValue);
 
-    // Le prochain nœud sera déterminé par le handle correspondant à la valeur
+    this.context.log(node.id, 'info', `Switch on value: ${handleValue}`);
+    this.context.setVariable(`switch_${node.id}`, switchValue);
+    this.context.setVariable('lastValue', switchValue);
+
+    // Marquer comme exécuté maintenant pour éviter les cycles
+    this.context.markNodeExecuted(node.id);
+
+    // Essayer de trouver un edge correspondant à la valeur exacte
+    let outgoingEdges = this.workflow.edges.filter(
+      e => e.source === node.id && e.sourceHandle === handleValue
+    );
+
+    // Si aucun edge trouvé, chercher un edge 'default'
+    if (outgoingEdges.length === 0) {
+      outgoingEdges = this.workflow.edges.filter(
+        e => e.source === node.id && e.sourceHandle === 'default'
+      );
+      this.context.log(node.id, 'info', `No matching case for '${handleValue}', using default path`);
+    } else {
+      this.context.log(node.id, 'info', `Branching to case '${handleValue}'`);
+    }
+
+    // Exécuter les nœuds suivants
+    for (const edge of outgoingEdges) {
+      const nextNode = this.workflow.nodes.find(n => n.id === edge.target);
+      if (nextNode) {
+        await this.executeNode(nextNode);
+      }
+    }
   }
 }

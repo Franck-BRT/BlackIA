@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Star, Layers, Filter, X, ArrowLeft, AlertCircle } from 'lucide-react';
 import { useWorkflows, type ParsedWorkflow } from '../hooks/useWorkflows';
 import { WorkflowList } from '../components/workflows/WorkflowList';
@@ -33,7 +33,7 @@ export function WorkflowsPage() {
   const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   // Gestion du filtre et de la recherche
-  useState(() => {
+  useEffect(() => {
     const applyFilters = async () => {
       let result: ParsedWorkflow[] = workflows;
 
@@ -59,7 +59,7 @@ export function WorkflowsPage() {
     };
 
     applyFilters();
-  }, [workflows, searchQuery, activeFilter]);
+  }, [workflows, searchQuery, activeFilter, getFavorites, getTemplates]);
 
   const handleCreateWorkflow = async () => {
     // Ouvrir le modal pour saisir les infos de base

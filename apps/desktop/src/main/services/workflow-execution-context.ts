@@ -98,6 +98,20 @@ export class ExecutionContext {
   }
 
   /**
+   * Démarquer un nœud pour permettre sa ré-exécution (utile pour les loops)
+   */
+  unmarkNodeExecuted(nodeId: string): void {
+    this.executedNodes.delete(nodeId);
+  }
+
+  /**
+   * Récupérer la liste des nœuds exécutés
+   */
+  getExecutedNodes(): string[] {
+    return Array.from(this.executedNodes);
+  }
+
+  /**
    * Récupérer la durée d'exécution
    */
   getDuration(): number {
