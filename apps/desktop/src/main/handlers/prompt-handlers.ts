@@ -49,7 +49,12 @@ export function registerPromptHandlers() {
    */
   ipcMain.handle('prompts:create', async (_event, data: Omit<Prompt, 'id' | 'createdAt' | 'updatedAt' | 'usageCount'>) => {
     try {
-      const newPrompt = await PromptService.create(data);
+      // Normaliser les champs optionnels
+      const normalizedData = {
+        ...data,
+        editorTitle: data.editorTitle ?? null,
+      };
+      const newPrompt = await PromptService.create(normalizedData);
       return { success: true, data: newPrompt };
     } catch (error) {
       console.error('[Prompts] Error creating prompt:', error);

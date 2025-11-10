@@ -19,10 +19,8 @@ export interface Prompt {
   tags: string; // JSON array
   defaultPersonaId?: string | null;
   defaultIncludeFewShots: boolean;
-    availableInEditor: false,
-    editorTitle: null,
   availableInEditor: boolean; // Disponible dans l'éditeur
-  editorTitle?: string | null; // Titre personnalisé pour l'éditeur
+  editorTitle: string | null; // Titre personnalisé pour l'éditeur
   isFavorite: boolean;
   usageCount: number;
   createdAt: string;
