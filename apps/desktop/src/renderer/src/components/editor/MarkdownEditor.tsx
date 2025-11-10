@@ -299,6 +299,9 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
   const handleSave = () => {
     if (onSave) {
       onSave(content);
+      // Mettre à jour la référence et l'état après la sauvegarde
+      initialContentRef.current = content;
+      setIsDirty(false);
     }
   };
 
