@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSettings } from '../../contexts/SettingsContext';
-import { Server, RefreshCw, CheckCircle, XCircle, Clock, Settings2 } from 'lucide-react';
+import { Server, RefreshCw, CheckCircle, XCircle, Clock, Settings2, Edit2, X, Check } from 'lucide-react';
 
 export function OllamaSettings() {
   const { settings, updateOllamaSettings } = useSettings();
@@ -9,6 +9,13 @@ export function OllamaSettings() {
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [isFetchingModels, setIsFetchingModels] = useState(false);
+  const [editingModel, setEditingModel] = useState<string | null>(null);
+  const [editingAlias, setEditingAlias] = useState('');
+
+  // Helper pour obtenir le nom d'affichage (alias ou nom d'origine)
+  const getDisplayName = (modelName: string): string => {
+    return ollama.modelAliases[modelName] || modelName;
+  };
 
   const testConnection = async () => {
     setIsTestingConnection(true);
@@ -48,6 +55,37 @@ export function OllamaSettings() {
     } finally {
       setIsFetchingModels(false);
     }
+  };
+
+  const startEditingModel = (modelName: string) => {
+    setEditingModel(modelName);
+    setEditingAlias(ollama.modelAliases[modelName] || modelName);
+  };
+
+  const saveModelAlias = () => {
+    if (editingModel) {
+      const newAliases = { ...ollama.modelAliases };
+      if (editingAlias.trim() && editingAlias !== editingModel) {
+        newAliases[editingModel] = editingAlias.trim();
+      } else {
+        // Si vide ou identique au nom d'origine, supprimer l'alias
+        delete newAliases[editingModel];
+      }
+      updateOllamaSettings({ modelAliases: newAliases });
+      setEditingModel(null);
+      setEditingAlias('');
+    }
+  };
+
+  const cancelEditing = () => {
+    setEditingModel(null);
+    setEditingAlias('');
+  };
+
+  const resetModelAlias = (modelName: string) => {
+    const newAliases = { ...ollama.modelAliases };
+    delete newAliases[modelName];
+    updateOllamaSettings({ modelAliases: newAliases });
   };
 
   return (
@@ -230,7 +268,8 @@ export function OllamaSettings() {
                 <option value="">Aucun (sélection manuelle)</option>
                 {ollama.models.map((model) => (
                   <option key={model} value={model}>
-                    {model}
+                    {getDisplayName(model)}
+                    {ollama.modelAliases[model] && ` (${model})`}
                   </option>
                 ))}
               </select>
@@ -245,13 +284,77 @@ export function OllamaSettings() {
                 {ollama.models.map((model) => (
                   <div
                     key={model}
-                    className={`px-3 py-2 rounded-lg glass-card text-sm ${
+                    className={`px-3 py-2 rounded-lg glass-card ${
                       ollama.defaultModel === model ? 'ring-2 ring-green-500/50' : ''
                     }`}
                   >
-                    <span className="font-mono">{model}</span>
-                    {ollama.defaultModel === model && (
-                      <span className="ml-2 text-xs text-green-400">(par défaut)</span>
+                    {editingModel === model ? (
+                      // Mode édition
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={editingAlias}
+                          onChange={(e) => setEditingAlias(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveModelAlias();
+                            if (e.key === 'Escape') cancelEditing();
+                          }}
+                          placeholder={model}
+                          autoFocus
+                          className="flex-1 px-3 py-1.5 glass-lg rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                        />
+                        <button
+                          onClick={saveModelAlias}
+                          className="p-1.5 rounded-lg hover:bg-green-500/20 text-green-400 transition-colors"
+                          title="Sauvegarder"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={cancelEditing}
+                          className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors"
+                          title="Annuler"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      // Mode affichage
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm">
+                              {getDisplayName(model)}
+                            </span>
+                            {ollama.defaultModel === model && (
+                              <span className="text-xs text-green-400">(par défaut)</span>
+                            )}
+                          </div>
+                          {ollama.modelAliases[model] && (
+                            <p className="text-xs text-muted-foreground font-mono truncate">
+                              {model}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => startEditingModel(model)}
+                            className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400 transition-colors"
+                            title="Renommer"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          {ollama.modelAliases[model] && (
+                            <button
+                              onClick={() => resetModelAlias(model)}
+                              className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors"
+                              title="Réinitialiser"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -294,6 +397,10 @@ export function OllamaSettings() {
             <code className="px-2 py-1 glass-card rounded text-xs font-mono">
               ollama pull llama2
             </code>
+          </p>
+          <p className="pt-2 border-t border-white/10">
+            <span className="font-semibold text-foreground">Astuce :</span> Cliquez sur l'icône{' '}
+            <Edit2 className="inline w-3 h-3" /> pour donner un nom plus parlant à vos modèles.
           </p>
         </div>
       </div>

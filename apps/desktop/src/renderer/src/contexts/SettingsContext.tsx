@@ -132,6 +132,7 @@ const defaultSettings: AppSettings = {
     timeout: 30000,
     models: [],
     defaultModel: undefined,
+    modelAliases: {},
   },
   appearance: {
     fontSize: 'medium',

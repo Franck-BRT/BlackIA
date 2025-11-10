@@ -272,6 +272,7 @@ export interface OllamaSettings {
   timeout: number; // Timeout des requêtes en ms
   models: string[]; // Liste des modèles disponibles
   defaultModel?: string; // Modèle par défaut
+  modelAliases: Record<string, string>; // Noms personnalisés pour les modèles (clé: nom technique, valeur: alias)
 }
 
 // Complete settings structure
