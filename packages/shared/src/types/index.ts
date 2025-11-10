@@ -265,6 +265,17 @@ export interface CategoriesSettings {
   customCategories: PersonaCategory[]; // Catégories personnalisées
 }
 
+// Model capability tags
+export type ModelCapability =
+  | 'vision'      // Vision multimodale (images)
+  | 'embedding'   // Embeddings de texte
+  | 'chat'        // Conversation
+  | 'code'        // Génération de code
+  | 'instruct'    // Instructions
+  | 'tools'       // Function calling/Tools
+  | 'reasoning'   // Raisonnement avancé
+  | 'multimodal'; // Autre multimodal (audio, etc.)
+
 // Ollama settings
 export interface OllamaSettings {
   enabled: boolean; // Activer/désactiver Ollama
@@ -273,6 +284,7 @@ export interface OllamaSettings {
   models: string[]; // Liste des modèles disponibles
   defaultModel?: string; // Modèle par défaut
   modelAliases: Record<string, string>; // Noms personnalisés pour les modèles (clé: nom technique, valeur: alias)
+  modelTags: Record<string, ModelCapability[]>; // Tags/capacités pour chaque modèle (clé: nom technique, valeur: liste de tags)
 }
 
 // Complete settings structure

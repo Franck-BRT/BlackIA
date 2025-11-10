@@ -1,6 +1,19 @@
 import { useState } from 'react';
 import { useSettings } from '../../contexts/SettingsContext';
-import { Server, RefreshCw, CheckCircle, XCircle, Clock, Settings2, Edit2, X, Check, Download, Trash2, Loader2 } from 'lucide-react';
+import { Server, RefreshCw, CheckCircle, XCircle, Clock, Settings2, Edit2, X, Check, Download, Trash2, Loader2, Eye, Code, MessageSquare, Briefcase, Boxes, Brain, Sparkles, Tag } from 'lucide-react';
+import type { ModelCapability } from '@blackia/shared/types';
+
+// Mapping des tags vers icônes et couleurs
+const TAG_CONFIG: Record<ModelCapability, { icon: any; color: string; label: string }> = {
+  vision: { icon: Eye, color: 'text-purple-400', label: 'Vision' },
+  embedding: { icon: Boxes, color: 'text-blue-400', label: 'Embedding' },
+  chat: { icon: MessageSquare, color: 'text-green-400', label: 'Chat' },
+  code: { icon: Code, color: 'text-orange-400', label: 'Code' },
+  instruct: { icon: Briefcase, color: 'text-cyan-400', label: 'Instruct' },
+  tools: { icon: Sparkles, color: 'text-pink-400', label: 'Tools' },
+  reasoning: { icon: Brain, color: 'text-yellow-400', label: 'Reasoning' },
+  multimodal: { icon: Sparkles, color: 'text-indigo-400', label: 'Multimodal' },
+};
 
 export function OllamaSettings() {
   const { settings, updateOllamaSettings } = useSettings();
@@ -21,6 +34,9 @@ export function OllamaSettings() {
 
   // Delete model states
   const [deletingModel, setDeletingModel] = useState<string | null>(null);
+
+  // Tags editing states
+  const [editingTags, setEditingTags] = useState<string | null>(null);
 
   // Helper pour obtenir le nom d'affichage (alias ou nom d'origine)
   const getDisplayName = (modelName: string): string => {
@@ -148,10 +164,12 @@ export function OllamaSettings() {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }
 
-      // Supprimer l'alias si présent
+      // Supprimer l'alias et les tags si présents
       const newAliases = { ...ollama.modelAliases };
+      const newTags = { ...ollama.modelTags };
       delete newAliases[modelName];
-      updateOllamaSettings({ modelAliases: newAliases });
+      delete newTags[modelName];
+      updateOllamaSettings({ modelAliases: newAliases, modelTags: newTags });
 
       // Rafraîchir la liste des modèles
       await fetchModels();
@@ -180,6 +198,37 @@ export function OllamaSettings() {
       setEditingModel(null);
       setEditingAlias('');
     }
+  };
+
+  // Tags management functions
+  const getModelTags = (modelName: string): ModelCapability[] => {
+    return ollama.modelTags[modelName] || [];
+  };
+
+  const toggleModelTag = (modelName: string, tag: ModelCapability) => {
+    const currentTags = getModelTags(modelName);
+    const newTags = { ...ollama.modelTags };
+
+    if (currentTags.includes(tag)) {
+      // Retirer le tag
+      newTags[modelName] = currentTags.filter(t => t !== tag);
+      if (newTags[modelName].length === 0) {
+        delete newTags[modelName]; // Nettoyer si aucun tag
+      }
+    } else {
+      // Ajouter le tag
+      newTags[modelName] = [...currentTags, tag];
+    }
+
+    updateOllamaSettings({ modelTags: newTags });
+  };
+
+  const startEditingTags = (modelName: string) => {
+    setEditingTags(modelName);
+  };
+
+  const cancelEditingTags = () => {
+    setEditingTags(null);
   };
 
   const cancelEditing = () => {
@@ -439,52 +488,123 @@ export function OllamaSettings() {
                       </div>
                     ) : (
                       // Mode affichage
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">
-                              {getDisplayName(model)}
-                            </span>
-                            {ollama.defaultModel === model && (
-                              <span className="text-xs text-green-400">(par défaut)</span>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">
+                                {getDisplayName(model)}
+                              </span>
+                              {ollama.defaultModel === model && (
+                                <span className="text-xs text-green-400">(par défaut)</span>
+                              )}
+                            </div>
+                            {ollama.modelAliases[model] && (
+                              <p className="text-xs text-muted-foreground font-mono truncate">
+                                {model}
+                              </p>
                             )}
                           </div>
-                          {ollama.modelAliases[model] && (
-                            <p className="text-xs text-muted-foreground font-mono truncate">
-                              {model}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => startEditingModel(model)}
-                            className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400 transition-colors"
-                            title="Renommer"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          {ollama.modelAliases[model] && (
+                          <div className="flex items-center gap-1">
                             <button
-                              onClick={() => resetModelAlias(model)}
-                              className="p-1.5 rounded-lg hover:bg-yellow-500/20 text-yellow-400 transition-colors"
-                              title="Réinitialiser le nom"
+                              onClick={() => startEditingModel(model)}
+                              className="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400 transition-colors"
+                              title="Renommer"
                             >
-                              <X className="w-4 h-4" />
+                              <Edit2 className="w-4 h-4" />
                             </button>
-                          )}
-                          <button
-                            onClick={() => deleteModel(model)}
-                            disabled={deletingModel === model}
-                            className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors disabled:opacity-50"
-                            title="Supprimer"
-                          >
-                            {deletingModel === model ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
+                            <button
+                              onClick={() => startEditingTags(model)}
+                              className="p-1.5 rounded-lg hover:bg-purple-500/20 text-purple-400 transition-colors"
+                              title="Gérer les tags"
+                            >
+                              <Tag className="w-4 h-4" />
+                            </button>
+                            {ollama.modelAliases[model] && (
+                              <button
+                                onClick={() => resetModelAlias(model)}
+                                className="p-1.5 rounded-lg hover:bg-yellow-500/20 text-yellow-400 transition-colors"
+                                title="Réinitialiser le nom"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
                             )}
-                          </button>
+                            <button
+                              onClick={() => deleteModel(model)}
+                              disabled={deletingModel === model}
+                              className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors disabled:opacity-50"
+                              title="Supprimer"
+                            >
+                              {deletingModel === model ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
                         </div>
+
+                        {/* Tags display */}
+                        {getModelTags(model).length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {getModelTags(model).map(tag => {
+                              const config = TAG_CONFIG[tag];
+                              const Icon = config.icon;
+                              return (
+                                <div
+                                  key={tag}
+                                  className="flex items-center gap-1 px-2 py-0.5 rounded-md glass-lg text-xs"
+                                >
+                                  <Icon className={`w-3 h-3 ${config.color}`} />
+                                  <span className={config.color}>{config.label}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Tags editor */}
+                        {editingTags === model && (
+                          <div className="mt-2 p-3 glass-lg rounded-lg space-y-2">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-medium text-muted-foreground">
+                                Sélectionnez les capacités du modèle :
+                              </p>
+                              <button
+                                onClick={cancelEditingTags}
+                                className="p-1 rounded hover:bg-red-500/20 text-red-400 transition-colors"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {(Object.keys(TAG_CONFIG) as ModelCapability[]).map(tag => {
+                                const config = TAG_CONFIG[tag];
+                                const Icon = config.icon;
+                                const isSelected = getModelTags(model).includes(tag);
+                                return (
+                                  <button
+                                    key={tag}
+                                    onClick={() => toggleModelTag(model, tag)}
+                                    className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm ${
+                                      isSelected
+                                        ? 'glass ring-2 ring-purple-500/50'
+                                        : 'glass-card hover:glass-lg'
+                                    }`}
+                                  >
+                                    <Icon className={`w-4 h-4 ${config.color}`} />
+                                    <span className={isSelected ? config.color : 'text-muted-foreground'}>
+                                      {config.label}
+                                    </span>
+                                    {isSelected && (
+                                      <Check className={`w-3 h-3 ml-auto ${config.color}`} />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -633,6 +753,7 @@ export function OllamaSettings() {
           <ul className="list-disc list-inside space-y-1 pl-2">
             <li>Cliquez sur <Download className="inline w-3 h-3" /> pour télécharger un nouveau modèle</li>
             <li>Cliquez sur <Edit2 className="inline w-3 h-3" /> pour renommer un modèle</li>
+            <li>Cliquez sur <Tag className="inline w-3 h-3" /> pour gérer les capacités/tags (Vision, Code, Chat...)</li>
             <li>Cliquez sur <Trash2 className="inline w-3 h-3" /> pour supprimer un modèle</li>
           </ul>
           <p className="pt-2 text-xs">
