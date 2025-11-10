@@ -247,12 +247,6 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
   // Filtrer les prompts disponibles pour l'éditeur
   const editorPrompts = prompts.filter(p => p.availableInEditor);
 
-  // Debug: afficher les prompts chargés
-  useEffect(() => {
-    console.log('[MarkdownEditor] Total prompts:', prompts.length);
-    console.log('[MarkdownEditor] Editor prompts:', editorPrompts.length, editorPrompts);
-  }, [prompts, editorPrompts]);
-
   // Gestion des raccourcis clavier
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.ctrlKey || e.metaKey) {
