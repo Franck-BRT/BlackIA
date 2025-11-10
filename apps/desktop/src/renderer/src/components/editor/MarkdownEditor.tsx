@@ -24,7 +24,8 @@ import {
   Bot,
 } from 'lucide-react';
 import { cn } from '@blackia/ui';
-import { EditorAIAssistant } from './EditorAIAssistant';
+import { ChatInterface } from '../chat/ChatInterface';
+import { usePersonas } from '../../hooks/usePersonas';
 
 interface MarkdownEditorProps {
   initialContent?: string;
@@ -36,34 +37,13 @@ type ViewMode = 'edit' | 'preview' | 'split' | 'ai-assist';
 export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorProps) {
   const [content, setContent] = useState(initialContent);
   const [viewMode, setViewMode] = useState<ViewMode>('split');
-  const [selectedModel, setSelectedModel] = useState('');
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { personas } = usePersonas();
 
   // Synchroniser le contenu quand initialContent change
   useEffect(() => {
     setContent(initialContent);
   }, [initialContent]);
-
-  // Charger les modèles disponibles au démarrage
-  useEffect(() => {
-    const loadModels = async () => {
-      try {
-        console.log('[Editor] Chargement des modèles...');
-        const modelsList = await window.electronAPI.ollama.listModels();
-        console.log('[Editor] Modèles chargés:', modelsList);
-        const modelNames = modelsList.map((m: any) => m.name);
-        setAvailableModels(modelNames);
-        if (modelNames.length > 0) {
-          setSelectedModel(modelNames[0]);
-          console.log('[Editor] Modèle sélectionné par défaut:', modelNames[0]);
-        }
-      } catch (error) {
-        console.error('[Editor] Erreur lors du chargement des modèles:', error);
-      }
-    };
-    loadModels();
-  }, []);
 
   // Fonction pour insérer du texte à la position du curseur
   const insertText = (before: string, after: string = '', placeholder: string = '') => {
@@ -541,12 +521,12 @@ export function MarkdownEditor({ initialContent = '', onSave }: MarkdownEditorPr
         {/* AI Assistant panel */}
         {viewMode === 'ai-assist' && (
           <div className="w-1/2">
-            <EditorAIAssistant
-              documentContent={content}
-              selectedModel={selectedModel}
-              availableModels={availableModels}
-              onModelChange={setSelectedModel}
+            <ChatInterface
+              title="Assistant de rédaction"
+              hideImportExport={true}
+              documentContext={content}
               onInsertText={insertTextFromAI}
+              personas={personas}
             />
           </div>
         )}
