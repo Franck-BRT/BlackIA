@@ -62,7 +62,7 @@ export function HomePage() {
   return (
     <div className="h-full overflow-auto p-8">
       {/* Header */}
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl xl:max-w-7xl 2xl:max-w-none 2xl:px-16 mx-auto">
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold mb-4 text-gradient">
             Bienvenue sur BlackIA
@@ -77,8 +77,8 @@ export function HomePage() {
           )}
         </div>
 
-        {/* Features grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+        {/* Features grid - Responsive 1/2/3/4/5 columns */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 mb-12">
           {features.map((feature, index) => (
             <Link
               key={index}
@@ -99,8 +99,8 @@ export function HomePage() {
           ))}
         </div>
 
-        {/* Status cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Status cards - Responsive 1/2/3 columns */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="glass-card rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />

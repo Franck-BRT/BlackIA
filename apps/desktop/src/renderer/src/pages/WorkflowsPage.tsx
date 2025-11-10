@@ -203,7 +203,7 @@ export function WorkflowsPage() {
 
   return (
     <div className="h-full overflow-auto p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl 2xl:max-w-none 2xl:px-16 mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Workflows</h1>

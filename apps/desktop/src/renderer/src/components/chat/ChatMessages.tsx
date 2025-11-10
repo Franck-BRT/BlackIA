@@ -85,7 +85,7 @@ export function ChatMessages({
   // Afficher les messages
   return (
     <div className="flex-1 overflow-y-auto p-6 relative">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl xl:max-w-5xl 2xl:max-w-6xl mx-auto">
         {messages.map((message, index) => {
           // Déterminer si c'est le dernier message assistant
           const lastAssistantIndex = messages.findLastIndex((m) => m.role === 'assistant');
