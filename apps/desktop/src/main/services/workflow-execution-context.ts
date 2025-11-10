@@ -120,12 +120,115 @@ export class ExecutionContext {
 
   /**
    * Interpoler les variables dans une chaîne (remplace {{variable}} par sa valeur)
+   * Supporte le mapping intelligent de noms sémantiques vers les noms techniques
    */
   interpolate(template: string): string {
     return template.replace(/\{\{(\w+)\}\}/g, (match, varName) => {
-      const value = this.getVariable(varName);
-      return value !== undefined ? String(value) : match;
+      // 1. Try exact match first
+      let value = this.getVariable(varName);
+      if (value !== undefined) {
+        return String(value);
+      }
+
+      // 2. Try smart aliases based on semantic patterns
+      value = this.resolveSemanticVariable(varName);
+      if (value !== undefined) {
+        return String(value);
+      }
+
+      // 3. Variable not found - return original placeholder
+      return match;
     });
+  }
+
+  /**
+   * Résoudre une variable sémantique vers une variable technique
+   */
+  private resolveSemanticVariable(semanticName: string): unknown {
+    const lowerName = semanticName.toLowerCase();
+
+    // Common aliases for AI outputs
+    const aiOutputAliases = ['analysis', 'result', 'response', 'answer', 'output', 'content'];
+    if (aiOutputAliases.includes(lowerName)) {
+      return this.getMostRecentAIVariable();
+    }
+
+    // Common aliases for loop results
+    const loopAliases = ['variations', 'items', 'results', 'list', 'array'];
+    if (loopAliases.includes(lowerName)) {
+      const loopResults = this.getVariable('loopResults');
+      if (loopResults !== undefined) return loopResults;
+
+      // Try to find most recent loop_* variable
+      return this.getMostRecentLoopVariable();
+    }
+
+    // Common aliases for lastValue
+    const lastValueAliases = ['last', 'previous', 'current'];
+    if (lastValueAliases.includes(lowerName)) {
+      return this.getVariable('lastValue');
+    }
+
+    // Try partial match on variable names
+    return this.findPartialMatch(semanticName);
+  }
+
+  /**
+   * Trouver la variable AI la plus récente (ai_*)
+   */
+  private getMostRecentAIVariable(): unknown {
+    const allVars = this.getAllVariables();
+    const aiVars = Object.keys(allVars)
+      .filter(key => key.startsWith('ai_'))
+      .sort((a, b) => {
+        // Sort by node ID (assuming higher ID = more recent)
+        const idA = parseInt(a.split('_')[1]) || 0;
+        const idB = parseInt(b.split('_')[1]) || 0;
+        return idB - idA; // Descending order
+      });
+
+    if (aiVars.length > 0) {
+      return allVars[aiVars[0]];
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Trouver la variable de loop la plus récente (loop_*)
+   */
+  private getMostRecentLoopVariable(): unknown {
+    const allVars = this.getAllVariables();
+    const loopVars = Object.keys(allVars)
+      .filter(key => key.startsWith('loop_'))
+      .sort((a, b) => {
+        const idA = parseInt(a.split('_')[1]) || 0;
+        const idB = parseInt(b.split('_')[1]) || 0;
+        return idB - idA;
+      });
+
+    if (loopVars.length > 0) {
+      return allVars[loopVars[0]];
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Chercher une correspondance partielle dans les noms de variables
+   */
+  private findPartialMatch(searchName: string): unknown {
+    const lowerSearch = searchName.toLowerCase();
+    const allVars = this.getAllVariables();
+
+    // Try to find a variable containing the search term
+    for (const [key, value] of Object.entries(allVars)) {
+      if (key.toLowerCase().includes(lowerSearch)) {
+        return value;
+      }
+    }
+
+    return undefined;
   }
 
   /**
