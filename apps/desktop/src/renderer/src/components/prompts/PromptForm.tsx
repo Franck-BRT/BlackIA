@@ -363,24 +363,33 @@ export function PromptForm({
           {/* Liste des variables */}
           {formData.variables.length > 0 ? (
             <div className="flex flex-wrap gap-2 mb-3">
-              {formData.variables.map((variable) => (
-                <div
-                  key={variable}
-                  className="flex items-center gap-2 px-3 py-1.5 glass-card rounded-lg text-sm"
-                >
-                  <span className="font-mono text-purple-400">{'{{' + variable + '}}'}</span>
-                  {manualVariables && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveVariable(variable)}
-                      className="text-red-400 hover:text-red-300 transition-colors"
-                      title="Supprimer cette variable"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {formData.variables.map((variable) => {
+                const isEditorVariable = ['texte', 'text', 'contenu', 'content', 'selection'].includes(variable);
+                return (
+                  <div
+                    key={variable}
+                    className={`flex items-center gap-2 px-3 py-1.5 glass-card rounded-lg text-sm ${
+                      isEditorVariable ? 'ring-1 ring-green-500/30 bg-green-500/5' : ''
+                    }`}
+                    title={isEditorVariable ? 'Variable compatible avec l\'éditeur' : 'Variable standard'}
+                  >
+                    <span className={`font-mono ${isEditorVariable ? 'text-green-400' : 'text-purple-400'}`}>
+                      {'{{' + variable + '}}'}
+                    </span>
+                    {isEditorVariable && <span className="text-green-400 text-xs">✓</span>}
+                    {manualVariables && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveVariable(variable)}
+                        className="text-red-400 hover:text-red-300 transition-colors"
+                        title="Supprimer cette variable"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <p className="text-xs text-muted-foreground mb-3">
@@ -435,14 +444,32 @@ export function PromptForm({
           {/* Message d'information si variable manquante */}
           {!hasTexteVariable && (
             <div className="mb-3 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-              <p className="text-xs text-orange-400">
+              <p className="text-xs text-orange-400 mb-2">
                 ⚠️ Pour rendre ce prompt disponible dans l'éditeur, ajoutez au moins une de ces variables :
               </p>
-              <p className="text-xs text-orange-300 mt-1 font-mono">
-                {'{{texte}}'}, {'{{text}}'}, {'{{contenu}}'}, {'{{content}}'} ou {'{{selection}}'}
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                Cette variable sera remplacée par le texte sélectionné dans l'éditeur.
+              <div className="flex flex-wrap gap-2 mb-3">
+                {['texte', 'text', 'contenu', 'content', 'selection'].map((varName) => (
+                  <button
+                    key={varName}
+                    type="button"
+                    onClick={() => {
+                      if (!formData.variables.includes(varName)) {
+                        setFormData({
+                          ...formData,
+                          variables: [...formData.variables, varName],
+                        });
+                        setManualVariables(true);
+                      }
+                    }}
+                    className="px-2 py-1 bg-orange-500/20 hover:bg-orange-500/30 rounded text-xs font-mono text-orange-300 transition-colors"
+                    title={`Ajouter {{${varName}}}`}
+                  >
+                    + {'{{' + varName + '}}'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Cette variable sera remplacée par le texte sélectionné dans l'éditeur. Cliquez sur un bouton pour l'ajouter rapidement.
               </p>
             </div>
           )}
