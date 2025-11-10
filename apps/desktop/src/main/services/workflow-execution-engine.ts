@@ -408,6 +408,9 @@ export class WorkflowExecutionEngine {
 
     this.context.log(node.id, 'info', `Loop body contains ${bodyNodeIds.length} node(s)`);
 
+    // Capturer l'état avant le loop pour savoir quels nœuds démarquer
+    const nodesExecutedBeforeLoop = new Set(this.context.getExecutedNodes());
+
     // Exécuter les itérations
     for (let i = 0; i < loopCount; i++) {
       // Mettre à jour les variables de boucle
@@ -419,20 +422,24 @@ export class WorkflowExecutionEngine {
         currentLastValue: String(this.context.getVariable('lastValue') || 'undefined').substring(0, 100)
       });
 
-      // Pour permettre la ré-exécution des nœuds du corps, on doit les "démarquer"
-      // On collecte tous les nœuds qui ont été exécutés avant cette itération
-      const executedBefore = new Set(this.context.getExecutedNodes());
+      // À partir de l'itération 2, démarquer TOUS les nœuds qui ont été exécutés dans le loop
+      // (mais pas ceux qui étaient exécutés avant le loop)
+      if (i > 0) {
+        const currentExecuted = this.context.getExecutedNodes();
+        const nodesToUnmark = currentExecuted.filter(nodeId => !nodesExecutedBeforeLoop.has(nodeId));
+
+        this.context.log(node.id, 'info', `Unmarking ${nodesToUnmark.length} nodes for re-execution`);
+
+        for (const nodeId of nodesToUnmark) {
+          this.context.unmarkNodeExecuted(nodeId);
+        }
+      }
 
       // Exécuter chaque nœud du corps de la boucle
       for (const targetId of bodyNodeIds) {
         const targetNode = this.workflow.nodes.find(n => n.id === targetId);
         if (targetNode) {
-          // Permettre la ré-exécution en retirant temporairement le flag
-          if (i > 0) {
-            this.context.unmarkNodeExecuted(targetId);
-          }
-
-          // Exécuter le nœud du corps
+          // Exécuter le nœud du corps (et tous ses descendants)
           await this.executeNode(targetNode);
         }
       }
