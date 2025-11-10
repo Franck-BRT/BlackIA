@@ -38,7 +38,7 @@ const USER_DATA_PATH = app.getPath('userData');
 const PROMPTS_FILE = path.join(USER_DATA_PATH, 'prompts.json');
 
 // Version du schéma des prompts par défaut
-const CURRENT_SCHEMA_VERSION = 2; // v2: Ajout de availableInEditor et editorTitle
+const CURRENT_SCHEMA_VERSION = 3; // v3: Ajout des prompts d'éditeur par défaut
 
 // Cache en mémoire
 let cachedData: PromptsData | null = null;
@@ -623,12 +623,49 @@ function migratePrompts(data: PromptsData): PromptsData {
   // Migration v1 -> v2: Ajout de availableInEditor et editorTitle
   if (currentVersion < 2) {
     console.log('[PromptService] Migration v1->v2: Ajout des champs éditeur');
+
+    // Ajouter les champs aux prompts existants
     data.prompts = data.prompts.map(prompt => ({
       ...prompt,
       availableInEditor: false, // Par défaut, non disponible dans l'éditeur
       editorTitle: null,
     }));
+
     data.schemaVersion = 2;
+  }
+
+  // Migration v2 -> v3: Ajout des prompts d'éditeur par défaut
+  if (currentVersion < 3) {
+    console.log('[PromptService] Migration v2->v3: Ajout des prompts d\'éditeur par défaut');
+
+    // S'assurer que tous les prompts ont les champs nécessaires
+    data.prompts = data.prompts.map(prompt => ({
+      ...prompt,
+      availableInEditor: prompt.availableInEditor ?? false,
+      editorTitle: prompt.editorTitle ?? null,
+    }));
+
+    // Ajouter les nouveaux prompts d'éditeur s'ils ne sont pas déjà présents
+    const editorPromptIds = [
+      'editor-translate-fr',
+      'editor-correct',
+      'editor-summarize',
+      'editor-improve',
+      'editor-simplify',
+      'editor-expand',
+    ];
+
+    const existingIds = new Set(data.prompts.map(p => p.id));
+    const editorPromptsToAdd = DEFAULT_PROMPTS.filter(
+      p => editorPromptIds.includes(p.id) && !existingIds.has(p.id)
+    );
+
+    if (editorPromptsToAdd.length > 0) {
+      console.log(`[PromptService] Ajout de ${editorPromptsToAdd.length} nouveaux prompts d'éditeur`);
+      data.prompts.push(...editorPromptsToAdd);
+    }
+
+    data.schemaVersion = 3;
   }
 
   return data;
