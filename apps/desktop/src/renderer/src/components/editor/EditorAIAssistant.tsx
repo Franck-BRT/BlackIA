@@ -26,6 +26,94 @@ export function EditorAIAssistant({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentStreamIdRef = useRef<string | null>(null);
 
+  // Setup des listeners pour le streaming
+  useEffect(() => {
+    console.log('[EditorAI] 🎧 Enregistrement des listeners de streaming');
+
+    // Listener pour le début du streaming
+    window.electronAPI.ollama.onStreamStart((data: { streamId: string }) => {
+      console.log('[EditorAI] 🚀 Stream start reçu, streamId:', data.streamId);
+      currentStreamIdRef.current = data.streamId;
+      setStreamingMessage('');
+      setIsGenerating(true);
+    });
+
+    // Listener pour les chunks de streaming
+    window.electronAPI.ollama.onStreamChunk((data: { streamId: string; chunk: OllamaChatStreamChunk }) => {
+      console.log('[EditorAI] 📥 Chunk reçu:', {
+        receivedStreamId: data.streamId,
+        currentStreamId: currentStreamIdRef.current,
+        content: data.chunk.message?.content,
+        done: data.chunk.done,
+      });
+
+      if (data.streamId === currentStreamIdRef.current) {
+        console.log('[EditorAI] ✅ StreamId match! Traitement du chunk');
+        setStreamingMessage((prev) => {
+          const newContent = prev + (data.chunk.message?.content || '');
+          console.log('[EditorAI] 📝 Contenu accumulé (longueur):', newContent.length);
+          return newContent;
+        });
+
+        // Si le stream est terminé
+        if (data.chunk.done) {
+          console.log('[EditorAI] 🏁 Stream terminé, création du message final');
+          setStreamingMessage((currentContent) => {
+            const finalContent = currentContent + (data.chunk.message?.content || '');
+            const finalMessage: OllamaMessage = {
+              role: 'assistant',
+              content: finalContent,
+            };
+            setMessages((prev) => [...prev, finalMessage]);
+            return '';
+          });
+          setIsGenerating(false);
+          currentStreamIdRef.current = null;
+        }
+      } else {
+        console.log('[EditorAI] ⚠️ StreamId ne correspond pas, chunk ignoré');
+      }
+    });
+
+    // Listener pour la fin du stream
+    window.electronAPI.ollama.onStreamEnd((data: { streamId: string; stopped?: boolean }) => {
+      console.log('[EditorAI] 🏁 Stream terminé:', {
+        streamId: data.streamId,
+        stopped: data.stopped,
+        currentStreamId: currentStreamIdRef.current,
+      });
+
+      if (data.streamId === currentStreamIdRef.current) {
+        console.log('[EditorAI] ✅ Cleanup du stream');
+
+        // Si le stream a été stoppé, sauvegarder le contenu partiel
+        if (data.stopped) {
+          console.log('[EditorAI] 🛑 Stream stoppé, vérification du contenu partiel...');
+          setStreamingMessage((currentContent) => {
+            if (currentContent && currentContent.trim()) {
+              const partialMessage: OllamaMessage = {
+                role: 'assistant',
+                content: currentContent + ' [interrompu]',
+              };
+              console.log('[EditorAI] 💾 Sauvegarde du message partiel');
+              setMessages((prev) => [...prev, partialMessage]);
+            }
+            return '';
+          });
+        }
+
+        setIsGenerating(false);
+        setStreamingMessage('');
+        currentStreamIdRef.current = null;
+      }
+    });
+
+    // Cleanup
+    return () => {
+      console.log('[EditorAI] 🧹 Nettoyage des listeners');
+    };
+  }, []);
+
   // Auto-scroll vers le bas quand de nouveaux messages arrivent
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -34,10 +122,10 @@ export function EditorAIAssistant({
   const handleSend = async (messageText: string) => {
     if (!messageText.trim() || isGenerating) return;
 
-    console.log('[EditorAI] Envoi du message avec le modèle:', selectedModel);
+    console.log('[EditorAI] 📤 Envoi du message avec le modèle:', selectedModel);
 
     if (!selectedModel) {
-      console.error('[EditorAI] Aucun modèle sélectionné!');
+      console.error('[EditorAI] ❌ Aucun modèle sélectionné!');
       return;
     }
 
@@ -50,84 +138,42 @@ export function EditorAIAssistant({
     setMessages(newMessages);
     setInput('');
     setIsGenerating(true);
-    setStreamingMessage('');
-
-    const streamId = Date.now().toString();
-    currentStreamIdRef.current = streamId;
 
     try {
-      console.log('[EditorAI] Appel API ollama.chat avec', newMessages.length, 'messages');
-      const stream = await window.electronAPI.ollama.chat({
+      console.log('[EditorAI] 🚀 Appel API ollama.chat avec', newMessages.length, 'messages');
+      // L'appel lance le stream, les événements onStreamStart/onStreamChunk/onStreamEnd géreront la suite
+      await window.electronAPI.ollama.chat({
         model: selectedModel,
         messages: newMessages,
         stream: true,
       });
-
-      console.log('[EditorAI] Stream reçu, début de lecture...');
-      let fullResponse = '';
-      let chunkCount = 0;
-      let isDone = false;
-
-      for await (const chunk of stream as AsyncIterable<OllamaChatStreamChunk>) {
-        chunkCount++;
-        console.log(`[EditorAI] Chunk #${chunkCount}:`, {
-          hasContent: !!chunk.message?.content,
-          contentLength: chunk.message?.content?.length || 0,
-          done: chunk.done
-        });
-
-        if (currentStreamIdRef.current !== streamId) {
-          console.log('[EditorAI] Stream interrompu par l\'utilisateur');
-          break;
-        }
-
-        if (chunk.message?.content) {
-          fullResponse += chunk.message.content;
-          setStreamingMessage(fullResponse);
-          console.log('[EditorAI] Réponse actuelle (longueur):', fullResponse.length);
-        }
-
-        if (chunk.done) {
-          isDone = true;
-          console.log('[EditorAI] Stream terminé. Total chunks:', chunkCount, 'Longueur réponse:', fullResponse.length);
-          const assistantMessage: OllamaMessage = {
-            role: 'assistant',
-            content: fullResponse,
-          };
-          setMessages(prevMessages => {
-            console.log('[EditorAI] Ajout du message assistant aux messages existants');
-            return [...prevMessages, assistantMessage];
-          });
-          setStreamingMessage('');
-          setIsGenerating(false);
-        }
-      }
-
-      console.log('[EditorAI] Fin de la boucle de streaming. isDone:', isDone);
-
-      // Si le stream n'a pas signalé done mais qu'on a une réponse, on l'ajoute quand même
-      if (!isDone && fullResponse) {
-        console.log('[EditorAI] Stream terminé sans flag done, ajout de la réponse quand même');
-        const assistantMessage: OllamaMessage = {
-          role: 'assistant',
-          content: fullResponse,
-        };
-        setMessages(prevMessages => [...prevMessages, assistantMessage]);
-        setStreamingMessage('');
-      }
-
-      setIsGenerating(false);
+      console.log('[EditorAI] ✅ Requête envoyée, attente des événements de stream...');
     } catch (error) {
-      console.error('[EditorAI] Erreur lors de la génération:', error);
+      console.error('[EditorAI] ❌ Erreur lors de la génération:', error);
       setIsGenerating(false);
       setStreamingMessage('');
     }
   };
 
-  const handleStop = () => {
-    currentStreamIdRef.current = null;
-    setIsGenerating(false);
-    setStreamingMessage('');
+  const handleStop = async () => {
+    const streamId = currentStreamIdRef.current;
+    if (!streamId) {
+      console.log('[EditorAI] ⚠️ Aucun stream actif à stopper');
+      return;
+    }
+
+    try {
+      console.log('[EditorAI] 🛑 Demande d\'arrêt du stream:', streamId);
+      await window.electronAPI.ollama.stopStream(streamId);
+      console.log('[EditorAI] ✅ Stream stoppé');
+      // Le cleanup sera fait par le listener onStreamEnd
+    } catch (error) {
+      console.error('[EditorAI] ❌ Erreur lors du stop:', error);
+      // Cleanup local en cas d'erreur
+      setIsGenerating(false);
+      currentStreamIdRef.current = null;
+      setStreamingMessage('');
+    }
   };
 
   const handleSendWithContext = () => {
