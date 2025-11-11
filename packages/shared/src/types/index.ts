@@ -186,6 +186,7 @@ export type AppModule =
 // Settings sections
 export type SettingsSection =
   | 'general'
+  | 'aiLocal'
   | 'chat'
   | 'workflows'
   | 'prompts'
@@ -264,9 +265,32 @@ export interface CategoriesSettings {
   customCategories: PersonaCategory[]; // Catégories personnalisées
 }
 
+// Model capability tags
+export type ModelCapability =
+  | 'vision'      // Vision multimodale (images)
+  | 'embedding'   // Embeddings de texte
+  | 'chat'        // Conversation
+  | 'code'        // Génération de code
+  | 'instruct'    // Instructions
+  | 'tools'       // Function calling/Tools
+  | 'reasoning'   // Raisonnement avancé
+  | 'multimodal'; // Autre multimodal (audio, etc.)
+
+// Ollama settings
+export interface OllamaSettings {
+  enabled: boolean; // Activer/désactiver Ollama
+  baseUrl: string; // URL de base d'Ollama (ex: http://localhost:11434)
+  timeout: number; // Timeout des requêtes en ms
+  models: string[]; // Liste des modèles disponibles
+  defaultModel?: string; // Modèle par défaut
+  modelAliases: Record<string, string>; // Noms personnalisés pour les modèles (clé: nom technique, valeur: alias)
+  modelTags: Record<string, ModelCapability[]>; // Tags/capacités pour chaque modèle (clé: nom technique, valeur: liste de tags)
+}
+
 // Complete settings structure
 export interface AppSettings {
   general: GeneralSettings;
+  ollama: OllamaSettings;
   appearance: AppearanceSettings;
   keyboardShortcuts: KeyboardShortcut[];
   interface: InterfaceSettings;

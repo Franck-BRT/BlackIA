@@ -140,15 +140,13 @@ export function WorkflowCard({
         >
           <Copy size={16} />
         </button>
-        {!workflow.isTemplate && (
-          <button
-            onClick={(e) => handleAction(e, () => onDelete(workflow.id))}
-            className="p-2 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
-            title="Supprimer"
-          >
-            <Trash2 size={16} />
-          </button>
-        )}
+        <button
+          onClick={(e) => handleAction(e, () => onDelete(workflow.id))}
+          className="p-2 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
+          title="Supprimer"
+        >
+          <Trash2 size={16} />
+        </button>
       </div>
     </div>
   );

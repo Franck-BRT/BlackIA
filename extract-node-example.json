@@ -1,0 +1,58 @@
+{
+  "description": "Exemple de node Extract à ajouter entre le Node 5 et le Node 6 dans ton workflow",
+  "newNode": {
+    "id": "7",
+    "type": "extract",
+    "position": {
+      "x": 600,
+      "y": 400
+    },
+    "data": {
+      "label": "Extraire Score",
+      "sourceVar": "lastValue",
+      "extractType": "number",
+      "outputVar": "score",
+      "multiMatch": false,
+      "description": "Extrait le score numérique de la réponse de comparaison"
+    }
+  },
+  "edgesToModify": {
+    "description": "Modifications des edges pour connecter le node Extract",
+    "removeEdge": {
+      "id": "e5-6",
+      "comment": "Supprimer l'edge direct entre Node 5 et Node 6"
+    },
+    "addEdges": [
+      {
+        "id": "e5-7",
+        "source": "5",
+        "target": "7",
+        "animated": false,
+        "comment": "Connecter Node 5 au nouveau Node Extract"
+      },
+      {
+        "id": "e7-6",
+        "source": "7",
+        "target": "6",
+        "animated": false,
+        "comment": "Connecter Node Extract au Node 6 (Condition)"
+      }
+    ]
+  },
+  "instructions": {
+    "step1": "Ajouter le newNode dans le tableau 'nodes' de ton workflow",
+    "step2": "Trouver l'edge qui va de Node 5 vers Node 6",
+    "step3": "Modifier cet edge pour aller de Node 5 vers Node 7",
+    "step4": "Ajouter un nouvel edge de Node 7 vers Node 6",
+    "step5": "Le node Extract va maintenant extraire le premier nombre trouvé et le stocker dans la variable 'score'",
+    "step6": "Les Nodes 6 et 8 pourront maintenant utiliser {{score}}"
+  },
+  "alternativeConfiguration": {
+    "comment": "Si tu veux utiliser une regex plus précise pour extraire le score",
+    "data": {
+      "extractType": "regex",
+      "pattern": "([0-9]+)/10",
+      "outputVar": "score"
+    }
+  }
+}

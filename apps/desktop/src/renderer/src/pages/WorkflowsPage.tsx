@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Star, Layers, Filter, X, ArrowLeft, AlertCircle } from 'lucide-react';
 import { useWorkflows, type ParsedWorkflow } from '../hooks/useWorkflows';
 import { WorkflowList } from '../components/workflows/WorkflowList';
@@ -33,7 +33,7 @@ export function WorkflowsPage() {
   const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   // Gestion du filtre et de la recherche
-  useState(() => {
+  useEffect(() => {
     const applyFilters = async () => {
       let result: ParsedWorkflow[] = workflows;
 
@@ -59,7 +59,7 @@ export function WorkflowsPage() {
     };
 
     applyFilters();
-  }, [workflows, searchQuery, activeFilter]);
+  }, [workflows, searchQuery, activeFilter, getFavorites, getTemplates]);
 
   const handleCreateWorkflow = async () => {
     // Ouvrir le modal pour saisir les infos de base
@@ -96,18 +96,12 @@ export function WorkflowsPage() {
   };
 
   const handleDuplicateWorkflow = async (id: string) => {
-    const duplicated = await duplicateWorkflow(id);
-    if (duplicated) {
-      console.log('Workflow dupliqué:', duplicated.name);
-    }
+    await duplicateWorkflow(id);
   };
 
   const handleDeleteWorkflow = async (id: string) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce workflow ?')) {
-      const success = await deleteWorkflow(id);
-      if (success) {
-        console.log('Workflow supprimé');
-      }
+      await deleteWorkflow(id);
     }
   };
 
@@ -209,7 +203,7 @@ export function WorkflowsPage() {
 
   return (
     <div className="h-full overflow-auto p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl 2xl:max-w-none 2xl:px-16 mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Workflows</h1>

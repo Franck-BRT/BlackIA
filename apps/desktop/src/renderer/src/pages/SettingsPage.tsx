@@ -15,6 +15,7 @@ import {
   Keyboard,
   Eye,
   Info,
+  Server,
 } from 'lucide-react';
 import { ChatSettings } from '../components/settings/ChatSettings';
 import { TagsSettings } from '../components/settings/TagsSettings';
@@ -23,6 +24,7 @@ import { AppearanceSettings } from '../components/settings/AppearanceSettings';
 import { InterfaceSection } from '../components/settings/InterfaceSection';
 import { PersonaSuggestionsSettings } from '../components/settings/PersonaSuggestionsSettings';
 import { CategoriesSettings } from '../components/settings/CategoriesSettings';
+import { OllamaSettings } from '../components/settings/OllamaSettings';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
@@ -38,6 +40,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { icon: Settings, label: 'Général', section: 'general' },
+  { icon: Server, label: 'AI Locale', section: 'aiLocal' },
   { icon: MessageSquare, label: 'Chat', section: 'chat' },
   { icon: Workflow, label: 'Workflows', section: 'workflows' },
   { icon: FileText, label: 'Prompts', section: 'prompts' },
@@ -131,6 +134,7 @@ export function SettingsPage() {
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto p-8">
           {activeSection === 'general' && <GeneralSettings />}
+          {activeSection === 'aiLocal' && <OllamaSettings />}
           {activeSection === 'chat' && (
             <ChatSettings
               folders={folders}

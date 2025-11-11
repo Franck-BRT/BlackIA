@@ -297,3 +297,25 @@ export const documentation = sqliteTable('documentation', {
 
 export type Documentation = typeof documentation.$inferSelect;
 export type NewDocumentation = typeof documentation.$inferInsert;
+
+/**
+ * Table: documents
+ * Documents généraux créés dans l'éditeur markdown
+ * (séparés de la documentation du projet)
+ */
+export const documents = sqliteTable('documents', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  content: text('content').notNull(), // Markdown content
+
+  // Métadonnées
+  tags: text('tags').notNull().default('[]'), // JSON array pour filtrage
+  isFavorite: integer('is_favorite', { mode: 'boolean' }).notNull().default(false),
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export type Document = typeof documents.$inferSelect;
+export type NewDocument = typeof documents.$inferInsert;

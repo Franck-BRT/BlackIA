@@ -1,6 +1,8 @@
 import React from 'react';
 import { X, MessageSquare, TrendingUp, Zap, Calendar, BarChart3, Cpu, Users } from 'lucide-react';
 import type { Statistics } from '../../hooks/useStatistics';
+import { useSettings } from '../../contexts/SettingsContext';
+import { getModelDisplayName } from '../../utils/modelAliases';
 
 interface StatisticsModalProps {
   isOpen: boolean;
@@ -9,7 +11,15 @@ interface StatisticsModalProps {
 }
 
 export function StatisticsModal({ isOpen, onClose, statistics }: StatisticsModalProps) {
+  const { settings } = useSettings();
+  const { ollama } = settings;
+
   if (!isOpen) return null;
+
+  // Get display name for most used model
+  const mostUsedModelDisplay = statistics.mostUsedModel !== 'Aucun'
+    ? getModelDisplayName(statistics.mostUsedModel, ollama.modelAliases)
+    : 'Aucun';
 
   return (
     <div
@@ -62,7 +72,7 @@ export function StatisticsModal({ isOpen, onClose, statistics }: StatisticsModal
             <StatCard
               icon={<Cpu className="w-5 h-5" />}
               label="Modèle favori"
-              value={statistics.mostUsedModel}
+              value={mostUsedModelDisplay}
               subtitle={`${statistics.modelUsage[0]?.percentage || 0}% d'utilisation`}
               color="purple"
               valueIsString
@@ -120,22 +130,34 @@ export function StatisticsModal({ isOpen, onClose, statistics }: StatisticsModal
             </div>
 
             <div className="space-y-3">
-              {statistics.modelUsage.map((model, index) => (
-                <div key={index} className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{model.model}</span>
-                    <span className="text-muted-foreground">
-                      {model.count} conversations ({model.percentage}%)
-                    </span>
+              {statistics.modelUsage.map((model, index) => {
+                const displayName = getModelDisplayName(model.model, ollama.modelAliases);
+                const hasAlias = ollama.modelAliases[model.model] !== undefined;
+
+                return (
+                  <div key={index} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="font-medium">{displayName}</span>
+                        {hasAlias && (
+                          <span className="text-xs text-muted-foreground/70 font-mono truncate">
+                            {model.model}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-muted-foreground ml-2">
+                        {model.count} conv. ({model.percentage}%)
+                      </span>
+                    </div>
+                    <div className="relative h-2 bg-white/5 rounded-full overflow-hidden">
+                      <div
+                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all"
+                        style={{ width: `${model.percentage}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="relative h-2 bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full transition-all"
-                      style={{ width: `${model.percentage}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

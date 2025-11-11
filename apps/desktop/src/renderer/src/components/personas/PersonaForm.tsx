@@ -6,6 +6,7 @@ import { TagModal } from '../chat/TagModal';
 import { useModels } from '../../hooks/useModels';
 import { useTags } from '../../hooks/useTags';
 import { useSettings } from '../../contexts/SettingsContext';
+import { getModelDisplayName } from '../../utils/modelAliases';
 import type { PersonaFormData, PersonaColor } from '../../types/persona';
 import { PERSONA_COLORS, PERSONA_COLOR_CLASSES } from '../../types/persona';
 
@@ -24,8 +25,9 @@ export function PersonaForm({
 }: PersonaFormProps) {
   const { models, loading: modelsLoading, error: modelsError } = useModels();
   const { tags, createTag } = useTags();
-  const { getAllCategories } = useSettings();
+  const { getAllCategories, settings } = useSettings();
   const categories = getAllCategories();
+  const { ollama } = settings;
 
   // Debug: afficher l'état des modèles
   console.log('[PersonaForm] Models:', models);
@@ -213,11 +215,16 @@ export function PersonaForm({
           ) : models.length === 0 ? (
             <option disabled>Aucun modèle disponible</option>
           ) : (
-            models.map((model) => (
-              <option key={model.name} value={model.name}>
-                {model.name}
-              </option>
-            ))
+            models.map((model) => {
+              const displayName = getModelDisplayName(model.name, ollama.modelAliases);
+              const hasAlias = ollama.modelAliases[model.name] !== undefined;
+              return (
+                <option key={model.name} value={model.name}>
+                  {displayName}
+                  {hasAlias && ` (${model.name})`}
+                </option>
+              );
+            })
           )}
         </select>
         <p className="text-sm text-muted-foreground mt-1">

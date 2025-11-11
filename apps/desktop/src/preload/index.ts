@@ -242,6 +242,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getBreadcrumbs: (slug: string) => ipcRenderer.invoke('documentation:getBreadcrumbs', slug),
     getStats: () => ipcRenderer.invoke('documentation:getStats'),
   },
+
+  // Documents API (general documents)
+  documents: {
+    create: (data: any) => ipcRenderer.invoke('documents:create', data),
+    getById: (id: string) => ipcRenderer.invoke('documents:getById', id),
+    getAll: () => ipcRenderer.invoke('documents:getAll'),
+    update: (id: string, data: any) => ipcRenderer.invoke('documents:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('documents:delete', id),
+    toggleFavorite: (id: string) => ipcRenderer.invoke('documents:toggleFavorite', id),
+    search: (query: string) => ipcRenderer.invoke('documents:search', query),
+    getFavorites: () => ipcRenderer.invoke('documents:getFavorites'),
+  },
 });
 
 // Type definitions for the exposed API
@@ -425,6 +437,17 @@ export interface ElectronAPI {
     getTree: () => Promise<any>;
     getBreadcrumbs: (slug: string) => Promise<any>;
     getStats: () => Promise<any>;
+  };
+
+  documents: {
+    create: (data: any) => Promise<any>;
+    getById: (id: string) => Promise<any>;
+    getAll: () => Promise<any>;
+    update: (id: string, data: any) => Promise<any>;
+    delete: (id: string) => Promise<any>;
+    toggleFavorite: (id: string) => Promise<any>;
+    search: (query: string) => Promise<any>;
+    getFavorites: () => Promise<any>;
   };
 }
 

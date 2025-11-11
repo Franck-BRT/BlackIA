@@ -226,7 +226,7 @@ export function PromptsPage() {
 
   return (
     <div className="h-full overflow-auto">
-      <div className="max-w-7xl mx-auto p-8">
+      <div className="max-w-7xl 2xl:max-w-none 2xl:px-16 mx-auto p-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">

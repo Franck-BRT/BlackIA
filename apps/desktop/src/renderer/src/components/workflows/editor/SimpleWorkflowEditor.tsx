@@ -16,6 +16,7 @@ import { EditorToolbar } from './EditorToolbar';
 import { TemplateManager } from './TemplateManager';
 import { VersionManager } from './VersionManager';
 import { VariablesManager } from './VariablesManager';
+import { EdgeInfoModal } from './EdgeInfoModal';
 import { DebugPanel } from './DebugPanel';
 import { WorkflowExecutionEngine } from './WorkflowExecutionEngine';
 
@@ -83,6 +84,7 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
   const [showVersions, setShowVersions] = useState(false);
   const [showVariables, setShowVariables] = useState(false);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [selectedEdge, setSelectedEdge] = useState<WorkflowEdge | null>(null);
 
   // Debug execution state
   const [executionState, setExecutionState] = useState<ExecutionState>({
@@ -403,6 +405,14 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
       });
     },
     [nodes, edges, setWorkflowState]
+  );
+
+  // Handle edge double-click - show transmitted variables
+  const handleEdgeDoubleClick = useCallback(
+    (edge: WorkflowEdge) => {
+      setSelectedEdge(edge);
+    },
+    []
   );
 
   // Copy nodes
@@ -860,6 +870,7 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
               onStartConnection={handleStartConnection}
               onEndConnection={handleEndConnection}
               onDeleteEdge={handleDeleteEdge}
+              onEdgeDoubleClick={handleEdgeDoubleClick}
               onAnnotationMouseDown={handleAnnotationMouseDown}
               onAnnotationDoubleClick={handleAnnotationDoubleClick}
               onAnnotationContentChange={handleAnnotationContentChange}
@@ -935,6 +946,7 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
       {/* Template Manager Modal */}
       {showTemplates && (
         <TemplateManager
+          isOpen={showTemplates}
           currentNodes={nodes}
           currentEdges={edges}
           onApplyTemplate={(template) => {
@@ -950,6 +962,7 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
       {/* Version Manager Modal */}
       {showVersions && (
         <VersionManager
+          isOpen={showVersions}
           workflowId={workflow?.id || 'temp-workflow'}
           currentNodes={nodes}
           currentEdges={edges}
@@ -970,8 +983,21 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
       {/* Variables Manager Modal */}
       {showVariables && (
         <VariablesManager
+          isOpen={showVariables}
           workflowId={workflow?.id || 'temp-workflow'}
           onClose={() => setShowVariables(false)}
+        />
+      )}
+
+      {/* Edge Info Modal */}
+      {selectedEdge && (
+        <EdgeInfoModal
+          isOpen={selectedEdge !== null}
+          onClose={() => setSelectedEdge(null)}
+          edge={selectedEdge}
+          sourceNode={nodes.find(n => n.id === selectedEdge.source) || null}
+          targetNode={nodes.find(n => n.id === selectedEdge.target) || null}
+          variables={executionState.variables}
         />
       )}
 

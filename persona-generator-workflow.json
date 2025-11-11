@@ -1,0 +1,196 @@
+{
+  "id": "workflow_persona_generator",
+  "name": "Générateur de Persona IA avec Amélioration",
+  "description": "Workflow pour créer et optimiser un persona IA avec loop et extraction de score",
+  "version": "1.0.0",
+  "tags": ["persona", "SEO", "optimization"],
+  "nodes": [
+    {
+      "id": "1",
+      "type": "input",
+      "position": { "x": 100, "y": 200 },
+      "data": {
+        "label": "Entrée Utilisateur",
+        "description": "Domaine d'expertise pour le persona",
+        "defaultValue": "expert en SEO"
+      }
+    },
+    {
+      "id": "2",
+      "type": "aiPrompt",
+      "position": { "x": 300, "y": 200 },
+      "data": {
+        "label": "Analyser le Besoin",
+        "promptTemplate": "Analyse le besoin suivant : {{input}}\n\nCrée un persona IA détaillé avec :\n- Domaine d'expertise\n- Style de communication souhaité\n- Critères de qualité à respecter\n\nDonne une analyse complète et structurée.",
+        "model": "llama3.2",
+        "temperature": 0.7,
+        "maxTokens": 2000
+      }
+    },
+    {
+      "id": "3",
+      "type": "loop",
+      "position": { "x": 550, "y": 200 },
+      "data": {
+        "label": "Générer 3 Variations",
+        "loopType": "count",
+        "loopCount": 3,
+        "description": "Génère 3 variations du persona pour comparaison"
+      }
+    },
+    {
+      "id": "4",
+      "type": "aiPrompt",
+      "position": { "x": 550, "y": 350 },
+      "data": {
+        "label": "Créer Variation",
+        "promptTemplate": "Basé sur l'analyse suivante : {{analysis}}\n\nCrée une variation unique du persona (variation {{loopIteration}}/{{loopCount}}).\n\nAssure-toi que cette variation :\n- Est différente des précédentes\n- Respecte les critères de qualité\n- Est optimisée pour {{input}}",
+        "model": "llama3.2",
+        "temperature": 0.8,
+        "maxTokens": 1500
+      }
+    },
+    {
+      "id": "5",
+      "type": "aiPrompt",
+      "position": { "x": 800, "y": 200 },
+      "data": {
+        "label": "Comparer et Noter",
+        "promptTemplate": "Compare les 3 variations de personas suivantes :\n\n{{variations}}\n\nÉvalue-les selon :\n- Clarté (sur 10)\n- Pertinence pour {{input}} (sur 10)\n- Qualité globale (sur 10)\n\nRetourne le meilleur persona avec sa note finale sur 10.\n\nFormat de réponse :\nScore: X/10\n\n[Le meilleur persona ici]",
+        "model": "llama3.2",
+        "temperature": 0.3,
+        "maxTokens": 2000
+      }
+    },
+    {
+      "id": "7",
+      "type": "extract",
+      "position": { "x": 1050, "y": 200 },
+      "data": {
+        "label": "Extraire Score",
+        "sourceVar": "lastValue",
+        "extractType": "regex",
+        "pattern": "Score[:\\s]+([0-9]+)/10",
+        "outputVar": "score",
+        "multiMatch": false,
+        "description": "Extrait le score numérique de la comparaison"
+      }
+    },
+    {
+      "id": "6",
+      "type": "condition",
+      "position": { "x": 1300, "y": 200 },
+      "data": {
+        "label": "Score > 8 ?",
+        "condition": "{{score}} > 8",
+        "conditionType": "greater",
+        "description": "Vérifie si le persona a un score suffisant"
+      }
+    },
+    {
+      "id": "8",
+      "type": "aiPrompt",
+      "position": { "x": 1300, "y": 400 },
+      "data": {
+        "label": "Améliorer Persona",
+        "promptTemplate": "Le persona a obtenu {{score}}/10, ce qui n'est pas suffisant.\n\nPersona actuel :\n{{lastValue}}\n\nAméliore ce persona pour obtenir un meilleur score en :\n- Renforçant les points faibles\n- Ajoutant plus de détails pertinents\n- Optimisant pour {{input}}\n\nRetourne le persona amélioré.",
+        "model": "llama3.2",
+        "temperature": 0.7,
+        "maxTokens": 2000
+      }
+    },
+    {
+      "id": "9",
+      "type": "output",
+      "position": { "x": 1550, "y": 200 },
+      "data": {
+        "label": "Résultat Final",
+        "outputFormat": "json",
+        "description": "Persona validé avec score > 8"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1-2",
+      "source": "1",
+      "target": "2",
+      "animated": false,
+      "label": "Entrée"
+    },
+    {
+      "id": "e2-3",
+      "source": "2",
+      "target": "3",
+      "animated": false,
+      "label": "Analyse"
+    },
+    {
+      "id": "e3-4",
+      "source": "3",
+      "target": "4",
+      "sourceHandle": "body",
+      "animated": true,
+      "label": "Loop Body"
+    },
+    {
+      "id": "e4-5",
+      "source": "4",
+      "target": "5",
+      "animated": false,
+      "label": "Variation"
+    },
+    {
+      "id": "e3-5",
+      "source": "3",
+      "target": "5",
+      "sourceHandle": "done",
+      "animated": false,
+      "label": "Loop Done"
+    },
+    {
+      "id": "e5-7",
+      "source": "5",
+      "target": "7",
+      "animated": false,
+      "label": "Comparaison"
+    },
+    {
+      "id": "e7-6",
+      "source": "7",
+      "target": "6",
+      "animated": false,
+      "label": "Score Extrait"
+    },
+    {
+      "id": "e6-8",
+      "source": "6",
+      "target": "8",
+      "sourceHandle": "no",
+      "animated": true,
+      "label": "Score < 8"
+    },
+    {
+      "id": "e8-5",
+      "source": "8",
+      "target": "5",
+      "animated": true,
+      "label": "Ré-évaluer"
+    },
+    {
+      "id": "e6-9",
+      "source": "6",
+      "target": "9",
+      "sourceHandle": "yes",
+      "animated": true,
+      "label": "Score ≥ 8"
+    }
+  ],
+  "metadata": {
+    "author": "Claude",
+    "createdAt": "2025-11-10",
+    "category": "AI Generation",
+    "difficulty": "intermediate",
+    "estimatedDuration": "60s"
+  }
+}

@@ -11,8 +11,10 @@ import './handlers/persona-suggestion-handlers';
 import { registerPromptHandlers } from './handlers/prompt-handlers';
 import { registerWorkflowHandlers as registerWorkflowAdvancedHandlers } from './handlers/workflow-handlers';
 import { registerDocumentationHandlers } from './handlers/documentation-handlers';
+import { registerDocumentHandlers } from './handlers/document-handlers';
 import { initDatabase, runMigrations } from './database/client';
 import { DocumentationService } from './services/documentation-db-service';
+import { WorkflowTemplateService } from './services/workflow-db-service';
 
 // __dirname and __filename are available in CommonJS mode
 
@@ -143,6 +145,7 @@ app.whenReady().then(async () => {
     registerWorkflowHandlers();
     registerWorkflowAdvancedHandlers(); // Templates, Versions, Variables
     registerDocumentationHandlers(); // Documentation
+    registerDocumentHandlers(); // General documents
     registerTagSyncHandlers();
     console.log('[App] ✅ IPC handlers registered');
 
@@ -441,11 +444,50 @@ function registerWorkflowHandlers() {
     }
   });
 
-  // Récupère les templates
+  // Récupère les templates (depuis fichier JSON ET base de données)
   ipcMain.handle('workflows:getTemplates', async () => {
     try {
-      const workflows = await WorkflowService.getTemplates();
-      return { success: true, data: workflows };
+      // Récupérer les templates depuis le fichier JSON
+      const jsonTemplates = await WorkflowService.getTemplates();
+
+      // Récupérer les templates depuis la base de données
+      let dbTemplates: any[] = [];
+      try {
+        dbTemplates = await WorkflowTemplateService.getAll();
+        console.log(`[Workflows] Loaded ${dbTemplates.length} templates from database`);
+      } catch (dbError) {
+        console.warn('[Workflows] Could not load templates from database:', dbError);
+        // Continue même si la DB échoue
+      }
+
+      // Convertir les templates de la DB au format Workflow standard
+      const convertedDbTemplates = dbTemplates.map((template) => ({
+        id: template.id,
+        name: template.name,
+        description: template.description,
+        nodes: template.nodes || '[]',
+        edges: template.edges || '[]',
+        icon: template.icon || '📋',
+        color: 'purple', // Pas de color dans workflow_templates
+        category: template.category,
+        tags: template.tags || '[]',
+        isFavorite: false, // Les templates ne sont pas favoris par défaut
+        usageCount: template.usageCount || 0,
+        isTemplate: true, // Force isTemplate à true
+        createdAt: new Date(template.createdAt).toISOString(),
+        updatedAt: new Date(template.updatedAt).toISOString(),
+      }));
+
+      // Combiner les deux sources (en évitant les doublons par ID)
+      const allTemplates = [...jsonTemplates];
+      for (const dbTemplate of convertedDbTemplates) {
+        if (!allTemplates.find((t) => t.id === dbTemplate.id)) {
+          allTemplates.push(dbTemplate);
+        }
+      }
+
+      console.log(`[Workflows] Returning ${allTemplates.length} templates (${jsonTemplates.length} from JSON, ${convertedDbTemplates.length} from DB)`);
+      return { success: true, data: allTemplates };
     } catch (error) {
       console.error('[Workflows] Error in getTemplates:', error);
       return { success: false, error: String(error) };
