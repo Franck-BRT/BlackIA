@@ -1,4 +1,5 @@
 import axios from 'axios';
+import * as cheerio from 'cheerio';
 import type {
   WebSearchProviderConfig,
   WebSearchResult,
@@ -152,7 +153,7 @@ export class WebSearchService {
   }
 
   /**
-   * Recherche avec DuckDuckGo (via API HTML scraping)
+   * Recherche avec DuckDuckGo (via HTML scraping)
    */
   private async searchDuckDuckGo(
     query: string,
@@ -162,52 +163,80 @@ export class WebSearchService {
     timeout: number
   ): Promise<WebSearchResult[]> {
     try {
-      // DuckDuckGo instant answer API (gratuite, pas besoin de clé)
+      // Utiliser DuckDuckGo HTML pour obtenir de vrais résultats de recherche
       const params = new URLSearchParams({
         q: query,
-        format: 'json',
         kl: region.toLowerCase(),
-        t: 'blackia',
+        t: 'h_', // HTML mode
       });
 
       if (safeSearch) {
         params.append('kp', '1'); // Safe search strict
       }
 
-      const response = await axios.get(`https://api.duckduckgo.com/?${params.toString()}`, {
+      const response = await axios.get(`https://html.duckduckgo.com/html/?${params.toString()}`, {
         timeout,
         headers: {
-          'User-Agent': 'BlackIA/1.0 (Desktop App)',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'DNT': '1',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
         },
       });
 
+      const $ = cheerio.load(response.data);
       const results: WebSearchResult[] = [];
 
-      // RelatedTopics contient les résultats
-      if (response.data.RelatedTopics && Array.isArray(response.data.RelatedTopics)) {
-        for (const topic of response.data.RelatedTopics.slice(0, maxResults)) {
-          if (topic.FirstURL && topic.Text) {
-            const url = new URL(topic.FirstURL);
-            results.push({
-              title: topic.Text.split(' - ')[0] || topic.Text.substring(0, 100),
-              url: topic.FirstURL,
-              snippet: topic.Text,
-              source: url.hostname.replace('www.', ''),
-            });
+      // Extraire les résultats de recherche
+      $('.result').each((index, element) => {
+        if (results.length >= maxResults) return false;
+
+        const $result = $(element);
+        const $link = $result.find('.result__a');
+        const $snippet = $result.find('.result__snippet');
+        const $url = $result.find('.result__url');
+
+        const title = $link.text().trim();
+        const snippet = $snippet.text().trim();
+        let url = $link.attr('href');
+
+        // DuckDuckGo utilise des URLs de redirection, extraire l'URL réelle
+        if (url && url.startsWith('/l/?')) {
+          try {
+            const urlParams = new URLSearchParams(url.substring(3));
+            const uddg = urlParams.get('uddg');
+            if (uddg) {
+              url = decodeURIComponent(uddg);
+            }
+          } catch (e) {
+            // Fallback à l'URL affichée
+            url = $url.text().trim();
+            if (url && !url.startsWith('http')) {
+              url = 'https://' + url;
+            }
           }
         }
-      }
 
-      // Si pas assez de résultats, ajouter AbstractText si disponible
-      if (results.length === 0 && response.data.AbstractText) {
-        results.push({
-          title: response.data.Heading || query,
-          url: response.data.AbstractURL || `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
-          snippet: response.data.AbstractText,
-          source: response.data.AbstractSource || 'DuckDuckGo',
-        });
-      }
+        if (title && url && snippet) {
+          try {
+            const urlObj = new URL(url);
+            results.push({
+              title,
+              url,
+              snippet,
+              source: urlObj.hostname.replace('www.', ''),
+            });
+          } catch (e) {
+            // URL invalide, ignorer ce résultat
+            console.warn('[WebSearch] URL invalide ignorée:', url);
+          }
+        }
+      });
 
+      console.log('[WebSearch] DuckDuckGo HTML parsing:', results.length, 'résultats trouvés');
       return results;
     } catch (error: any) {
       console.error('[WebSearch] Erreur DuckDuckGo:', error.message);
