@@ -336,6 +336,48 @@ export interface WebSearchSettings {
   snippetMaxLength: number; // Longueur max des extraits (caractères)
 }
 
+// Log types
+export type LogLevel = 'debug' | 'info' | 'success' | 'warning' | 'error';
+
+export type LogCategory =
+  | 'system'
+  | 'database'
+  | 'websearch'
+  | 'ollama'
+  | 'workflow'
+  | 'persona'
+  | 'prompt'
+  | 'chat'
+  | 'api'
+  | 'ui';
+
+export interface Log {
+  id: string;
+  timestamp: Date;
+  level: LogLevel;
+  category: LogCategory;
+  message: string;
+  details?: string;
+  metadata?: Record<string, unknown>;
+  source?: string; // Module ou fichier source
+}
+
+export interface LogFilter {
+  levels?: LogLevel[];
+  categories?: LogCategory[];
+  search?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+}
+
+export interface LogStats {
+  total: number;
+  byLevel: Record<LogLevel, number>;
+  byCategory: Record<LogCategory, number>;
+  recentErrors: number; // Dernières 24h
+  recentWarnings: number; // Dernières 24h
+}
+
 // Complete settings structure
 export interface AppSettings {
   general: GeneralSettings;

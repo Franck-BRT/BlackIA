@@ -247,6 +247,31 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('webSearch:setCache', enabled, duration),
   },
 
+  // Logs API
+  logs: {
+    getAll: (filter?: any, limit?: number) => ipcRenderer.invoke('logs:getAll', filter, limit),
+    getStats: () => ipcRenderer.invoke('logs:getStats'),
+    clear: () => ipcRenderer.invoke('logs:clear'),
+    export: (filter?: any) => ipcRenderer.invoke('logs:export', filter),
+    log: (
+      level: 'debug' | 'info' | 'success' | 'warning' | 'error',
+      category: string,
+      message: string,
+      details?: string,
+      metadata?: Record<string, unknown>
+    ) => ipcRenderer.invoke('logs:log', level, category, message, details, metadata),
+    onNewLog: (callback: (log: any) => void) => {
+      ipcRenderer.on('log:new', (_event, log) => callback(log));
+    },
+    onCleared: (callback: () => void) => {
+      ipcRenderer.on('log:cleared', () => callback());
+    },
+    removeAllListeners: () => {
+      ipcRenderer.removeAllListeners('log:new');
+      ipcRenderer.removeAllListeners('log:cleared');
+    },
+  },
+
   // Documentation API
   documentation: {
     create: (data: any) => ipcRenderer.invoke('documentation:create', data),
@@ -459,6 +484,23 @@ export interface ElectronAPI {
     fetchUrl: (url: string, timeout?: number) => Promise<{ success: boolean; data?: string; error?: string }>;
     clearCache: () => Promise<{ success: boolean }>;
     setCache: (enabled: boolean, duration?: number) => Promise<{ success: boolean }>;
+  };
+
+  logs: {
+    getAll: (filter?: any, limit?: number) => Promise<{ success: boolean; data?: any[]; error?: string }>;
+    getStats: () => Promise<{ success: boolean; data?: any; error?: string }>;
+    clear: () => Promise<{ success: boolean; error?: string }>;
+    export: (filter?: any) => Promise<{ success: boolean; data?: { filePath: string }; error?: string }>;
+    log: (
+      level: 'debug' | 'info' | 'success' | 'warning' | 'error',
+      category: string,
+      message: string,
+      details?: string,
+      metadata?: Record<string, unknown>
+    ) => Promise<{ success: boolean; error?: string }>;
+    onNewLog: (callback: (log: any) => void) => void;
+    onCleared: (callback: () => void) => void;
+    removeAllListeners: () => void;
   };
 
   documentation: {

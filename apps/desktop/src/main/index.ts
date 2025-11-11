@@ -13,9 +13,11 @@ import { registerPromptHandlers } from './handlers/prompt-handlers';
 import { registerWorkflowHandlers as registerWorkflowAdvancedHandlers } from './handlers/workflow-handlers';
 import { registerDocumentationHandlers } from './handlers/documentation-handlers';
 import { registerDocumentHandlers } from './handlers/document-handlers';
+import { registerLogHandlers } from './handlers/log-handlers';
 import { initDatabase, runMigrations } from './database/client';
 import { DocumentationService } from './services/documentation-db-service';
 import { WorkflowTemplateService } from './services/workflow-db-service';
+import { logService, logger } from './services/log-service';
 
 // __dirname and __filename are available in CommonJS mode
 
@@ -44,6 +46,10 @@ function createWindow() {
     },
   });
 
+  // Initialiser le service de logs avec la fenêtre principale
+  logService.setMainWindow(mainWindow);
+  logger.info('system', 'Application window created', `Mode: ${isDev ? 'development' : 'production'}`);
+
   // Load app
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
@@ -53,6 +59,7 @@ function createWindow() {
   }
 
   mainWindow.on('closed', () => {
+    logService.setMainWindow(null);
     mainWindow = null;
   });
 }
@@ -149,6 +156,7 @@ app.whenReady().then(async () => {
     registerDocumentationHandlers(); // Documentation
     registerDocumentHandlers(); // General documents
     registerTagSyncHandlers();
+    registerLogHandlers(); // Logs system
     console.log('[App] ✅ IPC handlers registered');
 
     console.log('[App] =====================================');
