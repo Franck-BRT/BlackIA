@@ -951,6 +951,7 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
       {/* Version Manager Modal */}
       {showVersions && (
         <VersionManager
+          isOpen={showVersions}
           workflowId={workflow?.id || 'temp-workflow'}
           currentNodes={nodes}
           currentEdges={edges}
@@ -971,6 +972,7 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
       {/* Variables Manager Modal */}
       {showVariables && (
         <VariablesManager
+          isOpen={showVariables}
           workflowId={workflow?.id || 'temp-workflow'}
           onClose={() => setShowVariables(false)}
         />
