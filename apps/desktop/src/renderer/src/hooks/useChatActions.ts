@@ -3,6 +3,7 @@ import type { OllamaMessage } from '@blackia/ollama';
 import type { Persona } from '../types/persona';
 import type { ChatSettingsData } from '../components/chat/ChatSettings';
 import type { MessageMetadata } from './useConversations';
+import type { WebSearchResponse, WebSearchSettings, WebSearchProviderConfig } from '@blackia/shared';
 
 interface UseChatActionsParams {
   // États
@@ -31,6 +32,12 @@ interface UseChatActionsParams {
   currentPersona: Persona | null;
   chatSettings: ChatSettingsData;
   incrementPersonaUsage: (personaId: string) => void;
+
+  // Web Search
+  webSearchEnabled: boolean;
+  webSearchSettings: WebSearchSettings;
+  setWebSearchResults: Dispatch<SetStateAction<Record<number, WebSearchResponse>>>;
+  setIsWebSearching: Dispatch<SetStateAction<boolean>>;
 }
 
 /**
@@ -57,6 +64,10 @@ export function useChatActions({
   currentPersona,
   chatSettings,
   incrementPersonaUsage,
+  webSearchEnabled,
+  webSearchSettings,
+  setWebSearchResults,
+  setIsWebSearching,
 }: UseChatActionsParams) {
 
   // Envoyer un message
@@ -158,6 +169,60 @@ export function useChatActions({
         systemPromptToUse = chatSettings.systemPrompt;
       }
 
+      // Recherche web si activée
+      let webSearchData: WebSearchResponse | null = null;
+      if (webSearchEnabled && webSearchSettings.enabled) {
+        try {
+          console.log('[useChatActions] 🔍 Recherche web activée, recherche en cours...');
+          setIsWebSearching(true);
+
+          // Trouver le provider actif
+          const activeProvider = webSearchSettings.providers.find(
+            (p) => p.id === webSearchSettings.defaultProvider && p.enabled
+          );
+
+          if (activeProvider) {
+            const searchResult = await window.electronAPI.webSearch.search(
+              content, // Utiliser le message utilisateur comme requête
+              activeProvider,
+              {
+                maxResults: webSearchSettings.maxResults,
+                language: webSearchSettings.language,
+                region: webSearchSettings.region,
+                safeSearch: webSearchSettings.safeSearch,
+                timeout: webSearchSettings.timeout,
+              }
+            );
+
+            if (searchResult.success && searchResult.data) {
+              webSearchData = searchResult.data;
+              console.log('[useChatActions] ✅ Recherche web réussie:', webSearchData.results.length, 'résultats');
+
+              // Construire le contexte web pour le system prompt
+              if (webSearchSettings.includeSnippets && webSearchData.results.length > 0) {
+                const webContext = webSearchData.results
+                  .map((result, index) => {
+                    const snippet = result.snippet.substring(0, webSearchSettings.snippetMaxLength);
+                    return `[Source ${index + 1}] ${result.title}\nURL: ${result.url}\n${snippet}`;
+                  })
+                  .join('\n\n');
+
+                const webPrompt = `\n\n---\n\nCONTEXTE WEB (Recherche: "${webSearchData.query}"):\n\n${webContext}\n\n---\n\nUtilise ces informations pour enrichir ta réponse si pertinent.`;
+                systemPromptToUse += webPrompt;
+              }
+            } else {
+              console.error('[useChatActions] ❌ Erreur recherche web:', searchResult.error);
+            }
+          } else {
+            console.warn('[useChatActions] ⚠️ Aucun provider web actif trouvé');
+          }
+        } catch (error) {
+          console.error('[useChatActions] ❌ Exception recherche web:', error);
+        } finally {
+          setIsWebSearching(false);
+        }
+      }
+
       if (systemPromptToUse) {
         messagesToSend.push({
           role: 'system',
@@ -189,6 +254,16 @@ export function useChatActions({
           top_p: chatSettings.topP,
         },
       });
+
+      // Sauvegarder les résultats de recherche web pour l'affichage
+      if (webSearchData && webSearchData.results.length > 0) {
+        const assistantMessageIndex = messages.length + 1; // Index du prochain message assistant
+        setWebSearchResults((prev) => ({
+          ...prev,
+          [assistantMessageIndex]: webSearchData,
+        }));
+        console.log('[useChatActions] 💾 Résultats web sauvegardés pour message index', assistantMessageIndex);
+      }
 
       console.log('[useChatActions] ✅ Handler chatStream terminé');
     } catch (error: any) {

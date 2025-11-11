@@ -3,6 +3,7 @@ import { Menu, Search, BarChart3, Settings, Trash2, User } from 'lucide-react';
 import { ModelSelector } from './ModelSelector';
 import { ExportMenu } from './ExportMenu';
 import { ImportExportMenu, BackupData } from './ImportExportMenu';
+import { WebSearchToggle } from './WebSearchToggle';
 import type { OllamaMessage } from '@blackia/ollama';
 import type { Persona } from '../../types/persona';
 import { PERSONA_COLOR_CLASSES } from '../../types/persona';
@@ -24,6 +25,12 @@ interface ChatHeaderProps {
 
   // Persona
   currentPersona: Persona | null;
+
+  // Web Search
+  webSearchEnabled: boolean;
+  setWebSearchEnabled: (enabled: boolean) => void;
+  isWebSearching: boolean;
+  webSearchProviderName?: string;
 
   // Messages
   messages: OllamaMessage[];
@@ -52,6 +59,10 @@ export function ChatHeader({
   selectedModel,
   setSelectedModel,
   currentPersona,
+  webSearchEnabled,
+  setWebSearchEnabled,
+  isWebSearching,
+  webSearchProviderName,
   messages,
   conversations,
   folders,
@@ -105,6 +116,16 @@ export function ChatHeader({
             </>
           )}
         </button>
+
+        {/* Web Search Toggle */}
+        <div className="hidden md:block">
+          <WebSearchToggle
+            enabled={webSearchEnabled}
+            isSearching={isWebSearching}
+            onToggle={setWebSearchEnabled}
+            providerName={webSearchProviderName}
+          />
+        </div>
       </div>
 
       {/* Right side - Actions (adaptés pour mobile) */}

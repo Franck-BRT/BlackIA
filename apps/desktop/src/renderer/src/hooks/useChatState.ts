@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { OllamaMessage } from '@blackia/ollama';
 import type { MessageMetadata } from './useConversations';
 import type { Folder } from './useConversations';
+import type { WebSearchResponse } from '@blackia/shared';
 import { ChatSettingsData, DEFAULT_CHAT_SETTINGS } from '../components/chat/ChatSettings';
 
 /**
@@ -41,6 +42,11 @@ export function useChatState() {
   const [chatSearchQuery, setChatSearchQuery] = useState('');
   const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
 
+  // États de recherche web
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+  const [webSearchResults, setWebSearchResults] = useState<Record<number, WebSearchResponse>>({}); // Par index de message
+  const [isWebSearching, setIsWebSearching] = useState(false);
+
   // Chat settings avec persistence localStorage
   const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
     try {
@@ -75,6 +81,7 @@ export function useChatState() {
     currentMentionedPersonaIdsRef.current = undefined;
     previousMessagesLengthRef.current = 0;
     setRegenerationCounts(new Map());
+    setWebSearchResults({});
   };
 
   // Auto-scroll vers le bas
@@ -139,6 +146,14 @@ export function useChatState() {
     setChatSearchQuery,
     currentSearchIndex,
     setCurrentSearchIndex,
+
+    // Web Search
+    webSearchEnabled,
+    setWebSearchEnabled,
+    webSearchResults,
+    setWebSearchResults,
+    isWebSearching,
+    setIsWebSearching,
 
     // Settings
     chatSettings,
