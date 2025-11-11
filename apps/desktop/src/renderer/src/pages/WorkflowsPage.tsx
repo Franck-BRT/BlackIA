@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Star, Layers, Filter, X, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Plus, Search, Star, Layers, Filter, X, ArrowLeft, AlertCircle, FileDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { useWorkflows, type ParsedWorkflow } from '../hooks/useWorkflows';
 import { WorkflowList } from '../components/workflows/WorkflowList';
 import { WorkflowModal } from '../components/workflows/WorkflowModal';
@@ -31,6 +31,7 @@ export function WorkflowsPage() {
   const [executingWorkflow, setExecutingWorkflow] = useState<ParsedWorkflow | null>(null);
   const [editingWorkflow, setEditingWorkflow] = useState<ParsedWorkflow | null>(null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [showImportExport, setShowImportExport] = useState(false);
 
   // Gestion du filtre et de la recherche
   useEffect(() => {
@@ -202,108 +203,108 @@ export function WorkflowsPage() {
   }
 
   return (
-    <div className="h-full overflow-auto p-8">
-      <div className="max-w-7xl 2xl:max-w-none 2xl:px-16 mx-auto">
+    <div className="h-full overflow-auto">
+      <div className="max-w-7xl 2xl:max-w-none 2xl:px-16 mx-auto p-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Workflows</h1>
-          <p className="text-gray-400">
-            Créez et exécutez des flux d'automatisation pour vos tâches IA
-          </p>
-        </div>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold flex items-center gap-3">
+                ⚡ Workflows
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                Créez et exécutez des flux d'automatisation pour vos tâches IA
+              </p>
+            </div>
 
-        {/* Toolbar */}
-        <div className="flex items-center gap-4 mb-6 flex-wrap">
-          {/* Search */}
-          <div className="flex-1 min-w-[300px]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Rechercher un workflow..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-10 py-3 rounded-lg bg-white/5 border border-white/10
-                         text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50
-                         focus:ring-2 focus:ring-purple-500/20 transition-colors"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-                >
-                  <X size={16} />
-                </button>
-              )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowImportExport(!showImportExport)}
+                className="px-6 py-3 glass-card rounded-xl font-semibold flex items-center gap-2 hover:glass-lg transition-all"
+              >
+                <FileDown className="w-5 h-5" />
+                Import/Export
+                {showImportExport ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+
+              <button
+                onClick={handleCreateWorkflow}
+                className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl font-semibold flex items-center gap-2 hover:scale-105 transition-transform"
+              >
+                <Plus className="w-5 h-5" />
+                Nouveau Workflow
+              </button>
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActiveFilter('all')}
-              className={`px-4 py-2.5 rounded-lg border transition-colors flex items-center gap-2 ${
-                activeFilter === 'all'
-                  ? 'bg-purple-500/20 border-purple-500/30 text-purple-400'
-                  : 'border-white/10 text-gray-400 hover:bg-white/5'
-              }`}
-            >
-              <Layers size={16} />
-              Tous
-            </button>
-            <button
-              onClick={() => setActiveFilter('favorites')}
-              className={`px-4 py-2.5 rounded-lg border transition-colors flex items-center gap-2 ${
-                activeFilter === 'favorites'
-                  ? 'bg-purple-500/20 border-purple-500/30 text-purple-400'
-                  : 'border-white/10 text-gray-400 hover:bg-white/5'
-              }`}
-            >
-              <Star size={16} />
-              Favoris
-            </button>
-            <button
-              onClick={() => setActiveFilter('templates')}
-              className={`px-4 py-2.5 rounded-lg border transition-colors flex items-center gap-2 ${
-                activeFilter === 'templates'
-                  ? 'bg-purple-500/20 border-purple-500/30 text-purple-400'
-                  : 'border-white/10 text-gray-400 hover:bg-white/5'
-              }`}
-            >
-              <Filter size={16} />
-              Templates
-            </button>
+          {/* Section Import/Export */}
+          {showImportExport && (
+            <div className="mt-6 p-6 glass-card rounded-xl">
+              <h3 className="text-lg font-semibold mb-4">Import / Export de Workflows</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Fonctionnalité d'import/export de workflows à venir
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Barre de recherche et filtres */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          {/* Recherche */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Rechercher un workflow..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+            />
           </div>
 
-          {/* Create button */}
+          {/* Toggle favoris */}
           <button
-            onClick={handleCreateWorkflow}
-            className="px-6 py-2.5 rounded-lg bg-purple-500 hover:bg-purple-600
-                     text-white font-medium transition-colors flex items-center gap-2"
+            onClick={() => setActiveFilter(activeFilter === 'favorites' ? 'all' : 'favorites')}
+            className={`px-4 py-3 rounded-xl flex items-center gap-2 transition-all ${
+              activeFilter === 'favorites'
+                ? 'bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 ring-2 ring-yellow-500/50'
+                : 'glass-card hover:glass-lg'
+            }`}
           >
-            <Plus size={20} />
-            Nouveau Workflow
+            <Star
+              className="w-5 h-5"
+              fill={activeFilter === 'favorites' ? 'currentColor' : 'none'}
+            />
+            Favoris
+          </button>
+
+          {/* Toggle templates */}
+          <button
+            onClick={() => setActiveFilter(activeFilter === 'templates' ? 'all' : 'templates')}
+            className={`px-4 py-3 rounded-xl flex items-center gap-2 transition-all ${
+              activeFilter === 'templates'
+                ? 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 ring-2 ring-blue-500/50'
+                : 'glass-card hover:glass-lg'
+            }`}
+          >
+            <Filter className="w-5 h-5" />
+            Templates
           </button>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-            <div className="text-2xl font-bold text-white">{workflows.length}</div>
-            <div className="text-sm text-gray-400">Total workflows</div>
-          </div>
-          <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-            <div className="text-2xl font-bold text-purple-400">
-              {workflows.filter((w) => w.isFavorite).length}
-            </div>
-            <div className="text-sm text-gray-400">Favoris</div>
-          </div>
-          <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-            <div className="text-2xl font-bold text-blue-400">
-              {workflows.filter((w) => w.isTemplate).length}
-            </div>
-            <div className="text-sm text-gray-400">Templates disponibles</div>
-          </div>
+        <div className="flex gap-4 mb-8 text-sm text-muted-foreground">
+          <span>{workflows.length} workflows au total</span>
+          <span>•</span>
+          <span>{workflows.filter((w) => w.isFavorite).length} favoris</span>
+          <span>•</span>
+          <span>{workflows.filter((w) => w.isTemplate).length} templates</span>
+          <span>•</span>
+          <span>{displayedWorkflows.length} affichés</span>
         </div>
 
         {/* Content */}
