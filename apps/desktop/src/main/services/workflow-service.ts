@@ -609,11 +609,6 @@ export const WorkflowService = {
       return false;
     }
 
-    // Ne pas permettre de supprimer un template par défaut
-    if (data.workflows[index].isTemplate) {
-      throw new Error('Cannot delete default template');
-    }
-
     data.workflows.splice(index, 1);
     await saveData(data);
 
