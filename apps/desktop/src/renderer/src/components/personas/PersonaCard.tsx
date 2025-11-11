@@ -70,7 +70,7 @@ export function PersonaCard({
   };
 
   return (
-    <div className="glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative">
+    <div className="glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative w-80 min-h-[420px] flex flex-col">
       {/* Header avec avatar et actions */}
       <div className="flex items-start justify-between mb-4">
         {/* Avatar */}
@@ -188,8 +188,11 @@ export function PersonaCard({
         </div>
       )}
 
+      {/* Spacer pour pousser le footer en bas */}
+      <div className="flex-1"></div>
+
       {/* Footer avec stats */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground pt-4 border-t border-border/20">
+      <div className="flex items-center justify-between text-xs text-muted-foreground pt-4 border-t border-border/20 mt-auto">
         <span>{persona.usageCount} utilisations</span>
         {persona.model && <span className="font-mono">{persona.model}</span>}
         {persona.temperature !== null && persona.temperature !== undefined && (

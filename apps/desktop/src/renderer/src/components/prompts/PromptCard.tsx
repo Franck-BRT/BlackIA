@@ -73,7 +73,7 @@ export function PromptCard({
   };
 
   return (
-    <div className="glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative">
+    <div className="glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative w-80 min-h-[420px] flex flex-col">
       {/* Header avec icône et actions */}
       <div className="flex items-start justify-between mb-4">
         {/* Icône */}
@@ -175,8 +175,11 @@ export function PromptCard({
         </div>
       )}
 
+      {/* Spacer pour pousser le footer en bas */}
+      <div className="flex-1"></div>
+
       {/* Footer */}
-      <div className="flex items-center justify-between pt-4 border-t border-white/5">
+      <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
         <div className="flex gap-4 text-xs text-muted-foreground">
           {prompt.category && <span>{prompt.category}</span>}
           <span>{prompt.usageCount} utilisations</span>

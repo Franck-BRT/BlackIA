@@ -84,7 +84,7 @@ export function LibraryCard({
   return (
     <div
       onClick={onClick}
-      className={`glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative ${
+      className={`glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative w-80 min-h-[420px] flex flex-col ${
         onClick ? 'cursor-pointer' : ''
       }`}
     >
@@ -206,8 +206,11 @@ export function LibraryCard({
       {/* Metadata (tags, variables, nodes, etc.) */}
       {metadata && <div className="mb-4">{metadata}</div>}
 
+      {/* Spacer pour pousser le footer en bas */}
+      <div className="flex-1"></div>
+
       {/* Footer avec stats et action principale */}
-      <div className="flex items-center justify-between pt-4 border-t border-white/5">
+      <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
         {/* Stats */}
         <div className="flex gap-4 text-xs text-muted-foreground">
           {stats.map((stat, index) => (
