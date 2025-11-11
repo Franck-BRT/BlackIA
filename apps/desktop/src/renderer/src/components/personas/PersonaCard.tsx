@@ -3,6 +3,7 @@ import { Star, Edit, Copy, Trash2, Play, Download } from 'lucide-react';
 import type { Persona } from '../../types/persona';
 import { PERSONA_COLOR_CLASSES } from '../../types/persona';
 import { useTags } from '../../hooks/useTags';
+import { useSettings } from '../../contexts/SettingsContext';
 
 interface PersonaCardProps {
   persona: Persona;
@@ -23,6 +24,11 @@ export function PersonaCard({
 }: PersonaCardProps) {
   const colorGradient = PERSONA_COLOR_CLASSES[persona.color] || PERSONA_COLOR_CLASSES.purple;
   const { tags: allTags } = useTags();
+
+  // Récupérer la taille de carte depuis les paramètres
+  const { settings } = useSettings();
+  const cardSize = settings.appearance.cardSize || 320;
+  const minHeight = Math.round((cardSize / 320) * 420);
 
   // Parser les tags JSON
   let rawTags: string[] = [];
@@ -70,7 +76,13 @@ export function PersonaCard({
   };
 
   return (
-    <div className="glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative w-80 min-h-[420px] flex flex-col">
+    <div
+      style={{
+        width: `${cardSize}px`,
+        minHeight: `${minHeight}px`,
+      }}
+      className="glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative flex flex-col"
+    >
       {/* Header avec avatar et actions */}
       <div className="flex items-start justify-between mb-4">
         {/* Avatar */}

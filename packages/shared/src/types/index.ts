@@ -229,6 +229,7 @@ export interface AppearanceSettings {
   accentColor: 'purple' | 'blue' | 'pink' | 'green' | 'orange';
   borderRadius: 'sharp' | 'medium' | 'round';
   reducedMotion: boolean;
+  cardSize: number; // Taille des cartes en pixels (280-400)
 }
 
 // Keyboard shortcut

@@ -144,6 +144,7 @@ const defaultSettings: AppSettings = {
     accentColor: 'purple',
     borderRadius: 'medium',
     reducedMotion: false,
+    cardSize: 320, // Taille par défaut des cartes en pixels
   },
   keyboardShortcuts: [
     {

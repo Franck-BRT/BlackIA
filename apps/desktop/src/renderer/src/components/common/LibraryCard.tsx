@@ -1,9 +1,11 @@
 import React, { ReactNode } from 'react';
 import { Star, Edit, Copy, Trash2, Download } from 'lucide-react';
+import { useSettings } from '../../contexts/SettingsContext';
 
 /**
  * Composant de carte générique pour les bibliothèques (Workflows, Prompts, Personas)
  * Unifie le style et la structure pour une maintenance simplifiée
+ * La taille est contrôlée dynamiquement par les paramètres utilisateur
  */
 
 export interface LibraryCardAction {
@@ -81,10 +83,19 @@ export function LibraryCard({
     success: 'from-green-500 to-green-600',
   };
 
+  // Récupérer la taille de carte depuis les paramètres
+  const { settings } = useSettings();
+  const cardSize = settings.appearance.cardSize || 320;
+  const minHeight = Math.round((cardSize / 320) * 420); // Proportionnel à la taille
+
   return (
     <div
       onClick={onClick}
-      className={`glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative w-80 min-h-[420px] flex flex-col ${
+      style={{
+        width: `${cardSize}px`,
+        minHeight: `${minHeight}px`,
+      }}
+      className={`glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative flex flex-col ${
         onClick ? 'cursor-pointer' : ''
       }`}
     >

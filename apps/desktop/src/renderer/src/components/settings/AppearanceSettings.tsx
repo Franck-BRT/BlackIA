@@ -1,11 +1,32 @@
+import { useState } from 'react';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { Palette, Type, Layout, Sparkles, Circle, Eye, Droplet, Sun, Moon, Monitor } from 'lucide-react';
+import { Palette, Type, Layout, Sparkles, Circle, Eye, Droplet, Sun, Moon, Monitor, Maximize2 } from 'lucide-react';
+import { CardSizePreview } from './CardSizePreview';
 
 export function AppearanceSettings() {
   const { settings, updateAppearanceSettings } = useSettings();
   const { appearance } = settings;
   const { theme, setTheme } = useTheme();
+
+  // État local pour le slider (pour l'aperçu en temps réel)
+  const [tempCardSize, setTempCardSize] = useState(appearance.cardSize);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  const handleCardSizeChange = (newSize: number) => {
+    setTempCardSize(newSize);
+    setHasUnsavedChanges(newSize !== appearance.cardSize);
+  };
+
+  const saveCardSize = () => {
+    updateAppearanceSettings({ cardSize: tempCardSize });
+    setHasUnsavedChanges(false);
+  };
+
+  const resetCardSize = () => {
+    setTempCardSize(appearance.cardSize);
+    setHasUnsavedChanges(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -134,6 +155,73 @@ export function AppearanceSettings() {
               {density === 'spacious' && 'Spacieux'}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Card Size */}
+      <div className="glass-card rounded-xl p-6 space-y-4">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-lg glass-lg flex items-center justify-center">
+            <Maximize2 className="w-5 h-5 text-teal-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold">Taille des cartes</h3>
+            <p className="text-sm text-muted-foreground">
+              Ajustez la taille des cartes (Workflows, Prompts, Personas)
+            </p>
+          </div>
+        </div>
+
+        {/* Slider */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-muted-foreground min-w-[60px]">Petite</span>
+            <input
+              type="range"
+              min="280"
+              max="400"
+              step="10"
+              value={tempCardSize}
+              onChange={(e) => handleCardSizeChange(parseInt(e.target.value))}
+              className="flex-1 h-2 bg-glass rounded-lg appearance-none cursor-pointer
+                       [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4
+                       [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-teal-500
+                       [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-all
+                       [&::-webkit-slider-thumb]:hover:scale-110
+                       [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4
+                       [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-teal-500
+                       [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer"
+            />
+            <span className="text-sm text-muted-foreground min-w-[60px] text-right">Grande</span>
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">
+              Taille actuelle : <span className="font-semibold text-teal-400">{tempCardSize}px</span>
+            </span>
+            {hasUnsavedChanges && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={resetCardSize}
+                  className="px-3 py-1.5 text-xs rounded-lg glass text-muted-foreground hover:text-foreground transition-all"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={saveCardSize}
+                  className="px-3 py-1.5 text-xs rounded-lg bg-gradient-to-r from-teal-500 to-teal-600 text-white font-medium hover:scale-105 transition-transform"
+                >
+                  Enregistrer
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Preview */}
+        <div className="mt-6">
+          <p className="text-sm text-muted-foreground mb-4">Aperçu en temps réel :</p>
+          <CardSizePreview cardSize={tempCardSize} />
         </div>
       </div>
 
