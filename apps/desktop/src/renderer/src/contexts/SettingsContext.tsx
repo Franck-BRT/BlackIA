@@ -11,6 +11,7 @@ import type {
   CategoriesSettings,
   PersonaCategory,
   OllamaSettings,
+  WebSearchSettings,
 } from '@blackia/shared/types';
 
 // Catégories par défaut basées sur PERSONA_CATEGORIES
@@ -144,6 +145,7 @@ const defaultSettings: AppSettings = {
     accentColor: 'purple',
     borderRadius: 'medium',
     reducedMotion: false,
+    cardSize: 320, // Taille par défaut des cartes en pixels
   },
   keyboardShortcuts: [
     {
@@ -301,6 +303,37 @@ const defaultSettings: AppSettings = {
   categories: {
     customCategories: DEFAULT_CATEGORIES,
   },
+  webSearch: {
+    enabled: false, // Désactivé par défaut
+    defaultProvider: 'duckduckgo',
+    providers: [
+      {
+        id: 'duckduckgo',
+        name: 'DuckDuckGo',
+        type: 'duckduckgo',
+        enabled: true,
+        description: 'Moteur de recherche gratuit et respectueux de la vie privée',
+      },
+      {
+        id: 'brave',
+        name: 'Brave Search',
+        type: 'brave',
+        enabled: false,
+        description: 'Moteur de recherche Brave (nécessite une API key)',
+      },
+    ],
+    maxResults: 5,
+    language: 'fr',
+    region: 'fr-FR',
+    safeSearch: true,
+    timeout: 10000,
+    cacheEnabled: true,
+    cacheDuration: 3600000, // 1 heure
+    showSources: true,
+    sourcesCollapsed: false,
+    includeSnippets: true,
+    snippetMaxLength: 500,
+  },
 };
 
 interface SettingsContextType {
@@ -312,6 +345,7 @@ interface SettingsContextType {
   updateInterfaceSettings: (settings: Partial<InterfaceSettings>) => void;
   updatePersonaSuggestionSettings: (settings: Partial<PersonaSuggestionSettings>) => void;
   updateCategoriesSettings: (settings: Partial<CategoriesSettings>) => void;
+  updateWebSearchSettings: (settings: Partial<WebSearchSettings>) => void;
   addCategory: (category: Omit<PersonaCategory, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateCategory: (id: string, updates: Partial<PersonaCategory>) => void;
   deleteCategory: (id: string) => void;
@@ -382,6 +416,16 @@ function deepMergeSettings(defaults: AppSettings, stored: Partial<AppSettings>):
   // Merge categories
   if (stored.categories) {
     result.categories = { ...defaults.categories, ...stored.categories };
+  }
+
+  // Merge webSearch
+  if (stored.webSearch) {
+    result.webSearch = {
+      ...defaults.webSearch,
+      ...stored.webSearch,
+      // Merge providers array
+      providers: stored.webSearch.providers || defaults.webSearch.providers,
+    };
   }
 
   return result;
@@ -458,6 +502,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     setSettings((prev) => ({
       ...prev,
       categories: { ...prev.categories, ...newSettings },
+    }));
+  };
+
+  const updateWebSearchSettings = (newSettings: Partial<WebSearchSettings>) => {
+    setSettings((prev) => ({
+      ...prev,
+      webSearch: { ...prev.webSearch, ...newSettings },
     }));
   };
 
@@ -562,6 +613,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         updateInterfaceSettings,
         updatePersonaSuggestionSettings,
         updateCategoriesSettings,
+        updateWebSearchSettings,
         addCategory,
         updateCategory,
         deleteCategory,

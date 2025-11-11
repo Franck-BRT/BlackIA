@@ -187,6 +187,7 @@ export type AppModule =
 export type SettingsSection =
   | 'general'
   | 'aiLocal'
+  | 'webSearch'
   | 'chat'
   | 'workflows'
   | 'prompts'
@@ -229,6 +230,7 @@ export interface AppearanceSettings {
   accentColor: 'purple' | 'blue' | 'pink' | 'green' | 'orange';
   borderRadius: 'sharp' | 'medium' | 'round';
   reducedMotion: boolean;
+  cardSize: number; // Taille des cartes en pixels (280-400)
 }
 
 // Keyboard shortcut
@@ -287,6 +289,95 @@ export interface OllamaSettings {
   modelTags: Record<string, ModelCapability[]>; // Tags/capacités pour chaque modèle (clé: nom technique, valeur: liste de tags)
 }
 
+// Web Search types
+export type WebSearchProvider = 'duckduckgo' | 'brave' | 'custom';
+
+export interface WebSearchProviderConfig {
+  id: string;
+  name: string;
+  type: WebSearchProvider;
+  enabled: boolean;
+  apiKey?: string; // Pour Brave et providers custom
+  baseUrl?: string; // Pour providers custom
+  description?: string;
+}
+
+export interface WebSearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+  favicon?: string;
+  publishedDate?: string;
+  source?: string; // Domain name
+}
+
+export interface WebSearchResponse {
+  query: string;
+  results: WebSearchResult[];
+  provider: string;
+  timestamp: number;
+  cached?: boolean;
+}
+
+export interface WebSearchSettings {
+  enabled: boolean; // Activer/désactiver la recherche web
+  defaultProvider: string; // ID du provider par défaut
+  providers: WebSearchProviderConfig[]; // Liste des providers configurés
+  maxResults: number; // Nombre maximum de résultats (3-10)
+  language: string; // Code langue (fr, en, etc.)
+  region: string; // Code région (fr-FR, en-US, etc.)
+  safeSearch: boolean; // Recherche sécurisée
+  timeout: number; // Timeout des requêtes en ms
+  cacheEnabled: boolean; // Activer le cache
+  cacheDuration: number; // Durée du cache en ms (défaut: 1h)
+  showSources: boolean; // Afficher les sources dans le chat
+  sourcesCollapsed: boolean; // Sources repliées par défaut
+  includeSnippets: boolean; // Inclure les extraits dans le contexte
+  snippetMaxLength: number; // Longueur max des extraits (caractères)
+}
+
+// Log types
+export type LogLevel = 'debug' | 'info' | 'success' | 'warning' | 'error';
+
+export type LogCategory =
+  | 'system'
+  | 'database'
+  | 'websearch'
+  | 'ollama'
+  | 'workflow'
+  | 'persona'
+  | 'prompt'
+  | 'chat'
+  | 'api'
+  | 'ui';
+
+export interface Log {
+  id: string;
+  timestamp: Date;
+  level: LogLevel;
+  category: LogCategory;
+  message: string;
+  details?: string;
+  metadata?: Record<string, unknown>;
+  source?: string; // Module ou fichier source
+}
+
+export interface LogFilter {
+  levels?: LogLevel[];
+  categories?: LogCategory[];
+  search?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+}
+
+export interface LogStats {
+  total: number;
+  byLevel: Record<LogLevel, number>;
+  byCategory: Record<LogCategory, number>;
+  recentErrors: number; // Dernières 24h
+  recentWarnings: number; // Dernières 24h
+}
+
 // Complete settings structure
 export interface AppSettings {
   general: GeneralSettings;
@@ -296,4 +387,5 @@ export interface AppSettings {
   interface: InterfaceSettings;
   personaSuggestions: PersonaSuggestionSettings;
   categories: CategoriesSettings;
+  webSearch: WebSearchSettings;
 }

@@ -1,9 +1,11 @@
 import React, { RefObject } from 'react';
 import { ChatMessage } from './ChatMessage';
+import { SourcesList } from './SourcesList';
 import type { OllamaMessage } from '@blackia/ollama';
 import type { Persona } from '../../types/persona';
 import type { MessageMetadata } from '../../hooks/useConversations';
 import type { ChatSettingsData } from './ChatSettings';
+import type { WebSearchResponse } from '@blackia/shared';
 
 interface ChatMessagesProps {
   // Messages
@@ -31,6 +33,10 @@ interface ChatMessagesProps {
   // Settings
   chatSettings: ChatSettingsData;
 
+  // Web Search
+  webSearchResults: Record<number, WebSearchResponse>;
+  webSearchSettings: { showSources: boolean; sourcesCollapsed: boolean };
+
   // Handlers
   handleRegenerate: () => void;
   handleEditUserMessage: (content: string) => void;
@@ -56,6 +62,8 @@ export function ChatMessages({
   searchResults,
   currentSearchIndex,
   chatSettings,
+  webSearchResults,
+  webSearchSettings,
   handleRegenerate,
   handleEditUserMessage,
   messagesEndRef,
@@ -108,22 +116,34 @@ export function ChatMessages({
                 ? [personas.find((p) => p.id === metadata.personaId)].filter((p): p is Persona => p !== undefined)
                 : undefined);
 
+          const webSearch = webSearchResults[index];
+          const shouldShowSources = webSearch && webSearchSettings.showSources && message.role === 'assistant';
+
           return (
-            <ChatMessage
-              key={index}
-              message={message}
-              regenerationCount={regenerationCounts.get(index) || 0}
-              onRegenerate={isLastAssistantMessage ? handleRegenerate : undefined}
-              isLastAssistantMessage={isLastAssistantMessage}
-              isLastUserMessage={isLastUserMessage}
-              onEdit={isLastUserMessage ? handleEditUserMessage : undefined}
-              searchQuery={chatSearchQuery}
-              searchStartIndex={messageOccurrence?.startIndex}
-              activeGlobalIndex={currentSearchIndex}
-              syntaxTheme={chatSettings.syntaxTheme}
-              showLineNumbers={chatSettings.showLineNumbers}
-              mentionedPersonas={mentionedPersonas}
-            />
+            <React.Fragment key={index}>
+              <ChatMessage
+                message={message}
+                regenerationCount={regenerationCounts.get(index) || 0}
+                onRegenerate={isLastAssistantMessage ? handleRegenerate : undefined}
+                isLastAssistantMessage={isLastAssistantMessage}
+                isLastUserMessage={isLastUserMessage}
+                onEdit={isLastUserMessage ? handleEditUserMessage : undefined}
+                searchQuery={chatSearchQuery}
+                searchStartIndex={messageOccurrence?.startIndex}
+                activeGlobalIndex={currentSearchIndex}
+                syntaxTheme={chatSettings.syntaxTheme}
+                showLineNumbers={chatSettings.showLineNumbers}
+                mentionedPersonas={mentionedPersonas}
+              />
+              {shouldShowSources && (
+                <SourcesList
+                  results={webSearch.results}
+                  query={webSearch.query}
+                  provider={webSearch.provider}
+                  defaultCollapsed={webSearchSettings.sourcesCollapsed}
+                />
+              )}
+            </React.Fragment>
           );
         })}
 

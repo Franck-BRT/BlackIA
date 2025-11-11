@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { MessageSquare, Workflow, FileText, User, FolderOpen, Zap } from 'lucide-react';
+import { MessageSquare, Workflow, FileText, User, FolderOpen, Zap, FileEdit } from 'lucide-react';
+import { FeatureCard } from '../components/home/FeatureCard';
+import { StatusCard } from '../components/home/StatusCard';
 
 export function HomePage() {
   const [version, setVersion] = useState('');
@@ -18,42 +19,49 @@ export function HomePage() {
     {
       icon: MessageSquare,
       title: 'Chat IA',
-      description: 'Conversations intelligentes avec des modèles locaux',
+      description: 'Conversations intelligentes avec vos modèles locaux Ollama et MLX',
       path: '/chat',
       color: 'from-blue-500 to-cyan-500',
     },
     {
       icon: Workflow,
       title: 'Workflows',
-      description: 'Créez des flux d\'automatisation puissants',
+      description: 'Automatisez vos tâches avec des flux personnalisés et visuels',
       path: '/workflows',
       color: 'from-purple-500 to-pink-500',
     },
     {
       icon: FileText,
       title: 'Prompts',
-      description: 'Bibliothèque de prompts réutilisables',
+      description: 'Gérez votre bibliothèque de prompts avec variables et catégories',
       path: '/prompts',
       color: 'from-green-500 to-emerald-500',
     },
     {
       icon: User,
       title: 'Personas',
-      description: 'Personnalités IA personnalisables',
+      description: 'Créez des assistants IA spécialisés avec des personnalités uniques',
       path: '/personas',
       color: 'from-orange-500 to-red-500',
     },
     {
+      icon: FileEdit,
+      title: 'Éditeur',
+      description: 'Éditeur Markdown avec aperçu en temps réel et assistant IA intégré',
+      path: '/editor',
+      color: 'from-teal-500 to-cyan-500',
+    },
+    {
       icon: FolderOpen,
       title: 'Projets',
-      description: 'Gestion de projets assistée par IA',
+      description: 'Organisez et gérez vos projets avec l\'aide de l\'IA (Prochainement)',
       path: '/projects',
       color: 'from-indigo-500 to-blue-500',
     },
     {
       icon: Zap,
-      title: 'Plus à venir',
-      description: 'Générateurs, MCP Server, et plus...',
+      title: 'Et plus encore',
+      description: 'Générateurs de code, MCP Server, agents autonomes...',
       path: '#',
       color: 'from-yellow-500 to-orange-500',
     },
@@ -67,102 +75,128 @@ export function HomePage() {
           <h1 className="text-5xl font-bold mb-4 text-gradient">
             Bienvenue sur BlackIA
           </h1>
-          <p className="text-xl text-muted-foreground">
-            Votre suite complète d'assistance IA, 100% locale et privée
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+            Votre suite complète d'assistance IA, 100% locale et privée. Créez, automatisez et innovez avec vos propres modèles d'IA.
           </p>
           {version && (
-            <p className="text-sm text-muted-foreground mt-4">
-              Version {version} • {platform} • Ollama + MLX
-            </p>
+            <div className="mt-6 flex items-center justify-center gap-4 text-sm text-muted-foreground">
+              <span className="px-3 py-1 glass-card rounded-full">Version {version}</span>
+              <span className="px-3 py-1 glass-card rounded-full">{platform}</span>
+              <span className="px-3 py-1 glass-card rounded-full">Ollama + MLX</span>
+            </div>
           )}
         </div>
 
-        {/* Features grid - Responsive 1/2/3/4/5 columns */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 mb-12">
+        {/* Features grid - Flex wrap with dynamic card size */}
+        <div className="flex flex-wrap gap-6 justify-center xl:justify-start mb-12">
           {features.map((feature, index) => (
-            <Link
+            <FeatureCard
               key={index}
-              to={feature.path}
-              className={`glass-card rounded-2xl p-6 glass-hover group ${
-                feature.path === '#' ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-              onClick={e => feature.path === '#' && e.preventDefault()}
-            >
-              <div
-                className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
-              >
-                <feature.icon className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-              <p className="text-sm text-muted-foreground">{feature.description}</p>
-            </Link>
+              icon={feature.icon}
+              title={feature.title}
+              description={feature.description}
+              path={feature.path}
+              color={feature.color}
+              disabled={feature.path === '#'}
+            />
           ))}
         </div>
 
         {/* Status cards - Responsive 1/2/3 columns */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="glass-card rounded-2xl p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <h3 className="font-semibold">Système</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Tous les services sont opérationnels
-            </p>
-          </div>
-
-          <div className="glass-card rounded-2xl p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-2 h-2 rounded-full bg-yellow-500" />
-              <h3 className="font-semibold">Ollama</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Configuration requise
-            </p>
-          </div>
-
-          <div className="glass-card rounded-2xl p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-2 h-2 rounded-full bg-yellow-500" />
-              <h3 className="font-semibold">MLX</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Configuration requise
-            </p>
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold mb-6">État des services</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <StatusCard
+              title="Application"
+              description="Base de données, workflows et paramètres opérationnels"
+              status="online"
+            />
+            <StatusCard
+              title="Ollama"
+              description="Configurez dans Paramètres > IA Locale pour utiliser vos modèles"
+              status="warning"
+            />
+            <StatusCard
+              title="MLX"
+              description="Support natif des modèles Apple Silicon (optionnel)"
+              status="warning"
+            />
           </div>
         </div>
 
         {/* Quick start */}
-        <div className="mt-12 glass-card rounded-2xl p-8">
-          <h2 className="text-2xl font-bold mb-4">Démarrage rapide</h2>
-          <div className="space-y-4 text-sm text-muted-foreground">
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full glass-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+        <div className="glass-card rounded-xl p-8 hover:scale-[1.005] transition-all duration-200">
+          <h2 className="text-2xl font-bold mb-6">Démarrage rapide</h2>
+          <div className="space-y-6 text-sm">
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0 text-white font-bold">
                 1
               </div>
-              <div>
-                <p className="font-medium text-foreground">Configurez Ollama</p>
-                <p>Installez et configurez Ollama pour utiliser les modèles locaux</p>
+              <div className="flex-1">
+                <p className="font-semibold text-foreground text-base mb-1">Configurez Ollama</p>
+                <p className="text-muted-foreground">
+                  Installez Ollama depuis <span className="text-purple-400">ollama.ai</span>, puis configurez-le dans <span className="font-medium">Paramètres → IA Locale</span>. Téléchargez vos modèles préférés (Llama, Mistral, etc.).
+                </p>
               </div>
             </div>
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full glass-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center flex-shrink-0 text-white font-bold">
                 2
               </div>
-              <div>
-                <p className="font-medium text-foreground">Créez votre premier persona</p>
-                <p>Définissez une personnalité IA adaptée à vos besoins</p>
+              <div className="flex-1">
+                <p className="font-semibold text-foreground text-base mb-1">Explorez les Personas</p>
+                <p className="text-muted-foreground">
+                  Allez dans <span className="font-medium">Personas</span> pour découvrir les assistants pré-configurés ou créez le vôtre avec un system prompt personnalisé et des paramètres ajustés.
+                </p>
               </div>
             </div>
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full glass-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0 text-white font-bold">
                 3
               </div>
-              <div>
-                <p className="font-medium text-foreground">Commencez à chatter</p>
-                <p>Lancez votre première conversation ou créez un workflow</p>
+              <div className="flex-1">
+                <p className="font-semibold text-foreground text-base mb-1">Créez vos Prompts et Workflows</p>
+                <p className="text-muted-foreground">
+                  Construisez votre bibliothèque de <span className="font-medium">Prompts</span> réutilisables avec variables, puis automatisez vos tâches avec des <span className="font-medium">Workflows</span> visuels.
+                </p>
               </div>
             </div>
+            <div className="flex items-start gap-4">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center flex-shrink-0 text-white font-bold">
+                4
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-foreground text-base mb-1">Lancez votre premier Chat</p>
+                <p className="text-muted-foreground">
+                  Ouvrez le <span className="font-medium">Chat</span>, sélectionnez un persona, et commencez à converser avec votre IA locale. Vos données restent 100% privées sur votre machine.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Features highlight */}
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="glass-card rounded-xl p-6 text-center">
+            <div className="text-3xl mb-3">🔒</div>
+            <h3 className="font-semibold mb-2">100% Local</h3>
+            <p className="text-sm text-muted-foreground">
+              Vos conversations et données restent sur votre machine. Aucune fuite vers le cloud.
+            </p>
+          </div>
+          <div className="glass-card rounded-xl p-6 text-center">
+            <div className="text-3xl mb-3">🚀</div>
+            <h3 className="font-semibold mb-2">Performant</h3>
+            <p className="text-sm text-muted-foreground">
+              Optimisé pour Apple Silicon avec MLX et compatible avec tous les modèles Ollama.
+            </p>
+          </div>
+          <div className="glass-card rounded-xl p-6 text-center">
+            <div className="text-3xl mb-3">🎨</div>
+            <h3 className="font-semibold mb-2">Personnalisable</h3>
+            <p className="text-sm text-muted-foreground">
+              Interface moderne avec thèmes, tailles de cartes ajustables et workflows sur mesure.
+            </p>
           </div>
         </div>
       </div>

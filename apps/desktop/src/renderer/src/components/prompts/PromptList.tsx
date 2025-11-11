@@ -24,7 +24,7 @@ export function PromptList({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+    <div className="flex flex-wrap gap-6 justify-center xl:justify-start">
       {prompts.map((prompt) => (
         <PromptCard
           key={prompt.id}

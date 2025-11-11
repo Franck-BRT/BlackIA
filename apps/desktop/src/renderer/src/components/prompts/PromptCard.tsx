@@ -3,6 +3,7 @@ import { Star, Edit, Copy, Trash2, FileText, Variable, Download } from 'lucide-r
 import type { Prompt } from '../../types/prompt';
 import { PROMPT_COLOR_CLASSES, extractVariables } from '../../types/prompt';
 import { useTags } from '../../hooks/useTags';
+import { useSettings } from '../../contexts/SettingsContext';
 
 interface PromptCardProps {
   prompt: Prompt;
@@ -23,6 +24,11 @@ export function PromptCard({
 }: PromptCardProps) {
   const colorGradient = PROMPT_COLOR_CLASSES[prompt.color] || PROMPT_COLOR_CLASSES.purple;
   const { tags: allTags } = useTags();
+
+  // Récupérer la taille de carte depuis les paramètres
+  const { settings } = useSettings();
+  const cardSize = settings.appearance.cardSize || 320;
+  const minHeight = Math.round((cardSize / 320) * 420);
 
   // Parser les tags JSON
   let rawTags: string[] = [];
@@ -73,7 +79,13 @@ export function PromptCard({
   };
 
   return (
-    <div className="glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative">
+    <div
+      style={{
+        width: `${cardSize}px`,
+        minHeight: `${minHeight}px`,
+      }}
+      className="glass-card rounded-xl p-6 hover:scale-[1.02] transition-all duration-200 group relative flex flex-col"
+    >
       {/* Header avec icône et actions */}
       <div className="flex items-start justify-between mb-4">
         {/* Icône */}
@@ -175,8 +187,11 @@ export function PromptCard({
         </div>
       )}
 
+      {/* Spacer pour pousser le footer en bas */}
+      <div className="flex-1"></div>
+
       {/* Footer */}
-      <div className="flex items-center justify-between pt-4 border-t border-white/5">
+      <div className="flex items-center justify-between pt-4 border-t border-white/5 mt-auto">
         <div className="flex gap-4 text-xs text-muted-foreground">
           {prompt.category && <span>{prompt.category}</span>}
           <span>{prompt.usageCount} utilisations</span>

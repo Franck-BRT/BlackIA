@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
 import { registerOllamaHandlers } from './ollama-handlers';
+import { registerWebSearchHandlers } from './web-search-handlers';
 import { PersonaService } from './services/persona-service';
 import { PromptService } from './services/prompt-service';
 import { WorkflowService } from './services/workflow-service';
@@ -12,9 +13,11 @@ import { registerPromptHandlers } from './handlers/prompt-handlers';
 import { registerWorkflowHandlers as registerWorkflowAdvancedHandlers } from './handlers/workflow-handlers';
 import { registerDocumentationHandlers } from './handlers/documentation-handlers';
 import { registerDocumentHandlers } from './handlers/document-handlers';
+import { registerLogHandlers } from './handlers/log-handlers';
 import { initDatabase, runMigrations } from './database/client';
 import { DocumentationService } from './services/documentation-db-service';
 import { WorkflowTemplateService } from './services/workflow-db-service';
+import { logService, logger } from './services/log-service';
 
 // __dirname and __filename are available in CommonJS mode
 
@@ -43,6 +46,10 @@ function createWindow() {
     },
   });
 
+  // Initialiser le service de logs avec la fenêtre principale
+  logService.setMainWindow(mainWindow);
+  logger.info('system', 'Application window created', `Mode: ${isDev ? 'development' : 'production'}`);
+
   // Load app
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
@@ -52,6 +59,7 @@ function createWindow() {
   }
 
   mainWindow.on('closed', () => {
+    logService.setMainWindow(null);
     mainWindow = null;
   });
 }
@@ -140,6 +148,7 @@ app.whenReady().then(async () => {
     // Enregistrer les handlers IPC
     console.log('[App] Registering IPC handlers...');
     registerOllamaHandlers();
+    registerWebSearchHandlers();
     registerPersonaHandlers();
     registerPromptHandlers();
     registerWorkflowHandlers();
@@ -147,6 +156,7 @@ app.whenReady().then(async () => {
     registerDocumentationHandlers(); // Documentation
     registerDocumentHandlers(); // General documents
     registerTagSyncHandlers();
+    registerLogHandlers(); // Logs system
     console.log('[App] ✅ IPC handlers registered');
 
     console.log('[App] =====================================');

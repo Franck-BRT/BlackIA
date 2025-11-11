@@ -19,6 +19,7 @@ import { useChatPersona } from '../hooks/useChatPersona';
 import { useChatSearch } from '../hooks/useChatSearch';
 import { useChatActions } from '../hooks/useChatActions';
 import { useResponsive } from '../hooks/useResponsive';
+import { useSettings } from '../contexts/SettingsContext';
 import type { BackupData } from '../components/chat/ImportExportMenu';
 import type { Folder } from '../hooks/useConversations';
 
@@ -87,6 +88,13 @@ export function ChatPage() {
     setChatSearchQuery,
     currentSearchIndex,
     setCurrentSearchIndex,
+    // Web Search
+    webSearchEnabled,
+    setWebSearchEnabled,
+    webSearchResults,
+    setWebSearchResults,
+    isWebSearching,
+    setIsWebSearching,
     // Settings
     chatSettings,
     updateChatSettings,
@@ -139,6 +147,14 @@ export function ChatPage() {
   } = useTags();
 
   const { personas, incrementUsage: incrementPersonaUsage } = usePersonas();
+
+  // Settings globaux
+  const { settings } = useSettings();
+
+  // Récupérer le nom du provider actif
+  const activeProvider = settings.webSearch.providers.find(
+    (p) => p.id === settings.webSearch.defaultProvider
+  );
 
   // 3. Streaming Ollama
   useChatStreaming({
@@ -210,6 +226,10 @@ export function ChatPage() {
     currentPersona,
     chatSettings,
     incrementPersonaUsage,
+    webSearchEnabled,
+    webSearchSettings: settings.webSearch,
+    setWebSearchResults,
+    setIsWebSearching,
   });
 
   // 7. Statistiques
@@ -492,6 +512,10 @@ export function ChatPage() {
           selectedModel={selectedModel}
           setSelectedModel={setSelectedModel}
           currentPersona={currentPersona}
+          webSearchEnabled={webSearchEnabled}
+          setWebSearchEnabled={setWebSearchEnabled}
+          isWebSearching={isWebSearching}
+          webSearchProviderName={activeProvider?.name}
           messages={messages}
           conversations={conversations}
           folders={folders}
@@ -529,6 +553,11 @@ export function ChatPage() {
           searchResults={searchResults}
           currentSearchIndex={currentSearchIndex}
           chatSettings={chatSettings}
+          webSearchResults={webSearchResults}
+          webSearchSettings={{
+            showSources: settings.webSearch.showSources,
+            sourcesCollapsed: settings.webSearch.sourcesCollapsed,
+          }}
           handleRegenerate={handleRegenerate}
           handleEditUserMessage={handleEditUserMessage}
           messagesEndRef={messagesEndRef}
