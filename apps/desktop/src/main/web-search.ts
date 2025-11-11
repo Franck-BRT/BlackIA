@@ -222,7 +222,7 @@ export class WebSearchService {
       logger.debug('websearch', 'DuckDuckGo - Parsing HTML', `${totalRows} lignes de table trouvées`);
 
       // DuckDuckGo Lite utilise une structure de table simple
-      // Chaque résultat est dans un tr avec plusieurs td
+      // Structure : 2 td (numéro + contenu avec lien) ou 1 td (info directe)
       let processedRows = 0;
       let rejectedNoCells = 0;
       let rejectedNoLink = 0;
@@ -235,13 +235,13 @@ export class WebSearchService {
         const $row = $(element);
         processedRows++;
 
-        // Les résultats ont généralement 4 td: numéro, lien, snippet, source
+        // Les résultats ont généralement 2 td: numéro (td[0]) et contenu avec lien (td[1])
         const $cells = $row.find('td');
 
-        if ($cells.length < 3) {
+        if ($cells.length < 1) {
           rejectedNoCells++;
           if (index < 5) {
-            logger.debug('websearch', `DuckDuckGo - Ligne ${index} ignorée`, `Seulement ${$cells.length} cellules`, {
+            logger.debug('websearch', `DuckDuckGo - Ligne ${index} ignorée`, `Aucune cellule`, {
               index,
               cellsCount: $cells.length,
               html: $row.html()?.substring(0, 200)
@@ -250,21 +250,24 @@ export class WebSearchService {
           return; // Pas un résultat valide
         }
 
-        logger.debug('websearch', `DuckDuckGo - Ligne ${index}`, `${$cells.length} cellules trouvées`, {
+        logger.debug('websearch', `DuckDuckGo - Ligne ${index}`, `${$cells.length} cellule(s) trouvée(s)`, {
           index,
           cellsCount: $cells.length
         });
 
-        // Trouver le lien principal (dans la 2ème colonne généralement)
-        const $linkCell = $cells.eq(1);
-        const $link = $linkCell.find('a').first();
+        // Le lien peut être dans td[1] (si 2 cellules) ou td[0] (si 1 cellule type "Zero-click")
+        let $linkCell = $cells.length >= 2 ? $cells.eq(1) : $cells.eq(0);
+        let $link = $linkCell.find('a').first();
 
         if ($link.length === 0) {
           rejectedNoLink++;
-          logger.debug('websearch', `DuckDuckGo - Ligne ${index} sans lien`, 'Aucun lien trouvé dans cellule 1', {
-            index,
-            cellContent: $linkCell.text().trim().substring(0, 100)
-          });
+          if (index < 10) {
+            logger.debug('websearch', `DuckDuckGo - Ligne ${index} sans lien`, 'Aucun lien trouvé', {
+              index,
+              cellsCount: $cells.length,
+              cellContent: $linkCell.text().trim().substring(0, 100)
+            });
+          }
           return;
         }
 
@@ -295,17 +298,24 @@ export class WebSearchService {
         }
 
         // Trouver le snippet (texte descriptif)
+        // Dans DuckDuckGo Lite, le snippet est souvent dans la ligne suivante
         let snippet = '';
-        const $snippetCell = $cells.eq(2);
-        if ($snippetCell.length > 0) {
-          snippet = $snippetCell.text().trim();
+
+        // Essayer d'extraire le texte de la cellule du lien (après le titre)
+        const cellText = $linkCell.text().trim();
+        if (cellText.length > title.length) {
+          snippet = cellText.substring(title.length).trim();
         }
 
-        // Si pas de snippet dans la cellule, chercher dans les éléments suivants
-        if (!snippet) {
-          const nextText = $row.next('tr').find('td').text().trim();
-          if (nextText && !nextText.startsWith('http')) {
-            snippet = nextText;
+        // Si pas de snippet, chercher dans la ligne suivante
+        if (!snippet || snippet.length < 20) {
+          const $nextRow = $row.next('tr');
+          const $nextCells = $nextRow.find('td');
+          if ($nextCells.length > 0) {
+            const nextText = $nextCells.last().text().trim();
+            if (nextText && !nextText.startsWith('http') && !nextText.match(/^\d+\./)) {
+              snippet = nextText;
+            }
           }
         }
 
