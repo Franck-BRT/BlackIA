@@ -223,23 +223,61 @@ export class WebSearchService {
 
       // DuckDuckGo Lite utilise une structure de table simple
       // Chaque résultat est dans un tr avec plusieurs td
+      let processedRows = 0;
+      let rejectedNoCells = 0;
+      let rejectedNoLink = 0;
+      let rejectedNoTitle = 0;
+      let rejectedNoUrl = 0;
+
       $('tr').each((index, element) => {
         if (results.length >= maxResults) return false;
 
         const $row = $(element);
+        processedRows++;
 
         // Les résultats ont généralement 4 td: numéro, lien, snippet, source
         const $cells = $row.find('td');
-        if ($cells.length < 3) return; // Pas un résultat valide
+
+        if ($cells.length < 3) {
+          rejectedNoCells++;
+          if (index < 5) {
+            logger.debug('websearch', `DuckDuckGo - Ligne ${index} ignorée`, `Seulement ${$cells.length} cellules`, {
+              index,
+              cellsCount: $cells.length,
+              html: $row.html()?.substring(0, 200)
+            });
+          }
+          return; // Pas un résultat valide
+        }
+
+        logger.debug('websearch', `DuckDuckGo - Ligne ${index}`, `${$cells.length} cellules trouvées`, {
+          index,
+          cellsCount: $cells.length
+        });
 
         // Trouver le lien principal (dans la 2ème colonne généralement)
         const $linkCell = $cells.eq(1);
         const $link = $linkCell.find('a').first();
 
-        if ($link.length === 0) return;
+        if ($link.length === 0) {
+          rejectedNoLink++;
+          logger.debug('websearch', `DuckDuckGo - Ligne ${index} sans lien`, 'Aucun lien trouvé dans cellule 1', {
+            index,
+            cellContent: $linkCell.text().trim().substring(0, 100)
+          });
+          return;
+        }
 
         let url = $link.attr('href');
         const title = $link.text().trim();
+
+        logger.debug('websearch', `DuckDuckGo - Ligne ${index} lien trouvé`, `Titre: "${title?.substring(0, 50)}", URL: "${url?.substring(0, 50)}"`, {
+          index,
+          title,
+          url,
+          hasTitle: !!title,
+          hasUrl: !!url
+        });
 
         // Extraire l'URL réelle depuis le lien de redirection DuckDuckGo
         if (url && url.includes('uddg=')) {
@@ -290,12 +328,29 @@ export class WebSearchService {
           } catch (e) {
             logger.warning('websearch', 'DuckDuckGo - URL invalide ignorée', url);
           }
+        } else {
+          // Log pourquoi ce résultat est rejeté
+          if (!title) {
+            rejectedNoTitle++;
+            logger.debug('websearch', `DuckDuckGo - Ligne ${index} rejetée`, 'Pas de titre', { index, url });
+          } else if (!url) {
+            rejectedNoUrl++;
+            logger.debug('websearch', `DuckDuckGo - Ligne ${index} rejetée`, 'Pas d\'URL', { index, title });
+          } else if (!url.startsWith('http')) {
+            rejectedNoUrl++;
+            logger.debug('websearch', `DuckDuckGo - Ligne ${index} rejetée`, `URL ne commence pas par http: "${url}"`, { index, title, url });
+          }
         }
       });
 
       logger.info('websearch', 'DuckDuckGo - Parsing terminé', `${results.length} résultats extraits sur ${totalRows} lignes`, {
         resultsCount: results.length,
         totalRows,
+        processedRows,
+        rejectedNoCells,
+        rejectedNoLink,
+        rejectedNoTitle,
+        rejectedNoUrl,
         query
       });
 
