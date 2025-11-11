@@ -935,6 +935,7 @@ export function SimpleWorkflowEditor({ workflow, onSave, onCancel, onExecute }: 
       {/* Template Manager Modal */}
       {showTemplates && (
         <TemplateManager
+          isOpen={showTemplates}
           currentNodes={nodes}
           currentEdges={edges}
           onApplyTemplate={(template) => {
