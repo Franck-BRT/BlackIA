@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MessageSquare, Workflow, FileText, User, FolderOpen, Zap } from 'lucide-react';
+import { MessageSquare, Workflow, FileText, User, FolderOpen, Zap, FileEdit } from 'lucide-react';
 import { FeatureCard } from '../components/home/FeatureCard';
 import { StatusCard } from '../components/home/StatusCard';
 
@@ -43,6 +43,13 @@ export function HomePage() {
       description: 'Créez des assistants IA spécialisés avec des personnalités uniques',
       path: '/personas',
       color: 'from-orange-500 to-red-500',
+    },
+    {
+      icon: FileEdit,
+      title: 'Éditeur',
+      description: 'Éditeur Markdown avec aperçu en temps réel et assistant IA intégré',
+      path: '/editor',
+      color: 'from-teal-500 to-cyan-500',
     },
     {
       icon: FolderOpen,
