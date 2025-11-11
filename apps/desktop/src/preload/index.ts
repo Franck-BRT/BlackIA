@@ -227,6 +227,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
   },
 
+  // Web Search API
+  webSearch: {
+    search: (
+      query: string,
+      provider: any,
+      options?: {
+        maxResults?: number;
+        language?: string;
+        region?: string;
+        safeSearch?: boolean;
+        timeout?: number;
+      }
+    ) => ipcRenderer.invoke('webSearch:search', query, provider, options),
+    fetchUrl: (url: string, timeout?: number) =>
+      ipcRenderer.invoke('webSearch:fetchUrl', url, timeout),
+    clearCache: () => ipcRenderer.invoke('webSearch:clearCache'),
+    setCache: (enabled: boolean, duration?: number) =>
+      ipcRenderer.invoke('webSearch:setCache', enabled, duration),
+  },
+
   // Documentation API
   documentation: {
     create: (data: any) => ipcRenderer.invoke('documentation:create', data),
@@ -422,6 +442,23 @@ export interface ElectronAPI {
 
     // Nettoyage des listeners
     removeAllListeners: (channel: string) => void;
+  };
+
+  webSearch: {
+    search: (
+      query: string,
+      provider: any,
+      options?: {
+        maxResults?: number;
+        language?: string;
+        region?: string;
+        safeSearch?: boolean;
+        timeout?: number;
+      }
+    ) => Promise<{ success: boolean; data?: any; error?: string }>;
+    fetchUrl: (url: string, timeout?: number) => Promise<{ success: boolean; data?: string; error?: string }>;
+    clearCache: () => Promise<{ success: boolean }>;
+    setCache: (enabled: boolean, duration?: number) => Promise<{ success: boolean }>;
   };
 
   documentation: {

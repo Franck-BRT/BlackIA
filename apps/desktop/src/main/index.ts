@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
 import { registerOllamaHandlers } from './ollama-handlers';
+import { registerWebSearchHandlers } from './web-search-handlers';
 import { PersonaService } from './services/persona-service';
 import { PromptService } from './services/prompt-service';
 import { WorkflowService } from './services/workflow-service';
@@ -140,6 +141,7 @@ app.whenReady().then(async () => {
     // Enregistrer les handlers IPC
     console.log('[App] Registering IPC handlers...');
     registerOllamaHandlers();
+    registerWebSearchHandlers();
     registerPersonaHandlers();
     registerPromptHandlers();
     registerWorkflowHandlers();
