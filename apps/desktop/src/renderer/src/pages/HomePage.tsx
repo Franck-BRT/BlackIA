@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { MessageSquare, Workflow, FileText, User, FolderOpen, Zap } from 'lucide-react';
+import { FeatureCard } from '../components/home/FeatureCard';
+import { StatusCard } from '../components/home/StatusCard';
 
 export function HomePage() {
   const [version, setVersion] = useState('');
@@ -77,63 +78,42 @@ export function HomePage() {
           )}
         </div>
 
-        {/* Features grid - Responsive 1/2/3/4/5 columns */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6 mb-12">
+        {/* Features grid - Flex wrap with dynamic card size */}
+        <div className="flex flex-wrap gap-6 justify-center xl:justify-start mb-12">
           {features.map((feature, index) => (
-            <Link
+            <FeatureCard
               key={index}
-              to={feature.path}
-              className={`glass-card rounded-2xl p-6 glass-hover group ${
-                feature.path === '#' ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-              onClick={e => feature.path === '#' && e.preventDefault()}
-            >
-              <div
-                className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
-              >
-                <feature.icon className="w-6 h-6 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-              <p className="text-sm text-muted-foreground">{feature.description}</p>
-            </Link>
+              icon={feature.icon}
+              title={feature.title}
+              description={feature.description}
+              path={feature.path}
+              color={feature.color}
+              disabled={feature.path === '#'}
+            />
           ))}
         </div>
 
         {/* Status cards - Responsive 1/2/3 columns */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="glass-card rounded-2xl p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <h3 className="font-semibold">Système</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Tous les services sont opérationnels
-            </p>
-          </div>
-
-          <div className="glass-card rounded-2xl p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-2 h-2 rounded-full bg-yellow-500" />
-              <h3 className="font-semibold">Ollama</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Configuration requise
-            </p>
-          </div>
-
-          <div className="glass-card rounded-2xl p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-2 h-2 rounded-full bg-yellow-500" />
-              <h3 className="font-semibold">MLX</h3>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Configuration requise
-            </p>
-          </div>
+          <StatusCard
+            title="Système"
+            description="Tous les services sont opérationnels"
+            status="online"
+          />
+          <StatusCard
+            title="Ollama"
+            description="Configuration requise"
+            status="warning"
+          />
+          <StatusCard
+            title="MLX"
+            description="Configuration requise"
+            status="warning"
+          />
         </div>
 
         {/* Quick start */}
-        <div className="mt-12 glass-card rounded-2xl p-8">
+        <div className="mt-12 glass-card rounded-xl p-8 hover:scale-[1.005] transition-all duration-200">
           <h2 className="text-2xl font-bold mb-4">Démarrage rapide</h2>
           <div className="space-y-4 text-sm text-muted-foreground">
             <div className="flex items-start gap-3">
