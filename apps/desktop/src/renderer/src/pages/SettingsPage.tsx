@@ -25,6 +25,7 @@ import { InterfaceSection } from '../components/settings/InterfaceSection';
 import { PersonaSuggestionsSettings } from '../components/settings/PersonaSuggestionsSettings';
 import { CategoriesSettings } from '../components/settings/CategoriesSettings';
 import { OllamaSettings } from '../components/settings/OllamaSettings';
+import { WebSearchSettings } from '../components/settings/WebSearchSettings';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
 import { useTags } from '../hooks/useTags';
@@ -41,6 +42,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { icon: Settings, label: 'Général', section: 'general' },
   { icon: Server, label: 'AI Locale', section: 'aiLocal' },
+  { icon: Globe, label: 'Recherche Web', section: 'webSearch' },
   { icon: MessageSquare, label: 'Chat', section: 'chat' },
   { icon: Workflow, label: 'Workflows', section: 'workflows' },
   { icon: FileText, label: 'Prompts', section: 'prompts' },
@@ -135,6 +137,19 @@ export function SettingsPage() {
         <div className="max-w-4xl mx-auto p-8">
           {activeSection === 'general' && <GeneralSettings />}
           {activeSection === 'aiLocal' && <OllamaSettings />}
+          {activeSection === 'webSearch' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">Recherche Web</h2>
+                <p className="text-muted-foreground">
+                  Configurez les providers de recherche web et les options d'intégration dans le chat
+                </p>
+              </div>
+              <div className="glass-card rounded-xl p-6">
+                <WebSearchSettings />
+              </div>
+            </div>
+          )}
           {activeSection === 'chat' && (
             <ChatSettings
               folders={folders}

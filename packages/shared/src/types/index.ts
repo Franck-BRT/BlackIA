@@ -187,6 +187,7 @@ export type AppModule =
 export type SettingsSection =
   | 'general'
   | 'aiLocal'
+  | 'webSearch'
   | 'chat'
   | 'workflows'
   | 'prompts'
