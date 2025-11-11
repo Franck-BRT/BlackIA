@@ -13,19 +13,21 @@ const fs = require('fs');
 
 // Déterminer le chemin de la base de données
 function getDbPath() {
-  // Sur Linux/Mac: ~/.config/blackia-desktop/blackia.db
-  // Sur Windows: %APPDATA%/blackia-desktop/blackia.db
+  // Sur Linux/Mac: ~/.config/@blackia/desktop/blackia.db
+  // Sur Windows: %APPDATA%/@blackia/desktop/blackia.db
   const platform = process.platform;
   const homeDir = process.env.HOME || process.env.USERPROFILE;
 
   let userDataPath;
   if (platform === 'darwin') {
-    userDataPath = path.join(homeDir, 'Library', 'Application Support', 'blackia-desktop');
+    // macOS: ~/Library/Application Support/@blackia/desktop
+    userDataPath = path.join(homeDir, 'Library', 'Application Support', '@blackia', 'desktop');
   } else if (platform === 'win32') {
-    userDataPath = path.join(process.env.APPDATA, 'blackia-desktop');
+    // Windows: %APPDATA%/@blackia/desktop
+    userDataPath = path.join(process.env.APPDATA, '@blackia', 'desktop');
   } else {
-    // Linux
-    userDataPath = path.join(homeDir, '.config', 'blackia-desktop');
+    // Linux: ~/.config/@blackia/desktop
+    userDataPath = path.join(homeDir, '.config', '@blackia', 'desktop');
   }
 
   return path.join(userDataPath, 'blackia.db');

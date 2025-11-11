@@ -30,9 +30,9 @@ Les workflows apparaissent directement dans la liste des workflows de l'utilisat
 
 Le script détecte automatiquement l'emplacement de la base de données selon votre OS:
 
-- **Linux**: `~/.config/blackia-desktop/blackia.db`
-- **macOS**: `~/Library/Application Support/blackia-desktop/blackia.db`
-- **Windows**: `%APPDATA%/blackia-desktop/blackia.db`
+- **Linux**: `~/.config/@blackia/desktop/blackia.db`
+- **macOS**: `~/Library/Application Support/@blackia/desktop/blackia.db`
+- **Windows**: `%APPDATA%/@blackia/desktop/blackia.db`
 
 ## 📝 Format du Fichier JSON
 
