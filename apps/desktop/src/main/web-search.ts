@@ -163,80 +163,103 @@ export class WebSearchService {
     timeout: number
   ): Promise<WebSearchResult[]> {
     try {
-      // Utiliser DuckDuckGo HTML pour obtenir de vrais résultats de recherche
+      // Utiliser DuckDuckGo Lite (version simplifiée) pour un scraping plus fiable
       const params = new URLSearchParams({
         q: query,
         kl: region.toLowerCase(),
-        t: 'h_', // HTML mode
       });
 
       if (safeSearch) {
         params.append('kp', '1'); // Safe search strict
       }
 
-      const response = await axios.get(`https://html.duckduckgo.com/html/?${params.toString()}`, {
+      const url = `https://lite.duckduckgo.com/lite/?${params.toString()}`;
+      console.log('[WebSearch] DuckDuckGo URL:', url);
+
+      const response = await axios.get(url, {
         timeout,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.5',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'DNT': '1',
-          'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1',
         },
       });
 
       const $ = cheerio.load(response.data);
       const results: WebSearchResult[] = [];
 
-      // Extraire les résultats de recherche
-      $('.result').each((index, element) => {
+      console.log('[WebSearch] HTML reçu, début du parsing...');
+
+      // DuckDuckGo Lite utilise une structure de table simple
+      // Chaque résultat est dans un tr avec plusieurs td
+      $('tr').each((index, element) => {
         if (results.length >= maxResults) return false;
 
-        const $result = $(element);
-        const $link = $result.find('.result__a');
-        const $snippet = $result.find('.result__snippet');
-        const $url = $result.find('.result__url');
+        const $row = $(element);
 
-        const title = $link.text().trim();
-        const snippet = $snippet.text().trim();
+        // Les résultats ont généralement 4 td: numéro, lien, snippet, source
+        const $cells = $row.find('td');
+        if ($cells.length < 3) return; // Pas un résultat valide
+
+        // Trouver le lien principal (dans la 2ème colonne généralement)
+        const $linkCell = $cells.eq(1);
+        const $link = $linkCell.find('a').first();
+
+        if ($link.length === 0) return;
+
         let url = $link.attr('href');
+        const title = $link.text().trim();
 
-        // DuckDuckGo utilise des URLs de redirection, extraire l'URL réelle
-        if (url && url.startsWith('/l/?')) {
+        // Extraire l'URL réelle depuis le lien de redirection DuckDuckGo
+        if (url && url.includes('uddg=')) {
           try {
-            const urlParams = new URLSearchParams(url.substring(3));
+            const urlParams = new URLSearchParams(url.split('?')[1]);
             const uddg = urlParams.get('uddg');
             if (uddg) {
               url = decodeURIComponent(uddg);
             }
           } catch (e) {
-            // Fallback à l'URL affichée
-            url = $url.text().trim();
-            if (url && !url.startsWith('http')) {
-              url = 'https://' + url;
-            }
+            console.warn('[WebSearch] Erreur extraction URL:', e);
           }
         }
 
-        if (title && url && snippet) {
+        // Trouver le snippet (texte descriptif)
+        let snippet = '';
+        const $snippetCell = $cells.eq(2);
+        if ($snippetCell.length > 0) {
+          snippet = $snippetCell.text().trim();
+        }
+
+        // Si pas de snippet dans la cellule, chercher dans les éléments suivants
+        if (!snippet) {
+          const nextText = $row.next('tr').find('td').text().trim();
+          if (nextText && !nextText.startsWith('http')) {
+            snippet = nextText;
+          }
+        }
+
+        if (title && url && url.startsWith('http')) {
           try {
             const urlObj = new URL(url);
             results.push({
               title,
               url,
-              snippet,
+              snippet: snippet || title,
               source: urlObj.hostname.replace('www.', ''),
             });
+            console.log('[WebSearch] Résultat ajouté:', { title: title.substring(0, 50), url: urlObj.hostname });
           } catch (e) {
-            // URL invalide, ignorer ce résultat
             console.warn('[WebSearch] URL invalide ignorée:', url);
           }
         }
       });
 
-      console.log('[WebSearch] DuckDuckGo HTML parsing:', results.length, 'résultats trouvés');
+      console.log('[WebSearch] DuckDuckGo parsing terminé:', results.length, 'résultats trouvés');
+
+      if (results.length === 0) {
+        console.warn('[WebSearch] Aucun résultat trouvé. Structure HTML:', $('tr').length, 'lignes de table');
+      }
+
       return results;
     } catch (error: any) {
       console.error('[WebSearch] Erreur DuckDuckGo:', error.message);
