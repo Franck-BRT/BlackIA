@@ -5,6 +5,7 @@ import type {
   WebSearchResult,
   WebSearchResponse,
 } from '@blackia/shared';
+import { logger } from './services/log-service';
 
 /**
  * Cache simple en mémoire pour les résultats de recherche
@@ -88,12 +89,19 @@ export class WebSearchService {
     if (this.cacheEnabled) {
       const cached = this.cache.get(cacheKey);
       if (cached) {
-        console.log('[WebSearch] 📦 Résultat depuis le cache:', query);
+        logger.info('websearch', 'Résultat depuis le cache', query, { provider: provider.name });
         return cached;
       }
     }
 
-    console.log('[WebSearch] 🔍 Recherche:', { query, provider: provider.name, maxResults });
+    logger.info('websearch', 'Nouvelle recherche', `Query: "${query}" - Provider: ${provider.name}`, {
+      query,
+      provider: provider.name,
+      maxResults,
+      language,
+      region,
+      safeSearch
+    });
 
     let results: WebSearchResult[];
 
@@ -142,12 +150,23 @@ export class WebSearchService {
       // Mettre en cache
       if (this.cacheEnabled && results.length > 0) {
         this.cache.set(cacheKey, response, this.cacheDuration);
+        logger.debug('websearch', 'Résultats mis en cache', `${results.length} résultats`, { cacheKey });
       }
 
-      console.log('[WebSearch] ✅ Recherche terminée:', results.length, 'résultats');
+      logger.success('websearch', 'Recherche terminée avec succès', `${results.length} résultats trouvés pour "${query}"`, {
+        resultsCount: results.length,
+        provider: provider.name,
+        cached: false
+      });
+
       return response;
     } catch (error: any) {
-      console.error('[WebSearch] ❌ Erreur:', error.message);
+      logger.error('websearch', 'Erreur lors de la recherche', error.message, {
+        query,
+        provider: provider.name,
+        error: error.message,
+        stack: error.stack
+      });
       throw error;
     }
   }
@@ -174,7 +193,12 @@ export class WebSearchService {
       }
 
       const url = `https://lite.duckduckgo.com/lite/?${params.toString()}`;
-      console.log('[WebSearch] DuckDuckGo URL:', url);
+      logger.info('websearch', 'DuckDuckGo - Envoi requête', url, {
+        query,
+        region,
+        safeSearch,
+        timeout
+      });
 
       const response = await axios.get(url, {
         timeout,
@@ -185,10 +209,17 @@ export class WebSearchService {
         },
       });
 
+      logger.debug('websearch', 'DuckDuckGo - Réponse reçue', `Status: ${response.status}, Taille: ${response.data.length} octets`, {
+        status: response.status,
+        contentLength: response.data.length,
+        contentType: response.headers['content-type']
+      });
+
       const $ = cheerio.load(response.data);
       const results: WebSearchResult[] = [];
+      const totalRows = $('tr').length;
 
-      console.log('[WebSearch] HTML reçu, début du parsing...');
+      logger.debug('websearch', 'DuckDuckGo - Parsing HTML', `${totalRows} lignes de table trouvées`);
 
       // DuckDuckGo Lite utilise une structure de table simple
       // Chaque résultat est dans un tr avec plusieurs td
@@ -213,13 +244,15 @@ export class WebSearchService {
         // Extraire l'URL réelle depuis le lien de redirection DuckDuckGo
         if (url && url.includes('uddg=')) {
           try {
+            const originalUrl = url;
             const urlParams = new URLSearchParams(url.split('?')[1]);
             const uddg = urlParams.get('uddg');
             if (uddg) {
               url = decodeURIComponent(uddg);
+              logger.debug('websearch', 'DuckDuckGo - URL décodée', `${originalUrl} → ${url}`);
             }
           } catch (e) {
-            console.warn('[WebSearch] Erreur extraction URL:', e);
+            logger.warning('websearch', 'DuckDuckGo - Erreur extraction URL', String(e));
           }
         }
 
@@ -241,28 +274,47 @@ export class WebSearchService {
         if (title && url && url.startsWith('http')) {
           try {
             const urlObj = new URL(url);
-            results.push({
+            const result = {
               title,
               url,
               snippet: snippet || title,
               source: urlObj.hostname.replace('www.', ''),
+            };
+            results.push(result);
+            logger.debug('websearch', 'DuckDuckGo - Résultat ajouté', title.substring(0, 60), {
+              title,
+              url,
+              source: result.source,
+              hasSnippet: !!snippet
             });
-            console.log('[WebSearch] Résultat ajouté:', { title: title.substring(0, 50), url: urlObj.hostname });
           } catch (e) {
-            console.warn('[WebSearch] URL invalide ignorée:', url);
+            logger.warning('websearch', 'DuckDuckGo - URL invalide ignorée', url);
           }
         }
       });
 
-      console.log('[WebSearch] DuckDuckGo parsing terminé:', results.length, 'résultats trouvés');
+      logger.info('websearch', 'DuckDuckGo - Parsing terminé', `${results.length} résultats extraits sur ${totalRows} lignes`, {
+        resultsCount: results.length,
+        totalRows,
+        query
+      });
 
       if (results.length === 0) {
-        console.warn('[WebSearch] Aucun résultat trouvé. Structure HTML:', $('tr').length, 'lignes de table');
+        logger.warning('websearch', 'DuckDuckGo - Aucun résultat trouvé', `Structure HTML: ${$('tr').length} lignes de table, ${$('a').length} liens`, {
+          totalRows: $('tr').length,
+          totalLinks: $('a').length,
+          query
+        });
       }
 
       return results;
     } catch (error: any) {
-      console.error('[WebSearch] Erreur DuckDuckGo:', error.message);
+      logger.error('websearch', 'Erreur DuckDuckGo', error.message, {
+        query,
+        error: error.message,
+        stack: error.stack,
+        code: error.code
+      });
       throw new Error(`Erreur DuckDuckGo: ${error.message}`);
     }
   }
@@ -286,12 +338,25 @@ export class WebSearchService {
         safesearch: safeSearch ? 'strict' : 'off',
       });
 
-      const response = await axios.get(`https://api.search.brave.com/res/v1/web/search?${params.toString()}`, {
+      const url = `https://api.search.brave.com/res/v1/web/search?${params.toString()}`;
+      logger.info('websearch', 'Brave - Envoi requête API', url, {
+        query,
+        maxResults,
+        language,
+        safeSearch
+      });
+
+      const response = await axios.get(url, {
         timeout,
         headers: {
           'Accept': 'application/json',
           'X-Subscription-Token': apiKey,
         },
+      });
+
+      logger.debug('websearch', 'Brave - Réponse reçue', `Status: ${response.status}`, {
+        status: response.status,
+        hasResults: !!response.data.web?.results
       });
 
       const results: WebSearchResult[] = [];
@@ -307,11 +372,26 @@ export class WebSearchService {
             publishedDate: result.age,
           });
         }
+        logger.success('websearch', 'Brave - Résultats extraits', `${results.length} résultats`, {
+          resultsCount: results.length,
+          query
+        });
+      } else {
+        logger.warning('websearch', 'Brave - Aucun résultat dans la réponse', 'Structure de réponse inattendue', {
+          hasWeb: !!response.data.web,
+          hasResults: !!response.data.web?.results,
+          query
+        });
       }
 
       return results;
     } catch (error: any) {
-      console.error('[WebSearch] Erreur Brave:', error.message);
+      logger.error('websearch', 'Erreur Brave Search', error.message, {
+        query,
+        error: error.message,
+        stack: error.stack,
+        response: error.response?.data
+      });
       throw new Error(`Erreur Brave: ${error.message}`);
     }
   }
@@ -335,6 +415,12 @@ export class WebSearchService {
         headers['Authorization'] = `Bearer ${apiKey}`;
       }
 
+      logger.info('websearch', 'Custom Provider - Envoi requête', baseUrl, {
+        query,
+        maxResults,
+        hasApiKey: !!apiKey
+      });
+
       const response = await axios.post(
         baseUrl,
         {
@@ -347,19 +433,42 @@ export class WebSearchService {
         }
       );
 
+      logger.debug('websearch', 'Custom Provider - Réponse reçue', `Status: ${response.status}`, {
+        status: response.status,
+        hasResults: !!response.data.results
+      });
+
       // Format attendu: { results: [{ title, url, snippet, source? }] }
       if (response.data.results && Array.isArray(response.data.results)) {
-        return response.data.results.map((r: any) => ({
+        const results = response.data.results.map((r: any) => ({
           title: r.title || '',
           url: r.url || '',
           snippet: r.snippet || r.description || '',
           source: r.source,
         }));
+
+        logger.success('websearch', 'Custom Provider - Résultats extraits', `${results.length} résultats`, {
+          resultsCount: results.length,
+          query
+        });
+
+        return results;
       }
+
+      logger.warning('websearch', 'Custom Provider - Aucun résultat', 'Format de réponse inattendu', {
+        hasResults: !!response.data.results,
+        query
+      });
 
       return [];
     } catch (error: any) {
-      console.error('[WebSearch] Erreur Custom Provider:', error.message);
+      logger.error('websearch', 'Erreur Custom Provider', error.message, {
+        baseUrl,
+        query,
+        error: error.message,
+        stack: error.stack,
+        response: error.response?.data
+      });
       throw new Error(`Erreur Custom Provider: ${error.message}`);
     }
   }
@@ -369,12 +478,20 @@ export class WebSearchService {
    */
   async fetchUrlContent(url: string, timeout = 10000): Promise<string> {
     try {
+      logger.info('websearch', 'Fetch URL - Récupération contenu', url, { timeout });
+
       const response = await axios.get(url, {
         timeout,
         headers: {
           'User-Agent': 'BlackIA/1.0 (Desktop App)',
         },
         maxContentLength: 1024 * 1024, // 1MB max
+      });
+
+      logger.debug('websearch', 'Fetch URL - Réponse reçue', `Status: ${response.status}, Taille: ${response.data.length} octets`, {
+        status: response.status,
+        contentLength: response.data.length,
+        contentType: response.headers['content-type']
       });
 
       // Extraire le texte du HTML (simple, pas de parsing complexe)
@@ -386,9 +503,22 @@ export class WebSearchService {
         .replace(/\s+/g, ' ')
         .trim();
 
-      return text.substring(0, 10000); // Max 10k caractères
+      const finalText = text.substring(0, 10000); // Max 10k caractères
+
+      logger.success('websearch', 'Fetch URL - Contenu extrait', `${finalText.length} caractères`, {
+        url,
+        textLength: finalText.length,
+        originalLength: text.length
+      });
+
+      return finalText;
     } catch (error: any) {
-      console.error('[WebSearch] Erreur fetch URL:', error.message);
+      logger.error('websearch', 'Erreur fetch URL', error.message, {
+        url,
+        error: error.message,
+        stack: error.stack,
+        code: error.code
+      });
       throw new Error(`Erreur fetch URL: ${error.message}`);
     }
   }
