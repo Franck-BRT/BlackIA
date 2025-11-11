@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
-import { Globe, Plus, Trash2, Key, Check, X, AlertCircle } from 'lucide-react';
+import { Globe, Plus, Trash2, Key, Check, X, AlertCircle, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { useSettings } from '../../contexts/SettingsContext';
 import type { WebSearchProviderConfig } from '@blackia/shared';
+
+interface TestResult {
+  success: boolean;
+  message: string;
+  resultsCount?: number;
+}
 
 export function WebSearchSettings() {
   const { settings, updateWebSearchSettings } = useSettings();
@@ -14,6 +20,8 @@ export function WebSearchSettings() {
     apiKey: '',
     description: '',
   });
+  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, TestResult>>({});
 
   const handleToggleWebSearch = (enabled: boolean) => {
     updateWebSearchSettings({ enabled });
@@ -79,6 +87,58 @@ export function WebSearchSettings() {
     // Si c'était le provider par défaut, revenir à duckduckgo
     if (settings.webSearch.defaultProvider === providerId) {
       updateWebSearchSettings({ defaultProvider: 'duckduckgo' });
+    }
+  };
+
+  const handleTestConnection = async (provider: WebSearchProviderConfig) => {
+    setTestingProvider(provider.id);
+    setTestResults((prev) => {
+      const { [provider.id]: _, ...rest } = prev;
+      return rest;
+    });
+
+    try {
+      const result = await window.electronAPI.webSearch.search(
+        'test connection',
+        provider,
+        {
+          maxResults: 3,
+          language: settings.webSearch.language,
+          region: settings.webSearch.region,
+          safeSearch: settings.webSearch.safeSearch,
+          timeout: settings.webSearch.timeout,
+        }
+      );
+
+      if (result.success && result.data) {
+        setTestResults((prev) => ({
+          ...prev,
+          [provider.id]: {
+            success: true,
+            message: `Connexion réussie ! ${result.data.results.length} résultat(s) trouvé(s).`,
+            resultsCount: result.data.results.length,
+          },
+        }));
+      } else {
+        setTestResults((prev) => ({
+          ...prev,
+          [provider.id]: {
+            success: false,
+            message: 'Échec de la recherche. Vérifiez la configuration.',
+          },
+        }));
+      }
+    } catch (error) {
+      console.error('[WebSearchSettings] Test error:', error);
+      setTestResults((prev) => ({
+        ...prev,
+        [provider.id]: {
+          success: false,
+          message: error instanceof Error ? error.message : 'Erreur de connexion',
+        },
+      }));
+    } finally {
+      setTestingProvider(null);
     }
   };
 
@@ -252,26 +312,87 @@ export function WebSearchSettings() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    {!isDefault && provider.enabled && (needsApiKey ? hasApiKey : true) && (
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-2">
+                      {!isDefault && provider.enabled && (needsApiKey ? hasApiKey : true) && (
+                        <button
+                          onClick={() => handleSetDefaultProvider(provider.id)}
+                          className="px-3 py-1.5 rounded-lg glass-hover text-sm whitespace-nowrap"
+                        >
+                          Définir par défaut
+                        </button>
+                      )}
+                      {provider.type === 'custom' && (
+                        <button
+                          onClick={() => handleDeleteCustomProvider(provider.id)}
+                          className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Test Connection Button */}
+                    {provider.enabled && (needsApiKey ? hasApiKey : true) && (
                       <button
-                        onClick={() => handleSetDefaultProvider(provider.id)}
-                        className="px-3 py-1.5 rounded-lg glass-hover text-sm"
+                        onClick={() => handleTestConnection(provider)}
+                        disabled={testingProvider === provider.id}
+                        className="px-3 py-1.5 rounded-lg glass-hover text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                       >
-                        Définir par défaut
-                      </button>
-                    )}
-                    {provider.type === 'custom' && (
-                      <button
-                        onClick={() => handleDeleteCustomProvider(provider.id)}
-                        className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
-                        title="Supprimer"
-                      >
-                        <Trash2 className="w-4 h-4" />
+                        {testingProvider === provider.id ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Test en cours...
+                          </>
+                        ) : (
+                          <>
+                            <Globe className="w-4 h-4" />
+                            Tester
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
                 </div>
+
+                {/* Test Result */}
+                {testResults[provider.id] && (
+                  <div
+                    className={`mt-3 p-3 rounded-lg flex items-start gap-3 ${
+                      testResults[provider.id].success
+                        ? 'bg-green-500/10 border border-green-500/30'
+                        : 'bg-red-500/10 border border-red-500/30'
+                    }`}
+                  >
+                    {testResults[provider.id].success ? (
+                      <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1">
+                      <p
+                        className={`text-sm font-medium ${
+                          testResults[provider.id].success ? 'text-green-400' : 'text-red-400'
+                        }`}
+                      >
+                        {testResults[provider.id].message}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setTestResults((prev) => {
+                          const { [provider.id]: _, ...rest } = prev;
+                          return rest;
+                        });
+                      }}
+                      className="p-1 hover:bg-white/10 rounded transition-colors"
+                      title="Fermer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
