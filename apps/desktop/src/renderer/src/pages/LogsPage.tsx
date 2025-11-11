@@ -218,7 +218,7 @@ export function LogsPage() {
             <div>
               <h1 className="text-2xl font-bold">Logs Système</h1>
               <p className="text-sm text-muted-foreground">
-                {stats ? `${stats.total} logs` : 'Historique de l'application'}
+                {stats ? `${stats.total} logs` : "Historique de l'application"}
               </p>
             </div>
           </div>
