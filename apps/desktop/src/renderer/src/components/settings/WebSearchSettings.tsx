@@ -98,8 +98,11 @@ export function WebSearchSettings() {
     });
 
     try {
+      // Utiliser une requête simple qui devrait retourner des résultats
+      const testQuery = 'wikipedia';
+
       const result = await window.electronAPI.webSearch.search(
-        'test connection',
+        testQuery,
         provider,
         {
           maxResults: 3,
@@ -111,14 +114,29 @@ export function WebSearchSettings() {
       );
 
       if (result.success && result.data) {
-        setTestResults((prev) => ({
-          ...prev,
-          [provider.id]: {
-            success: true,
-            message: `Connexion réussie ! ${result.data.results.length} résultat(s) trouvé(s).`,
-            resultsCount: result.data.results.length,
-          },
-        }));
+        if (result.data.results.length > 0) {
+          setTestResults((prev) => ({
+            ...prev,
+            [provider.id]: {
+              success: true,
+              message: `Connexion réussie ! ${result.data.results.length} résultat(s) trouvé(s).`,
+              resultsCount: result.data.results.length,
+            },
+          }));
+        } else {
+          // Connexion OK mais 0 résultat - probablement une limitation de l'API
+          setTestResults((prev) => ({
+            ...prev,
+            [provider.id]: {
+              success: false,
+              message: `Connexion établie mais aucun résultat retourné. ${
+                provider.type === 'duckduckgo'
+                  ? "L'API DuckDuckGo Instant Answer peut avoir des limitations. Essayez Brave Search pour de meilleurs résultats."
+                  : 'Vérifiez la configuration de votre provider.'
+              }`,
+            },
+          }));
+        }
       } else {
         setTestResults((prev) => ({
           ...prev,
