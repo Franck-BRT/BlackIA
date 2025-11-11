@@ -30,6 +30,7 @@ interface WorkflowCanvasProps {
   onStartConnection: (nodeId: string, e: React.MouseEvent) => void;
   onEndConnection: (nodeId: string) => void;
   onDeleteEdge: (edgeId: string) => void;
+  onEdgeDoubleClick?: (edge: WorkflowEdge) => void;
   onAnnotationMouseDown?: (annotationId: string, e: React.MouseEvent) => void;
   onAnnotationDoubleClick?: (annotationId: string) => void;
   onAnnotationContentChange?: (annotationId: string, content: string) => void;
@@ -60,6 +61,7 @@ export function WorkflowCanvas({
   onStartConnection,
   onEndConnection,
   onDeleteEdge,
+  onEdgeDoubleClick,
   onAnnotationMouseDown,
   onAnnotationDoubleClick,
   onAnnotationContentChange,
@@ -171,6 +173,10 @@ export function WorkflowCanvas({
                   stroke="transparent"
                   strokeWidth={20}
                   style={{ cursor: 'pointer' }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    onEdgeDoubleClick?.(edge);
+                  }}
                 />
 
                 {/* Path visible */}
@@ -181,6 +187,7 @@ export function WorkflowCanvas({
                   strokeWidth={2}
                   className="group-hover:stroke-purple-400 transition-colors"
                   markerEnd="url(#arrowhead)"
+                  style={{ pointerEvents: 'none' }}
                 />
 
                 {/* Bouton de suppression au milieu de la connexion */}
