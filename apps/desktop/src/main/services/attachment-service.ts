@@ -312,6 +312,76 @@ export class AttachmentService {
         ragMode,
       });
 
+      // 9. Index automatiquement pour RAG si du texte a été extrait
+      if (extractedText && extractedText.length > 0 && (ragMode === 'text' || ragMode === 'hybrid')) {
+        console.log('[AttachmentService] 🔍 Auto-indexing for RAG...');
+
+        // Import dynamique pour éviter les dépendances circulaires
+        const { textRAGService } = await import('./text-rag-service');
+
+        try {
+          const indexResult = await textRAGService.indexDocument({
+            attachmentId: id,
+            text: extractedText,
+            entityType: params.entityType,
+            entityId: params.entityId,
+            model: 'nomic-embed-text',
+            chunkingOptions: {
+              chunkSize: 500,
+              chunkOverlap: 50,
+              separator: '\n\n',
+            },
+          });
+
+          if (indexResult.success) {
+            console.log('[AttachmentService] ✅ Auto-indexed:', {
+              chunks: indexResult.chunkCount,
+              tokens: indexResult.totalTokens,
+            });
+
+            // Mettre à jour le statut d'indexation dans la DB
+            await db
+              .update(attachments)
+              .set({
+                isIndexedText: true,
+                textEmbeddingModel: 'nomic-embed-text',
+                textChunkCount: indexResult.chunkCount,
+                lastIndexedAt: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(eq(attachments.id, id));
+
+            // Mettre à jour l'objet de retour
+            newAttachment.isIndexedText = true;
+            newAttachment.textEmbeddingModel = 'nomic-embed-text';
+            newAttachment.textChunkCount = indexResult.chunkCount;
+            newAttachment.lastIndexedAt = new Date();
+          } else {
+            console.warn('[AttachmentService] ⚠️ Auto-indexing failed:', indexResult.error);
+
+            // Enregistrer l'erreur dans la DB
+            await db
+              .update(attachments)
+              .set({
+                indexingError: indexResult.error,
+                updatedAt: new Date(),
+              })
+              .where(eq(attachments.id, id));
+          }
+        } catch (indexError) {
+          console.error('[AttachmentService] ❌ Auto-indexing error:', indexError);
+
+          // Enregistrer l'erreur dans la DB
+          await db
+            .update(attachments)
+            .set({
+              indexingError: String(indexError),
+              updatedAt: new Date(),
+            })
+            .where(eq(attachments.id, id));
+        }
+      }
+
       // Return with parsed fields
       return {
         ...newAttachment,
