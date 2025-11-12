@@ -140,36 +140,44 @@ export class HybridRAGService {
     });
 
     // Convertir en format commun pour RRF
-    const textItems = textResults.map((r) => ({
+    type RRFItem = { id: string; score: number; original: TextRAGResult | VisionRAGResult };
+
+    const textItems: RRFItem[] = textResults.map((r) => ({
       id: `text:${r.chunkId}`,
       score: r.score,
       original: r,
     }));
 
-    const visionItems = visionResults.map((r) => ({
+    const visionItems: RRFItem[] = visionResults.map((r) => ({
       id: `vision:${r.patchId}`,
       score: r.score,
       original: r,
     }));
 
-    // Appliquer RRF
-    const fusedItems = reciprocalRankFusion(textItems, visionItems, this.defaultK);
+    // Appliquer RRF avec type assertion
+    const fusedItems = reciprocalRankFusion<RRFItem>(textItems as any, visionItems as any, this.defaultK);
 
     // Convertir en HybridRAGResult
     const hybridResults: HybridRAGResult[] = fusedItems.slice(0, topK).map((item) => {
       const isText = item.id.startsWith('text:');
 
       if (isText) {
-        const textResult = item.original as TextRAGResult;
-        return {
-          id: item.id,
-          attachmentId: textResult.attachmentId,
-          score: item.score, // RRF score
-          source: 'text' as const,
-          textResult,
-          metadata: textResult.metadata,
-        };
-      } else {
+        // Vérifier que c'est bien un TextRAGResult
+        if ('chunkId' in item.original) {
+          const textResult = item.original as TextRAGResult;
+          return {
+            id: item.id,
+            attachmentId: textResult.attachmentId,
+            score: item.score, // RRF score
+            source: 'text' as const,
+            textResult,
+            metadata: textResult.metadata,
+          };
+        }
+      }
+
+      // C'est un VisionRAGResult
+      if ('patchId' in item.original) {
         const visionResult = item.original as VisionRAGResult;
         return {
           id: item.id,
@@ -180,6 +188,9 @@ export class HybridRAGService {
           metadata: visionResult.metadata,
         };
       }
+
+      // Fallback (ne devrait jamais arriver)
+      throw new Error('Invalid fusion item type');
     });
 
     console.log('[HybridRAG] RRF fusion completed:', {

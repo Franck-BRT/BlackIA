@@ -1,12 +1,24 @@
 import { eq, and } from 'drizzle-orm';
 import { getDatabase } from '../database/client';
-import { attachments, type Attachment, type NewAttachment } from '../database/schema';
+import { attachments, type NewAttachment } from '../database/schema';
 import { randomUUID } from 'crypto';
 import path from 'path';
 import fs from 'fs/promises';
 import { app } from 'electron';
 import type { EntityType, RAGMode } from '../types/rag';
 import { recommendRAGMode } from '../../renderer/src/types/attachment';
+
+/**
+ * Attachment with parsed JSON fields
+ * DB stores tags/metadata as JSON strings, we parse them here
+ */
+export type AttachmentWithParsedFields = Omit<
+  ReturnType<typeof attachments.$inferSelect>,
+  'tags' | 'extractedMetadata'
+> & {
+  tags: string[];
+  extractedMetadata?: Record<string, unknown>;
+};
 
 /**
  * Attachment Service
@@ -52,7 +64,7 @@ export class AttachmentService {
     entityId: string;
     tags?: string[];
     extractedText?: string;
-  }): Promise<Attachment> {
+  }): Promise<AttachmentWithParsedFields> {
     try {
       const db = getDatabase();
       const now = new Date();
@@ -115,7 +127,12 @@ export class AttachmentService {
         ragMode,
       });
 
-      return newAttachment as Attachment;
+      // Return with parsed fields
+      return {
+        ...newAttachment,
+        tags: params.tags || [],
+        extractedMetadata: undefined,
+      } as AttachmentWithParsedFields;
     } catch (error) {
       console.error('[AttachmentService] Upload error:', error);
       throw error;
@@ -125,7 +142,7 @@ export class AttachmentService {
   /**
    * Récupérer un attachment par ID
    */
-  async getById(id: string): Promise<Attachment | null> {
+  async getById(id: string): Promise<AttachmentWithParsedFields | null> {
     try {
       const db = getDatabase();
       const result = await db.select().from(attachments).where(eq(attachments.id, id)).limit(1);
@@ -142,7 +159,7 @@ export class AttachmentService {
         extractedMetadata: attachment.extractedMetadata
           ? JSON.parse(attachment.extractedMetadata as string)
           : undefined,
-      } as Attachment;
+      } as AttachmentWithParsedFields;
     } catch (error) {
       console.error('[AttachmentService] Get by ID error:', error);
       throw error;
@@ -152,7 +169,7 @@ export class AttachmentService {
   /**
    * Récupérer tous les attachments d'une entité
    */
-  async getByEntity(entityType: EntityType, entityId: string): Promise<Attachment[]> {
+  async getByEntity(entityType: EntityType, entityId: string): Promise<AttachmentWithParsedFields[]> {
     try {
       const db = getDatabase();
       const results = await db
@@ -178,7 +195,7 @@ export class AttachmentService {
   /**
    * Récupérer tous les attachments
    */
-  async getAll(): Promise<Attachment[]> {
+  async getAll(): Promise<AttachmentWithParsedFields[]> {
     try {
       const db = getDatabase();
       const results = await db.select().from(attachments).orderBy(attachments.createdAt);
@@ -202,8 +219,8 @@ export class AttachmentService {
    */
   async update(
     id: string,
-    updates: Partial<Omit<Attachment, 'id' | 'createdAt' | 'updatedAt'>>
-  ): Promise<Attachment> {
+    updates: Partial<Omit<AttachmentWithParsedFields, 'id' | 'createdAt' | 'updatedAt'>>
+  ): Promise<AttachmentWithParsedFields> {
     try {
       const db = getDatabase();
       const now = new Date();
@@ -240,7 +257,7 @@ export class AttachmentService {
   /**
    * Ajouter des tags à un attachment
    */
-  async addTags(id: string, newTags: string[]): Promise<Attachment> {
+  async addTags(id: string, newTags: string[]): Promise<AttachmentWithParsedFields> {
     try {
       const attachment = await this.getById(id);
       if (!attachment) {
@@ -260,7 +277,7 @@ export class AttachmentService {
   /**
    * Retirer des tags d'un attachment
    */
-  async removeTags(id: string, tagsToRemove: string[]): Promise<Attachment> {
+  async removeTags(id: string, tagsToRemove: string[]): Promise<AttachmentWithParsedFields> {
     try {
       const attachment = await this.getById(id);
       if (!attachment) {
@@ -320,7 +337,7 @@ export class AttachmentService {
   /**
    * Rechercher des attachments par tags
    */
-  async searchByTags(tags: string[]): Promise<Attachment[]> {
+  async searchByTags(tags: string[]): Promise<AttachmentWithParsedFields[]> {
     try {
       const allAttachments = await this.getAll();
 
@@ -338,7 +355,7 @@ export class AttachmentService {
   /**
    * Rechercher des attachments par nom
    */
-  async searchByName(query: string): Promise<Attachment[]> {
+  async searchByName(query: string): Promise<AttachmentWithParsedFields[]> {
     try {
       const allAttachments = await this.getAll();
       const lowerQuery = query.toLowerCase();

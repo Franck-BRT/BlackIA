@@ -69,6 +69,7 @@ export interface RAGSearchParams {
   topK?: number;
   minScore?: number;
   filters?: RAGSearchFilters;
+  mode?: RAGMode; // Pour hybrid search: 'text', 'vision', 'hybrid', ou 'auto'
 }
 
 /**
