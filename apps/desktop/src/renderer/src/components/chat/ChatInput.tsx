@@ -5,6 +5,7 @@ import { PromptMentionDropdown } from './PromptMentionDropdown';
 import { PromptVariablesModal } from '../prompts/PromptVariablesModal';
 import { AttachmentButton } from '../attachments/AttachmentButton';
 import { AttachmentPreview } from '../attachments/AttachmentPreview';
+import { AttachmentViewer } from '../attachments/AttachmentViewer';
 import { RAGToggle } from './RAGToggle';
 import type { Persona } from '../../types/persona';
 import type { Prompt } from '../../types/prompt';
@@ -15,6 +16,7 @@ import { usePersonaSuggestions } from '../../hooks/usePersonaSuggestions';
 import { usePrompts } from '../../hooks/usePrompts';
 import { useAttachments } from '../../hooks/useAttachments';
 import { useRAG } from '../../hooks/useRAG';
+import { useAttachmentViewer } from '../../hooks/useAttachmentViewer';
 
 interface ChatInputProps {
   onSend: (
@@ -102,6 +104,9 @@ export function ChatInput({
     topK: 5,
     minScore: 0.7,
   });
+
+  // Hook pour le viewer d'attachments
+  const viewer = useAttachmentViewer();
 
   // Filtrer uniquement les keywords actifs si nécessaire
   const activeKeywords = settings.personaSuggestions.showOnlyActive
@@ -544,6 +549,7 @@ export function ChatInput({
   const totalFewShots = selectedPersonas.reduce((sum, p) => sum + (p.fewShotExamples?.length || 0), 0);
 
   return (
+    <>
     <form ref={formRef} onSubmit={handleSubmit} className="glass-card rounded-2xl p-4 relative">
       {/* Dropdown de mention @persona */}
       {showMentionDropdown && (
@@ -705,6 +711,7 @@ export function ChatInput({
               key={attachment.id}
               attachment={attachment}
               onRemove={() => handleRemoveAttachment(attachment.id)}
+              onView={() => viewer.openViewer(attachment, uploadedAttachments)}
               compact
               showActions
             />
@@ -765,5 +772,17 @@ export function ChatInput({
         )}
       </div>
     </form>
+
+    {/* Viewer modal pour voir les fichiers en plein écran */}
+    {viewer.isOpen && viewer.currentAttachment && (
+      <AttachmentViewer
+        attachment={viewer.currentAttachment}
+        attachments={viewer.allAttachments}
+        currentIndex={viewer.currentIndex}
+        onClose={viewer.closeViewer}
+        onNavigate={viewer.navigateToIndex}
+      />
+    )}
+  </>
   );
 }
