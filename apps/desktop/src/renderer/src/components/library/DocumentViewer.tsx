@@ -46,9 +46,9 @@ export function DocumentViewer({ document, onClose, onReindex, onValidate }: Doc
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex bg-neutral-950">
+    <div className="fixed inset-0 z-50 flex flex-col bg-neutral-950">
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 h-16 bg-neutral-900/95 backdrop-blur-sm border-b border-neutral-800 flex items-center justify-between px-6 z-10">
+      <div className="flex-none h-16 bg-neutral-900/95 backdrop-blur-sm border-b border-neutral-800 flex items-center justify-between px-6">
         <div className="flex items-center gap-4">
           <button
             onClick={onClose}
@@ -149,8 +149,8 @@ export function DocumentViewer({ document, onClose, onReindex, onValidate }: Doc
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex pt-16">
+      {/* Content - Takes remaining space */}
+      <div className="flex-1 flex min-h-0">
         {/* Source Panel */}
         {(viewMode === 'source' || viewMode === 'split') && (
           <div className={`${viewMode === 'split' ? 'w-1/2' : 'w-full'} border-r border-neutral-800 overflow-auto`}>
@@ -204,7 +204,7 @@ export function DocumentViewer({ document, onClose, onReindex, onValidate }: Doc
 
       {/* Validation Panel */}
       {showValidationPanel && (
-        <div className="absolute bottom-0 left-0 right-0 bg-neutral-900/95 backdrop-blur-sm border-t border-neutral-800 p-6">
+        <div className="flex-none bg-neutral-900/95 backdrop-blur-sm border-t border-neutral-800 p-6">
           <h3 className="text-sm font-medium text-neutral-200 mb-4">Validation du document</h3>
           <textarea
             value={validationNotes}
