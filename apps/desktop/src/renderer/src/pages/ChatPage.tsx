@@ -585,6 +585,8 @@ export function ChatPage() {
               }}
               prefillPersonaId={prefillPersonaId}
               prefillIncludeFewShots={prefillIncludeFewShots}
+              conversationId={currentConversationId || undefined}
+              ragEnabled={true}
             />
           </div>
         </div>
