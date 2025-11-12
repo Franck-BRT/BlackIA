@@ -17,11 +17,13 @@ import { registerLogHandlers } from './handlers/log-handlers';
 import { registerTextRAGHandlers } from './handlers/text-rag-handlers';
 import { registerVisionRAGHandlers } from './handlers/vision-rag-handlers';
 import { registerHybridRAGHandlers } from './handlers/hybrid-rag-handlers';
+import { registerAttachmentHandlers } from './handlers/attachment-handlers';
 import { initDatabase, runMigrations } from './database/client';
 import { DocumentationService } from './services/documentation-db-service';
 import { WorkflowTemplateService } from './services/workflow-db-service';
 import { logService, logger } from './services/log-service';
 import { vectorStore } from './services/vector-store';
+import { attachmentService } from './services/attachment-service';
 
 // __dirname and __filename are available in CommonJS mode
 
@@ -154,6 +156,11 @@ app.whenReady().then(async () => {
     await vectorStore.initialize();
     console.log('[App] ✅ Vector Store initialized');
 
+    // Initialiser le service attachments
+    console.log('[App] Initializing Attachment Service...');
+    await attachmentService.initialize();
+    console.log('[App] ✅ Attachment Service initialized');
+
     // Enregistrer les handlers IPC
     console.log('[App] Registering IPC handlers...');
     registerOllamaHandlers();
@@ -169,6 +176,7 @@ app.whenReady().then(async () => {
     registerTextRAGHandlers(); // Text RAG
     registerVisionRAGHandlers(); // Vision RAG
     registerHybridRAGHandlers(); // Hybrid RAG
+    registerAttachmentHandlers(); // Attachments
     console.log('[App] ✅ IPC handlers registered');
 
     console.log('[App] =====================================');
