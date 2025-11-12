@@ -51,7 +51,9 @@
     "axios": "^1.6.0",
     "cheerio": "^1.0.0-rc.12",
     "pdf-parse": "^1.1.1",
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "vectordb": "^0.4.14",
+    "python-shell": "^5.0.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.0",
