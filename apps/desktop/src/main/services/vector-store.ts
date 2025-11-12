@@ -216,6 +216,149 @@ export class VectorStoreService {
   }
 
   /**
+   * VISION RAG: Recherche avec late interaction (MaxSim) pour Colette/ColPali
+   * Implémente le MaxSim proprement : pour chaque document, on calcule max(sim) pour chaque
+   * token de la query, puis on somme les max pour obtenir le score final
+   */
+  async searchVisionPatchesWithMaxSim(
+    queryEmbedding: number[][], // [query_patches, dims]
+    topK: number = 10,
+    filters?: RAGSearchFilters
+  ): Promise<VisionRAGResult[]> {
+    if (!this.visionCollection) {
+      console.warn('[VectorStore] No vision collection available');
+      return [];
+    }
+
+    try {
+      console.log('[VectorStore] MaxSim search with query shape:', [
+        queryEmbedding.length,
+        queryEmbedding[0]?.length || 0,
+      ]);
+
+      // 1. Récupérer tous les candidats (on pourrait optimiser avec un pre-filtering)
+      let query = this.visionCollection.limit(1000); // Limit to avoid memory issues
+
+      // Appliquer les filtres
+      if (filters) {
+        if (filters.entityType) {
+          query = query.where(`entityType = '${filters.entityType}'`);
+        }
+        if (filters.entityId) {
+          query = query.where(`entityId = '${filters.entityId}'`);
+        }
+        if (filters.attachmentIds && filters.attachmentIds.length > 0) {
+          const attachmentFilter = filters.attachmentIds
+            .map((id) => `'${id}'`)
+            .join(', ');
+          query = query.where(`attachmentId IN (${attachmentFilter})`);
+        }
+      }
+
+      const candidates = await query.execute();
+
+      console.log('[VectorStore] Found', candidates.length, 'candidates for MaxSim');
+
+      // 2. Calculer MaxSim pour chaque document
+      const scoredResults = candidates.map((row: any) => {
+        const patchVectors = typeof row.patchVectors === 'string'
+          ? JSON.parse(row.patchVectors)
+          : row.patchVectors;
+
+        // Calculer MaxSim
+        const maxSimScore = this.computeMaxSim(queryEmbedding, patchVectors);
+
+        const metadata = typeof row.metadata === 'string'
+          ? JSON.parse(row.metadata)
+          : row.metadata;
+
+        return {
+          patchId: row.id,
+          attachmentId: row.attachmentId,
+          pageIndex: row.pageIndex,
+          patchIndex: 0,
+          score: maxSimScore,
+          patchVectors,
+          metadata: {
+            originalName: metadata.originalName || '',
+            entityType: row.entityType as EntityType,
+            pageNumber: row.pageIndex + 1,
+            imageBase64: row.imageBase64,
+          },
+        };
+      });
+
+      // 3. Trier par score décroissant et prendre top K
+      scoredResults.sort((a, b) => b.score - a.score);
+      const topResults = scoredResults.slice(0, topK);
+
+      console.log('[VectorStore] MaxSim top scores:', topResults.slice(0, 3).map((r) => r.score));
+
+      return topResults;
+    } catch (error) {
+      console.error('[VectorStore] Error in MaxSim search:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Calculer le MaxSim score entre query patches et document patches
+   * MaxSim(Q, D) = Σ_i max_j cos_sim(q_i, d_j)
+   */
+  private computeMaxSim(queryPatches: number[][], docPatches: number[][]): number {
+    if (!queryPatches.length || !docPatches.length) {
+      return 0;
+    }
+
+    let totalScore = 0;
+
+    // Pour chaque patch de la query
+    for (const qPatch of queryPatches) {
+      let maxSim = -Infinity;
+
+      // Trouver le max de similarité avec tous les patches du document
+      for (const dPatch of docPatches) {
+        const sim = this.cosineSimilarity(qPatch, dPatch);
+        maxSim = Math.max(maxSim, sim);
+      }
+
+      // Sommer les max
+      totalScore += maxSim;
+    }
+
+    return totalScore;
+  }
+
+  /**
+   * Calculer la similarité cosinus entre deux vecteurs
+   */
+  private cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length) {
+      console.warn('[VectorStore] Vector length mismatch in cosine similarity');
+      return 0;
+    }
+
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+
+    normA = Math.sqrt(normA);
+    normB = Math.sqrt(normB);
+
+    if (normA === 0 || normB === 0) {
+      return 0;
+    }
+
+    return dotProduct / (normA * normB);
+  }
+
+  /**
    * VISION RAG: Recherche avec late interaction (MaxSim)
    * NOTE: Le MaxSim sera calculé côté Python, ici on fait une recherche ANN classique
    */
