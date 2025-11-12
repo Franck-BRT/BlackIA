@@ -320,8 +320,16 @@ export function formatFileSize(bytes: number): string {
 
 /**
  * Helper pour recommander le mode RAG selon MIME type
+ *
+ * @param mimeType - Le type MIME du fichier
+ * @param extractedText - Le texte extrait du fichier (optionnel)
+ * @param textThreshold - Seuil de caractères pour considérer un PDF comme textuel (défaut: 500)
  */
-export function recommendRAGMode(mimeType: string, extractedText?: string): RAGMode {
+export function recommendRAGMode(
+  mimeType: string,
+  extractedText?: string,
+  textThreshold: number = 500
+): RAGMode {
   // Images → vision obligatoire
   if (mimeType.startsWith('image/')) {
     return 'vision';
@@ -343,12 +351,15 @@ export function recommendRAGMode(mimeType: string, extractedText?: string): RAGM
 
   // PDF → analyser ratio texte/visuel
   if (mimeType === 'application/pdf') {
-    if (extractedText && extractedText.length > 1000) {
-      // Si beaucoup de texte extrait → probablement textuel
+    if (!extractedText || extractedText.length === 0) {
+      // Pas de texte extrait → PDF scanné/image
+      return 'vision';
+    } else if (extractedText.length > textThreshold) {
+      // Beaucoup de texte → principalement textuel
       return 'text';
     } else {
-      // Sinon → probablement des schémas/images
-      return 'vision';
+      // Peu de texte → utiliser hybrid (texte + vision)
+      return 'hybrid';
     }
   }
 
