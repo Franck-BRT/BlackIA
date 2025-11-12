@@ -396,3 +396,155 @@ export const attachmentsIndexedVisionIndex = index('attachments_indexed_vision_i
 
 export type Attachment = typeof attachments.$inferSelect;
 export type NewAttachment = typeof attachments.$inferInsert;
+
+/**
+ * Table Libraries
+ * Bibliothèques de documents avec configuration RAG personnalisée
+ */
+export const libraries = sqliteTable('libraries', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull().default(''),
+
+  // Apparence
+  color: text('color').notNull().default('blue'), // Comme folders
+  icon: text('icon').notNull().default('📚'), // Emoji ou icône
+
+  // Configuration RAG (JSON)
+  ragConfig: text('rag_config').notNull().default('{}'), // JSON object avec chunkSize, overlap, models, etc.
+
+  // Stockage
+  storagePath: text('storage_path').notNull(), // Chemin personnalisé ou défaut
+
+  // Statistiques (dénormalisé pour performance)
+  documentCount: integer('document_count').notNull().default(0),
+  totalSize: integer('total_size').notNull().default(0), // bytes
+  totalChunks: integer('total_chunks').notNull().default(0),
+  totalPatches: integer('total_patches').notNull().default(0),
+
+  // Tags autorisés (filtrage)
+  allowedTags: text('allowed_tags').notNull().default('[]'), // JSON array
+
+  // Métadonnées
+  isFavorite: integer('is_favorite', { mode: 'boolean' }).notNull().default(false),
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Index pour recherche rapide
+export const librariesNameIndex = index('libraries_name_idx').on(libraries.name);
+
+export type Library = typeof libraries.$inferSelect;
+export type NewLibrary = typeof libraries.$inferInsert;
+
+/**
+ * Table LibraryDocuments
+ * Documents dans les bibliothèques avec validation RAG
+ */
+export const libraryDocuments = sqliteTable('library_documents', {
+  id: text('id').primaryKey(),
+  libraryId: text('library_id')
+    .notNull()
+    .references(() => libraries.id, { onDelete: 'cascade' }),
+
+  // Métadonnées fichier (similaire à attachments)
+  filename: text('filename').notNull(),
+  originalName: text('original_name').notNull(),
+  mimeType: text('mime_type').notNull(),
+  size: integer('size').notNull(),
+
+  // Chemins
+  filePath: text('file_path').notNull(),
+  thumbnailPath: text('thumbnail_path'),
+
+  // Contenu extrait
+  extractedText: text('extracted_text'),
+  extractedMetadata: text('extracted_metadata'), // JSON
+
+  // Tags
+  tags: text('tags').notNull().default('[]'), // JSON array
+
+  // RAG configuration
+  ragMode: text('rag_mode', {
+    enum: ['text', 'vision', 'hybrid', 'none']
+  }).notNull().default('text'),
+
+  // TEXT RAG
+  isIndexedText: integer('is_indexed_text', { mode: 'boolean' }).notNull().default(false),
+  textEmbeddingModel: text('text_embedding_model'),
+  textChunkCount: integer('text_chunk_count').notNull().default(0),
+
+  // VISION RAG
+  isIndexedVision: integer('is_indexed_vision', { mode: 'boolean' }).notNull().default(false),
+  visionEmbeddingModel: text('vision_embedding_model'),
+  visionPatchCount: integer('vision_patch_count').notNull().default(0),
+  pageCount: integer('page_count').notNull().default(0),
+
+  // Validation RAG
+  validationStatus: text('validation_status', {
+    enum: ['pending', 'validated', 'needs_review', 'rejected']
+  }).notNull().default('pending'),
+  validatedBy: text('validated_by'),
+  validatedAt: integer('validated_at', { mode: 'timestamp' }),
+  validationNotes: text('validation_notes'),
+
+  // Indexation metadata
+  lastIndexedAt: integer('last_indexed_at', { mode: 'timestamp' }),
+  indexingDuration: integer('indexing_duration'), // ms
+  indexingError: text('indexing_error'),
+
+  // Métadonnées
+  uploadedBy: text('uploaded_by'),
+  isAnalyzed: integer('is_analyzed', { mode: 'boolean' }).notNull().default(false),
+  isFavorite: integer('is_favorite', { mode: 'boolean' }).notNull().default(false),
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Index pour requêtes fréquentes
+export const libraryDocumentsLibraryIndex = index('library_documents_library_idx').on(
+  libraryDocuments.libraryId
+);
+export const libraryDocumentsValidationIndex = index('library_documents_validation_idx').on(
+  libraryDocuments.validationStatus
+);
+export const libraryDocumentsRagModeIndex = index('library_documents_rag_mode_idx').on(
+  libraryDocuments.ragMode
+);
+
+export type LibraryDocument = typeof libraryDocuments.$inferSelect;
+export type NewLibraryDocument = typeof libraryDocuments.$inferInsert;
+
+/**
+ * Table ManualChunks
+ * Chunks modifiés manuellement pour améliorer le RAG
+ */
+export const manualChunks = sqliteTable('manual_chunks', {
+  id: text('id').primaryKey(),
+  documentId: text('document_id')
+    .notNull()
+    .references(() => libraryDocuments.id, { onDelete: 'cascade' }),
+
+  // Référence au chunk original
+  originalChunkId: text('original_chunk_id').notNull(), // ID du chunk dans LanceDB
+
+  // Contenu modifié
+  modifiedText: text('modified_text').notNull(),
+  reason: text('reason').notNull(), // Pourquoi la modification
+
+  // Métadonnées
+  modifiedBy: text('modified_by').notNull(),
+  modifiedAt: integer('modified_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Index pour accès rapide
+export const manualChunksDocumentIndex = index('manual_chunks_document_idx').on(
+  manualChunks.documentId
+);
+
+export type ManualChunk = typeof manualChunks.$inferSelect;
+export type NewManualChunk = typeof manualChunks.$inferInsert;
