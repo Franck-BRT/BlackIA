@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { Edit2, Trash2, Split, Merge, Plus, AlertCircle } from 'lucide-react';
 import { useChunkEditor, type FullChunk } from '../../hooks/useChunkEditor';
 import { InsertChunkModal } from './InsertChunkModal';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 interface ChunkListProps {
   chunks: FullChunk[];
@@ -30,6 +31,8 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
   const [splitPosition, setSplitPosition] = useState(0);
   const [showInsertModal, setShowInsertModal] = useState(false);
   const [insertAfterChunkId, setInsertAfterChunkId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [chunkToDelete, setChunkToDelete] = useState<string | null>(null);
 
   const handleStartEdit = (chunk: FullChunk) => {
     setEditingChunkId(chunk.id);
@@ -58,13 +61,20 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
     setEditReason('');
   };
 
-  const handleDelete = async (chunkId: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce chunk ?')) {
+  const handleStartDelete = (chunkId: string) => {
+    setChunkToDelete(chunkId);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (chunkToDelete) {
       await deleteChunk({
-        chunkId,
+        chunkId: chunkToDelete,
         documentId,
         reason: 'Deleted by user',
       });
+      setShowDeleteConfirm(false);
+      setChunkToDelete(null);
     }
   };
 
@@ -194,7 +204,7 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDelete(chunk.id);
+                      handleStartDelete(chunk.id);
                     }}
                     className="p-1.5 hover:bg-neutral-700 rounded transition-colors"
                     title="Supprimer"
@@ -333,6 +343,17 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
         isOpen={showInsertModal}
         onClose={() => setShowInsertModal(false)}
         onInsert={handleInsertChunk}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleConfirmDelete}
+        title="Supprimer le chunk"
+        message="Êtes-vous sûr de vouloir supprimer ce chunk ? Cette action est irréversible."
+        confirmText="Supprimer"
+        confirmVariant="danger"
       />
     </div>
   );
