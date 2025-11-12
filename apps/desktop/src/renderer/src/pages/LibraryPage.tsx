@@ -5,15 +5,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { useLibraries } from '../hooks/useLibraries';
-import { useLibraryDocuments } from '../hooks/useLibraryDocuments';
+import { useLibraryDocuments, type LibraryDocument } from '../hooks/useLibraryDocuments';
+import { CreateLibraryModal } from '../components/library/CreateLibraryModal';
+import { DocumentUploadModal } from '../components/library/DocumentUploadModal';
+import { DocumentViewer } from '../components/library/DocumentViewer';
 import type { Library } from '../types/library';
 
 export function LibraryPage() {
   const { libraries, loading, error, createLibrary, updateLibrary, deleteLibrary, refreshLibraries } =
     useLibraries();
-  const { documents, getDocuments } = useLibraryDocuments();
+  const { documents, getDocuments, addDocument, updateDocument, indexDocument } = useLibraryDocuments();
   const [selectedLibrary, setSelectedLibrary] = useState<Library | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<LibraryDocument | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Load documents when library is selected
@@ -27,6 +32,41 @@ export function LibraryPage() {
   const filteredLibraries = libraries.filter((lib) =>
     lib.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Handlers
+  const handleCreateLibrary = async (input: any) => {
+    const library = await createLibrary(input);
+    if (library) {
+      setSelectedLibrary(library);
+    }
+  };
+
+  const handleUploadDocument = async (params: any) => {
+    const doc = await addDocument(params);
+    if (doc && selectedLibrary) {
+      await getDocuments(selectedLibrary.id);
+      await refreshLibraries(); // Refresh stats
+    }
+  };
+
+  const handleReindexDocument = async (documentId: string) => {
+    await indexDocument({ documentId });
+    if (selectedLibrary) {
+      await getDocuments(selectedLibrary.id);
+      await refreshLibraries();
+    }
+  };
+
+  const handleValidateDocument = async (
+    documentId: string,
+    status: 'validated' | 'needs_review' | 'rejected',
+    notes?: string
+  ) => {
+    await updateDocument(documentId, { validationStatus: status, validationNotes: notes });
+    if (selectedLibrary) {
+      await getDocuments(selectedLibrary.id);
+    }
+  };
 
   return (
     <div className="flex h-full bg-neutral-950">
@@ -119,7 +159,10 @@ export function LibraryPage() {
                   <button className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-100 rounded-lg text-sm transition-colors">
                     Paramètres
                   </button>
-                  <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors">
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+                  >
                     + Ajouter document
                   </button>
                 </div>
@@ -166,9 +209,10 @@ export function LibraryPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {documents.map((doc) => (
-                    <div
+                    <button
                       key={doc.id}
-                      className="p-4 bg-neutral-900 rounded-lg border border-neutral-800 hover:border-neutral-700 transition-colors"
+                      onClick={() => setSelectedDocument(doc)}
+                      className="p-4 bg-neutral-900 rounded-lg border border-neutral-800 hover:border-neutral-700 transition-colors text-left w-full"
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1 min-w-0">
@@ -200,7 +244,7 @@ export function LibraryPage() {
                           {getValidationStatusLabel(doc.validationStatus)}
                         </span>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -217,6 +261,32 @@ export function LibraryPage() {
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      <CreateLibraryModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleCreateLibrary}
+      />
+
+      {selectedLibrary && (
+        <DocumentUploadModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          libraryId={selectedLibrary.id}
+          onUpload={handleUploadDocument}
+        />
+      )}
+
+      {/* Document Viewer */}
+      {selectedDocument && (
+        <DocumentViewer
+          document={selectedDocument}
+          onClose={() => setSelectedDocument(null)}
+          onReindex={handleReindexDocument}
+          onValidate={handleValidateDocument}
+        />
+      )}
     </div>
   );
 }
