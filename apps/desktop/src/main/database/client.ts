@@ -173,6 +173,40 @@ function createTablesDirectly() {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS attachments (
+      id TEXT PRIMARY KEY,
+      filename TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      file_path TEXT NOT NULL,
+      thumbnail_path TEXT,
+      extracted_text TEXT,
+      extracted_metadata TEXT,
+      entity_type TEXT NOT NULL CHECK(entity_type IN ('message', 'workflow', 'document', 'persona', 'prompt', 'conversation')),
+      entity_id TEXT NOT NULL,
+      tags TEXT NOT NULL DEFAULT '[]',
+      rag_mode TEXT NOT NULL DEFAULT 'text' CHECK(rag_mode IN ('text', 'vision', 'hybrid', 'none')),
+      is_indexed_text INTEGER NOT NULL DEFAULT 0,
+      text_embedding_model TEXT,
+      text_chunk_count INTEGER NOT NULL DEFAULT 0,
+      is_indexed_vision INTEGER NOT NULL DEFAULT 0,
+      vision_embedding_model TEXT,
+      vision_patch_count INTEGER NOT NULL DEFAULT 0,
+      page_count INTEGER NOT NULL DEFAULT 0,
+      last_indexed_at INTEGER,
+      indexing_duration INTEGER,
+      indexing_error TEXT,
+      uploaded_by TEXT,
+      is_analyzed INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS attachments_entity_idx ON attachments(entity_type, entity_id);
+    CREATE INDEX IF NOT EXISTS attachments_indexed_text_idx ON attachments(is_indexed_text);
+    CREATE INDEX IF NOT EXISTS attachments_indexed_vision_idx ON attachments(is_indexed_vision);
   `);
 
   console.log('[Database] Tables created successfully');
