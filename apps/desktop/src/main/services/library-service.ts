@@ -101,16 +101,22 @@ export class LibraryService {
    * Créer une nouvelle bibliothèque
    */
   async create(input: CreateLibraryInput): Promise<Library> {
+    console.log('[LibraryService] create called with input:', input);
+
     const db = getDatabase();
+    console.log('[LibraryService] Database connection obtained');
+
     const id = randomUUID();
     const now = new Date();
 
     // Storage path: soit custom, soit default/{slug}
     const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
     const storagePath = input.storagePath || path.join(this.defaultStoragePath, slug);
+    console.log('[LibraryService] Storage path:', storagePath);
 
     // Créer le dossier de stockage
     await fs.mkdir(storagePath, { recursive: true });
+    console.log('[LibraryService] Storage directory created');
 
     // RAG config: merge avec default
     const ragConfig = {
@@ -136,7 +142,9 @@ export class LibraryService {
       updatedAt: now,
     };
 
+    console.log('[LibraryService] Inserting library into database...', newLibrary);
     const [library] = await db.insert(libraries).values(newLibrary).returning();
+    console.log('[LibraryService] Library inserted successfully:', library);
 
     console.log('[LibraryService] Library created:', { id, name: input.name });
 

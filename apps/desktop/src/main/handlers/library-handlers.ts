@@ -13,8 +13,10 @@ import type { CreateLibraryInput, UpdateLibraryInput } from '../../renderer/src/
 export function registerLibraryHandlers() {
   // Create library
   ipcMain.handle('library:create', async (_, input: CreateLibraryInput) => {
+    console.log('[IPC] library:create called with input:', input);
     try {
       const library = await libraryService.create(input);
+      console.log('[IPC] library:create success:', library);
       return { success: true, data: library };
     } catch (error) {
       console.error('[IPC] library:create error:', error);

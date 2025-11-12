@@ -62,6 +62,8 @@ export function CreateLibraryModal({ isOpen, onClose, onCreate }: CreateLibraryM
     e.preventDefault();
     setError(null);
 
+    console.log('[CreateLibraryModal] handleSubmit called', formData);
+
     if (!formData.name.trim()) {
       setError('Le nom est requis');
       return;
@@ -69,7 +71,9 @@ export function CreateLibraryModal({ isOpen, onClose, onCreate }: CreateLibraryM
 
     setLoading(true);
     try {
+      console.log('[CreateLibraryModal] Calling onCreate with:', formData);
       await onCreate(formData);
+      console.log('[CreateLibraryModal] onCreate completed successfully');
       onClose();
       // Reset form
       setFormData({
@@ -80,6 +84,7 @@ export function CreateLibraryModal({ isOpen, onClose, onCreate }: CreateLibraryM
         ragConfig: formData.ragConfig,
       });
     } catch (err) {
+      console.error('[CreateLibraryModal] Error in handleSubmit:', err);
       setError(err instanceof Error ? err.message : 'Erreur lors de la création');
     } finally {
       setLoading(false);

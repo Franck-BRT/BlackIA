@@ -48,12 +48,17 @@ export function useLibraries(): UseLibrariesReturn {
   // Create library
   const createLibrary = useCallback(async (input: CreateLibraryInput): Promise<Library | null> => {
     setError(null);
+    console.log('[useLibraries] createLibrary called with input:', input);
     try {
+      console.log('[useLibraries] Calling window.electronAPI.library.create...');
       const result = await window.electronAPI.library.create(input);
+      console.log('[useLibraries] IPC result:', result);
       if (result.success && result.data) {
+        console.log('[useLibraries] Library created successfully, refreshing list...');
         await refreshLibraries();
         return result.data;
       } else {
+        console.error('[useLibraries] Create failed:', result.error);
         setError(result.error || 'Failed to create library');
         return null;
       }

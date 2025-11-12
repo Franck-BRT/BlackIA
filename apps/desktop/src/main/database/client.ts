@@ -66,14 +66,24 @@ export function runMigrations() {
     console.log('[Database] Running migrations...');
 
     const migrationsFolder = path.join(__dirname, 'migrations');
+    console.log('[Database] Migrations folder:', migrationsFolder);
+    console.log('[Database] Migrations folder exists:', fs.existsSync(migrationsFolder));
 
     // Vérifier si les fichiers de migration existent
+    if (fs.existsSync(migrationsFolder)) {
+      const files = fs.readdirSync(migrationsFolder);
+      console.log('[Database] Migration files found:', files);
+    }
+
     const hasMigrations = fs.existsSync(migrationsFolder) &&
                           fs.readdirSync(migrationsFolder).some(f => f.endsWith('.sql'));
 
     if (hasMigrations) {
       migrate(dbInstance, { migrationsFolder });
       console.log('[Database] Migrations completed successfully');
+
+      // Verify library tables exist
+      verifyLibraryTables();
     } else {
       console.log('[Database] No migration files found, creating tables directly...');
       createTablesDirectly();
@@ -210,6 +220,29 @@ function createTablesDirectly() {
   `);
 
   console.log('[Database] Tables created successfully');
+}
+
+/**
+ * Verify library tables exist
+ */
+function verifyLibraryTables() {
+  if (!sqliteInstance) {
+    return;
+  }
+
+  try {
+    const tables = sqliteInstance.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'librar%'"
+    ).all();
+
+    console.log('[Database] Library tables found:', tables);
+
+    if (tables.length === 0) {
+      console.warn('[Database] ⚠️  WARNING: No library tables found after migrations!');
+    }
+  } catch (error) {
+    console.error('[Database] Failed to verify library tables:', error);
+  }
 }
 
 /**
