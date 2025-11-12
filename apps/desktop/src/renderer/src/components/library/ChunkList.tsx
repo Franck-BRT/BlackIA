@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { Edit2, Trash2, Split, Merge, Plus, AlertCircle } from 'lucide-react';
 import { useChunkEditor, type FullChunk } from '../../hooks/useChunkEditor';
+import { InsertChunkModal } from './InsertChunkModal';
 
 interface ChunkListProps {
   chunks: FullChunk[];
@@ -27,6 +28,8 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
   const [editReason, setEditReason] = useState('');
   const [splittingChunkId, setSplittingChunkId] = useState<string | null>(null);
   const [splitPosition, setSplitPosition] = useState(0);
+  const [showInsertModal, setShowInsertModal] = useState(false);
+  const [insertAfterChunkId, setInsertAfterChunkId] = useState<string | null>(null);
 
   const handleStartEdit = (chunk: FullChunk) => {
     setEditingChunkId(chunk.id);
@@ -91,15 +94,17 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
     setSplitPosition(0);
   };
 
-  const handleInsertChunk = async (afterChunkId: string | null) => {
-    const text = prompt('Entrez le texte du nouveau chunk:');
-    if (!text) return;
+  const handleStartInsert = (afterChunkId: string | null) => {
+    setInsertAfterChunkId(afterChunkId);
+    setShowInsertModal(true);
+  };
 
+  const handleInsertChunk = async (text: string, reason: string) => {
     await insertChunk({
       documentId,
-      afterChunkId,
+      afterChunkId: insertAfterChunkId,
       text,
-      reason: 'Manually inserted',
+      reason,
     });
   };
 
@@ -316,12 +321,19 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
 
       {/* Add chunk button */}
       <button
-        onClick={() => handleInsertChunk(chunks.length > 0 ? chunks[chunks.length - 1].id : null)}
+        onClick={() => handleStartInsert(chunks.length > 0 ? chunks[chunks.length - 1].id : null)}
         className="w-full p-4 border-2 border-dashed border-neutral-700 hover:border-neutral-600 rounded-lg text-neutral-400 hover:text-neutral-300 transition-colors flex items-center justify-center gap-2"
       >
         <Plus className="w-4 h-4" />
         Ajouter un chunk
       </button>
+
+      {/* Insert Chunk Modal */}
+      <InsertChunkModal
+        isOpen={showInsertModal}
+        onClose={() => setShowInsertModal(false)}
+        onInsert={handleInsertChunk}
+      />
     </div>
   );
 }
