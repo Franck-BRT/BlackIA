@@ -9,9 +9,15 @@
 export type EntityType = 'message' | 'workflow' | 'document' | 'persona' | 'prompt' | 'conversation';
 
 /**
- * RAG modes
+ * RAG modes stockés en base de données
  */
-export type RAGMode = 'text' | 'vision' | 'hybrid' | 'none' | 'auto';
+export type StoredRAGMode = 'text' | 'vision' | 'hybrid' | 'none';
+
+/**
+ * RAG modes pour les paramètres de recherche
+ * 'auto' permet au système de choisir automatiquement le meilleur mode
+ */
+export type RAGMode = StoredRAGMode | 'auto';
 
 /**
  * Text chunking options
@@ -409,8 +415,9 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 
 /**
  * Helper pour recommander le mode RAG selon MIME type
+ * Retourne un mode concret (jamais 'auto')
  */
-export function recommendRAGMode(mimeType: string, extractedText?: string): RAGMode {
+export function recommendRAGMode(mimeType: string, extractedText?: string): StoredRAGMode {
   // Images → vision obligatoire
   if (mimeType.startsWith('image/')) {
     return 'vision';

@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import fs from 'fs/promises';
 import { app } from 'electron';
-import type { EntityType, RAGMode } from '../types/rag';
+import type { EntityType, StoredRAGMode } from '../types/rag';
 import { recommendRAGMode } from '../types/rag';
 
 /**
