@@ -4,11 +4,13 @@ import { ModelSelector } from './ModelSelector';
 import { ExportMenu } from './ExportMenu';
 import { ImportExportMenu, BackupData } from './ImportExportMenu';
 import { WebSearchToggle } from './WebSearchToggle';
+import { AttachmentHeaderButton } from './AttachmentHeaderButton';
 import type { OllamaMessage } from '@blackia/ollama';
 import type { Persona } from '../../types/persona';
 import { PERSONA_COLOR_CLASSES } from '../../types/persona';
 import type { Conversation, Folder } from '../../hooks/useConversations';
 import type { Tag } from '../../hooks/useTags';
+import type { Attachment } from '../../types/attachment';
 
 interface ChatHeaderProps {
   // UI state
@@ -43,6 +45,7 @@ interface ChatHeaderProps {
   handleClearChat: () => void;
   handleImportConversation: (conversation: any) => void;
   handleImportBackup: (data: BackupData, mode: 'merge' | 'replace') => void;
+  onAttachmentsChange?: (attachments: Attachment[]) => void;
 }
 
 /**
@@ -71,6 +74,7 @@ export function ChatHeader({
   handleClearChat,
   handleImportConversation,
   handleImportBackup,
+  onAttachmentsChange,
 }: ChatHeaderProps) {
   return (
     <div className="flex items-center justify-between p-2 sm:p-4 glass-card border-b border-white/10 relative z-10">
@@ -124,6 +128,16 @@ export function ChatHeader({
             isSearching={isWebSearching}
             onToggle={setWebSearchEnabled}
             providerName={webSearchProviderName}
+          />
+        </div>
+
+        {/* Attachments Button */}
+        <div className="hidden md:block">
+          <AttachmentHeaderButton
+            conversationId={currentConversationId || undefined}
+            entityType="conversation"
+            onAttachmentsChange={onAttachmentsChange}
+            disabled={!selectedModel || !currentConversationId}
           />
         </div>
       </div>

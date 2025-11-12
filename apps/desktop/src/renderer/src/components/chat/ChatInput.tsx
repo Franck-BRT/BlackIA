@@ -1,11 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Square } from 'lucide-react';
+import { Send, Square, Paperclip } from 'lucide-react';
 import { PersonaMentionDropdown } from './PersonaMentionDropdown';
 import { PromptMentionDropdown } from './PromptMentionDropdown';
 import { PromptVariablesModal } from '../prompts/PromptVariablesModal';
-import { AttachmentButton } from '../attachments/AttachmentButton';
-import { AttachmentPreview } from '../attachments/AttachmentPreview';
-import { AttachmentViewer } from '../attachments/AttachmentViewer';
 import { RAGToggle } from './RAGToggle';
 import type { Persona } from '../../types/persona';
 import type { Prompt } from '../../types/prompt';
@@ -14,9 +11,7 @@ import { extractVariables, replaceVariables } from '../../types/prompt';
 import { useSettings } from '../../contexts/SettingsContext';
 import { usePersonaSuggestions } from '../../hooks/usePersonaSuggestions';
 import { usePrompts } from '../../hooks/usePrompts';
-import { useAttachments } from '../../hooks/useAttachments';
 import { useRAG } from '../../hooks/useRAG';
-import { useAttachmentViewer } from '../../hooks/useAttachmentViewer';
 
 interface ChatInputProps {
   onSend: (
@@ -40,6 +35,7 @@ interface ChatInputProps {
   entityType?: 'conversation' | 'message';
   entityId?: string;
   ragEnabled?: boolean; // Activer/désactiver RAG par défaut
+  headerAttachments?: Attachment[]; // Attachments gérés depuis le header
 }
 
 export function ChatInput({
@@ -57,6 +53,7 @@ export function ChatInput({
   entityType = 'conversation',
   entityId,
   ragEnabled: ragEnabledProp = true,
+  headerAttachments = [],
 }: ChatInputProps) {
   const [message, setMessage] = useState(initialMessage);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
@@ -75,9 +72,6 @@ export function ChatInput({
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [showPromptVariablesModal, setShowPromptVariablesModal] = useState(false);
 
-  // NOUVEAUX ÉTATS pour attachments
-  const [uploadedAttachments, setUploadedAttachments] = useState<Attachment[]>([]);
-
   // NOUVEAUX ÉTATS pour RAG
   const [ragEnabled, setRagEnabled] = useState(ragEnabledProp);
   const [ragMode, setRagMode] = useState<'text' | 'vision' | 'hybrid' | 'auto'>('auto');
@@ -90,13 +84,6 @@ export function ChatInput({
   const { keywords: allKeywords } = usePersonaSuggestions();
   const { prompts } = usePrompts();
 
-  // NOUVEAUX HOOKS pour attachments
-  const { upload: uploadAttachment, isLoading: isUploadingFiles } = useAttachments({
-    entityType: entityType,
-    entityId: entityId || conversationId || '',
-    autoLoad: false,
-  });
-
   // NOUVEAUX HOOKS pour RAG
   const { contextualizeMessage, isSearching } = useRAG({
     enabled: ragEnabled,
@@ -104,9 +91,6 @@ export function ChatInput({
     topK: 5,
     minScore: 0.7,
   });
-
-  // Hook pour le viewer d'attachments
-  const viewer = useAttachmentViewer();
 
   // Filtrer uniquement les keywords actifs si nécessaire
   const activeKeywords = settings.personaSuggestions.showOnlyActive
@@ -166,32 +150,6 @@ export function ChatInput({
     return suggestions.slice(0, settings.personaSuggestions.maxSuggestions);
   };
 
-  /**
-   * NOUVEAU: Handle upload de fichiers
-   */
-  const handleFilesUpload = async (files: File[]) => {
-    try {
-      console.log('[ChatInput] Uploading files:', files.length);
-      const uploaded = await uploadAttachment(files);
-      setUploadedAttachments([...uploadedAttachments, ...uploaded]);
-      console.log('[ChatInput] ✅ Files uploaded successfully:', uploaded.length);
-
-      // Log success pour chaque fichier
-      uploaded.forEach(file => {
-        console.log('[ChatInput] ✅', file.originalName, '-', (file.size / 1024).toFixed(1), 'KB');
-      });
-    } catch (error) {
-      console.error('[ChatInput] ❌ Upload error:', error);
-      alert(`Erreur lors de l'upload: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
-    }
-  };
-
-  /**
-   * NOUVEAU: Handle suppression d'un attachment
-   */
-  const handleRemoveAttachment = (attachmentId: string) => {
-    setUploadedAttachments(uploadedAttachments.filter(a => a.id !== attachmentId));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -216,7 +174,7 @@ export function ChatInput({
       let ragMetadata: RAGMetadata | undefined;
       let finalMessage = message.trim();
 
-      if (ragEnabled && uploadedAttachments.length > 0) {
+      if (ragEnabled && headerAttachments.length > 0) {
         console.log('[ChatInput] RAG enabled, contextualizing message...');
 
         const { context, metadata } = await contextualizeMessage(finalMessage, {
@@ -239,7 +197,7 @@ export function ChatInput({
       }
 
       // NOUVEAU: Extraire les IDs des attachments
-      const attachmentIds = uploadedAttachments.map(a => a.id);
+      const attachmentIds = headerAttachments.map(a => a.id);
 
       // Envoyer le message avec tous les personas mentionnés + attachments + RAG
       onSend(
@@ -258,7 +216,6 @@ export function ChatInput({
       setMentionQuery('');
       setShowSuggestions(false);
       setSuggestedPersonas([]);
-      setUploadedAttachments([]); // NOUVEAU: Clear attachments
       // Reset textarea height
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
@@ -673,32 +630,15 @@ export function ChatInput({
         </div>
       )}
 
-      {/* NOUVEAU: Toolbar avec attachments et RAG */}
+      {/* RAG Controls */}
       {conversationId && (
         <div className="flex items-center gap-2 mb-2">
-          <AttachmentButton
-            entityType={entityType}
-            entityId={entityId || conversationId}
-            onUpload={handleFilesUpload}
-            onError={(error) => console.error('[ChatInput] Upload error:', error)}
-            disabled={disabled || isGenerating || isUploadingFiles}
-            maxFiles={10}
-            maxSizeBytes={50 * 1024 * 1024} // 50MB
-            accept="image/*,application/pdf,text/*"
-          />
-
           <RAGToggle
             enabled={ragEnabled}
             mode={ragMode}
             onToggle={() => setRagEnabled(!ragEnabled)}
             onModeChange={setRagMode}
           />
-
-          {isUploadingFiles && (
-            <span className="text-xs text-gray-500 dark:text-gray-400 animate-pulse">
-              Upload...
-            </span>
-          )}
 
           {isSearching && (
             <span className="text-xs text-purple-500 dark:text-purple-400 animate-pulse">
@@ -708,35 +648,14 @@ export function ChatInput({
         </div>
       )}
 
-      {/* NOUVEAU: Liste des fichiers uploadés */}
-      {(uploadedAttachments.length > 0 || isUploadingFiles) && (
-        <div className="mb-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-blue-300">
-              📎 Fichiers attachés ({uploadedAttachments.length})
-            </span>
-            {isUploadingFiles && (
-              <span className="text-xs text-blue-400 animate-pulse">
-                Téléchargement en cours...
-              </span>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {uploadedAttachments.map((attachment) => (
-              <AttachmentPreview
-                key={attachment.id}
-                attachment={attachment}
-                onRemove={() => handleRemoveAttachment(attachment.id)}
-                onView={() => viewer.openViewer(attachment, uploadedAttachments)}
-                compact
-                showActions
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="flex items-end gap-3">
+        {/* Indicateur de fichiers attachés */}
+        {headerAttachments.length > 0 && (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400">
+            <Paperclip className="w-4 h-4" />
+            <span className="text-xs font-medium">{headerAttachments.length}</span>
+          </div>
+        )}
         <textarea
           ref={textareaRef}
           value={message}
@@ -776,12 +695,7 @@ export function ChatInput({
         <span className="truncate">@ mention</span>
         <span className="truncate">/ prompt</span>
 
-        {/* NOUVEAU: Hints pour attachments et RAG */}
-        {uploadedAttachments.length > 0 && (
-          <span className="truncate text-blue-400">
-            📎 {uploadedAttachments.length} fichier(s)
-          </span>
-        )}
+        {/* Hints pour RAG */}
         {ragEnabled && conversationId && (
           <span className="truncate text-purple-400">
             ✨ RAG {ragMode}
@@ -789,17 +703,6 @@ export function ChatInput({
         )}
       </div>
     </form>
-
-    {/* Viewer modal pour voir les fichiers en plein écran */}
-    {viewer.isOpen && viewer.currentAttachment && (
-      <AttachmentViewer
-        attachment={viewer.currentAttachment}
-        attachments={viewer.allAttachments}
-        currentIndex={viewer.currentIndex}
-        onClose={viewer.closeViewer}
-        onNavigate={viewer.navigateToIndex}
-      />
-    )}
   </>
   );
 }

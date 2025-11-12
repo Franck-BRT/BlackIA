@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ConversationSidebar } from '../components/chat/ConversationSidebarWithFolders';
 import { ChatHeader } from '../components/chat/ChatHeader';
@@ -39,6 +39,9 @@ export function ChatPage() {
 
   // 0. Responsive
   const { chatSidebarWidth, isMobile, isTablet } = useResponsive();
+
+  // État pour gérer les attachments depuis le header
+  const [currentAttachments, setCurrentAttachments] = useState<any[]>([]);
 
   // 1. États centralisés
   const {
@@ -542,6 +545,7 @@ export function ChatPage() {
           handleClearChat={handleClearChat}
           handleImportConversation={handleImportConversation}
           handleImportBackup={handleImportBackup}
+          onAttachmentsChange={setCurrentAttachments}
         />
 
         {/* Search Bar */}
@@ -605,6 +609,7 @@ export function ChatPage() {
               prefillIncludeFewShots={prefillIncludeFewShots}
               conversationId={currentConversationId || undefined}
               ragEnabled={true}
+              headerAttachments={currentAttachments}
             />
           </div>
         </div>
