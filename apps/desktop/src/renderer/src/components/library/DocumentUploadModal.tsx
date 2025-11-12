@@ -19,44 +19,66 @@ interface DocumentUploadModalProps {
   }) => Promise<void>;
 }
 
+interface SelectedFile {
+  path: string;
+  name: string;
+  size: number;
+  mimeType: string;
+}
+
 export function DocumentUploadModal({
   isOpen,
   onClose,
   libraryId,
   onUpload,
 }: DocumentUploadModalProps) {
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dragActive, setDragActive] = useState(false);
 
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  }, []);
+  const handleBrowseFiles = useCallback(async () => {
+    try {
+      const result = await window.electronAPI.file.openDialog({
+        title: 'Sélectionner des documents',
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          { name: 'Documents', extensions: ['pdf', 'doc', 'docx', 'txt', 'md'] },
+          { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] },
+          { name: 'Tous les fichiers', extensions: ['*'] },
+        ],
+      });
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
+      if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
+        const newFiles: SelectedFile[] = result.filePaths.map((filePath) => {
+          const fileName = filePath.split(/[\\/]/).pop() || filePath;
+          const ext = fileName.split('.').pop()?.toLowerCase() || '';
 
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const files = Array.from(e.dataTransfer.files);
-      setSelectedFiles((prev) => [...prev, ...files]);
-    }
-  }, []);
+          // Déterminer le MIME type basé sur l'extension
+          let mimeType = 'application/octet-stream';
+          if (['pdf'].includes(ext)) mimeType = 'application/pdf';
+          else if (['doc', 'docx'].includes(ext)) mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          else if (['txt'].includes(ext)) mimeType = 'text/plain';
+          else if (['md'].includes(ext)) mimeType = 'text/markdown';
+          else if (['jpg', 'jpeg'].includes(ext)) mimeType = 'image/jpeg';
+          else if (['png'].includes(ext)) mimeType = 'image/png';
+          else if (['gif'].includes(ext)) mimeType = 'image/gif';
+          else if (['webp'].includes(ext)) mimeType = 'image/webp';
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files);
-      setSelectedFiles((prev) => [...prev, ...files]);
+          return {
+            path: filePath,
+            name: fileName,
+            size: 0, // Size will be determined by backend
+            mimeType,
+          };
+        });
+
+        setSelectedFiles((prev) => [...prev, ...newFiles]);
+      }
+    } catch (err) {
+      console.error('Error selecting files:', err);
+      setError('Erreur lors de la sélection des fichiers');
     }
   }, []);
 
@@ -87,31 +109,28 @@ export function DocumentUploadModal({
 
     setLoading(true);
     try {
+      console.log('[DocumentUploadModal] Uploading files:', selectedFiles.length);
+
       // Upload each file
       for (const file of selectedFiles) {
-        // In a real implementation, we would:
-        // 1. Copy file to temp location
-        // 2. Call the upload API with the temp path
-        // For now, we'll use the file path directly (this won't work in production)
-
-        // Note: In Electron, we need to handle file upload differently
-        // We should use the file picker or drag-drop to get the file path
-        // Then pass that path to the IPC handler
-
+        console.log('[DocumentUploadModal] Uploading:', file.name);
         await onUpload({
           libraryId,
-          filePath: file.path || '', // In Electron, File object has path property
+          filePath: file.path,
           originalName: file.name,
-          mimeType: file.type,
+          mimeType: file.mimeType,
           tags,
         });
       }
+
+      console.log('[DocumentUploadModal] All files uploaded successfully');
 
       // Reset and close
       setSelectedFiles([]);
       setTags([]);
       onClose();
     } catch (err) {
+      console.error('[DocumentUploadModal] Upload error:', err);
       setError(err instanceof Error ? err.message : 'Erreur lors de l\'upload');
     } finally {
       setLoading(false);
@@ -143,32 +162,20 @@ export function DocumentUploadModal({
             </div>
           )}
 
-          {/* Drop Zone */}
-          <div
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              dragActive
-                ? 'border-blue-500 bg-blue-500/10'
-                : 'border-neutral-700 hover:border-neutral-600'
-            }`}
-          >
+          {/* File Selection */}
+          <div className="border-2 border-dashed border-neutral-700 rounded-lg p-8 text-center">
             <Upload className="w-12 h-12 mx-auto mb-4 text-neutral-400" />
-            <p className="text-neutral-200 mb-2">
-              Glissez-déposez vos fichiers ici ou
+            <p className="text-neutral-200 mb-4">
+              Cliquez sur le bouton ci-dessous pour sélectionner des fichiers
             </p>
-            <label className="inline-block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg cursor-pointer transition-colors">
-              Parcourir
-              <input
-                type="file"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-                disabled={loading}
-              />
-            </label>
+            <button
+              type="button"
+              onClick={handleBrowseFiles}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              disabled={loading}
+            >
+              Parcourir les fichiers
+            </button>
             <p className="text-sm text-neutral-400 mt-4">
               PDF, DOCX, TXT, MD, Images, etc.
             </p>
@@ -191,7 +198,7 @@ export function DocumentUploadModal({
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-neutral-100 truncate">{file.name}</p>
                         <p className="text-xs text-neutral-400">
-                          {formatBytes(file.size)}
+                          {file.mimeType}
                         </p>
                       </div>
                     </div>
