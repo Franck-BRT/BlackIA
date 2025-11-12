@@ -21,6 +21,7 @@ import { generateThumbnail, getThumbnailFilename } from './thumbnail-service';
 import { textRAGService } from './text-rag-service';
 import { visionRAGService } from './vision-rag-service';
 import { hybridRAGService } from './hybrid-rag-service';
+import { coletteVisionRAGService } from './colette-vision-rag-service';
 import { vectorStore } from './vector-store';
 import { recommendRAGMode } from '../types/rag';
 import type { EntityType, StoredRAGMode, TextRAGResult, RAGSearchParams } from '../types/rag';
@@ -401,11 +402,45 @@ export class LibraryDocumentService {
         }
       }
 
-      // VISION RAG
+      // VISION RAG with Colette
       if (mode === 'vision' || mode === 'hybrid') {
-        // TODO: Implement vision indexing
-        // Need to convert document to images first if PDF
-        console.log('[LibraryDocumentService] Vision RAG not yet implemented');
+        const canIndexVision = this.canIndexVision(doc.mimeType);
+
+        if (!canIndexVision) {
+          console.warn('[LibraryDocumentService] Document type not supported for vision RAG:', doc.mimeType);
+        } else {
+          console.log('[LibraryDocumentService] Starting vision indexation with Colette...');
+
+          const visionResult = await coletteVisionRAGService.indexDocument({
+            imagePaths: [doc.filePath], // Colette handles PDF to image conversion internally
+            attachmentId: doc.id,
+            entityType: 'document' as EntityType,
+            entityId: doc.libraryId,
+            model: ragConfig.vision.model || 'vidore/colpali',
+          });
+
+          if (visionResult.success) {
+            patchCount = visionResult.patchCount;
+            await db
+              .update(libraryDocuments)
+              .set({
+                isIndexedVision: true,
+                visionEmbeddingModel: visionResult.model,
+                visionPatchCount: patchCount,
+                pageCount: visionResult.pageCount,
+              })
+              .where(eq(libraryDocuments.id, doc.id));
+
+            console.log('[LibraryDocumentService] Vision indexation completed:', {
+              patchCount,
+              pageCount: visionResult.pageCount,
+              model: visionResult.model,
+            });
+          } else {
+            console.error('[LibraryDocumentService] Vision indexation failed:', visionResult.error);
+            throw new Error(visionResult.error || 'Vision indexing failed');
+          }
+        }
       }
 
       // Mettre à jour les métadonnées d'indexation
@@ -555,6 +590,22 @@ export class LibraryDocumentService {
       default:
         return '\n\n';
     }
+  }
+
+  /**
+   * Check if a document can be indexed with vision RAG
+   */
+  private canIndexVision(mimeType: string): boolean {
+    const supportedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+    ];
+
+    return supportedTypes.includes(mimeType);
   }
 }
 

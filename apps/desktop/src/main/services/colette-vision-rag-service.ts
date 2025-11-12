@@ -319,8 +319,7 @@ export class ColetteVisionRAGService {
       });
 
       // 1. Générer l'embedding de la query via Colette
-      const model = params.model || this.defaultModel;
-      const queryResult = await this.encodeQuery(params.query, model);
+      const queryResult = await this.encodeQuery(params.query, this.defaultModel);
 
       if (!queryResult.success || !queryResult.query_embedding) {
         return {
@@ -376,7 +375,7 @@ export class ColetteVisionRAGService {
   async deleteIndex(attachmentId: string): Promise<boolean> {
     try {
       console.log('[Colette] Deleting index for attachment:', attachmentId);
-      await vectorStore.deleteVisionPatches(attachmentId);
+      await vectorStore.deleteByAttachmentId(attachmentId);
       return true;
     } catch (error) {
       console.error('[Colette] Delete index error:', error);
