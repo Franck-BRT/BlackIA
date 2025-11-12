@@ -7,6 +7,8 @@ import fs from 'fs/promises';
 import { app } from 'electron';
 import type { EntityType, StoredRAGMode } from '../types/rag';
 import { recommendRAGMode } from '../types/rag';
+import { extractText } from './text-extraction-service';
+import { generateThumbnail, getThumbnailFilename } from './thumbnail-service';
 
 /**
  * Attachment with parsed JSON fields
@@ -84,10 +86,52 @@ export class AttachmentService {
       const stats = await fs.stat(destPath);
       const size = stats.size;
 
-      // 5. Recommander le mode RAG
-      const ragMode = recommendRAGMode(params.mimeType, params.extractedText);
+      // 5. Extraire le texte automatiquement (si applicable)
+      let extractedText = params.extractedText;
+      if (!extractedText) {
+        try {
+          const autoExtractedText = await extractText(destPath, params.mimeType);
+          if (autoExtractedText) {
+            extractedText = autoExtractedText;
+            console.log('[AttachmentService] Text extracted:', {
+              filename: params.originalName,
+              textLength: autoExtractedText.length,
+            });
+          }
+        } catch (error) {
+          console.warn('[AttachmentService] Text extraction failed:', error);
+          // Continue sans texte extrait
+        }
+      }
 
-      // 6. Créer l'entrée DB
+      // 6. Générer une vignette automatiquement (si applicable)
+      let thumbnailPath: string | undefined = undefined;
+      if (params.mimeType.startsWith('image/')) {
+        try {
+          const thumbFilename = getThumbnailFilename(filename);
+          const thumbPath = path.join(this.attachmentsDir, thumbFilename);
+
+          const success = await generateThumbnail(destPath, thumbPath, params.mimeType, {
+            width: 300,
+            height: 300,
+            fit: 'inside',
+            quality: 80,
+          });
+
+          if (success) {
+            thumbnailPath = thumbPath;
+            console.log('[AttachmentService] Thumbnail generated:', thumbFilename);
+          }
+        } catch (error) {
+          console.warn('[AttachmentService] Thumbnail generation failed:', error);
+          // Continue sans vignette
+        }
+      }
+
+      // 7. Recommander le mode RAG
+      const ragMode = recommendRAGMode(params.mimeType, extractedText);
+
+      // 8. Créer l'entrée DB
       const newAttachment: NewAttachment = {
         id,
         filename,
@@ -95,8 +139,8 @@ export class AttachmentService {
         mimeType: params.mimeType,
         size,
         filePath: destPath,
-        thumbnailPath: undefined, // Généré plus tard
-        extractedText: params.extractedText,
+        thumbnailPath,
+        extractedText,
         extractedMetadata: undefined,
         entityType: params.entityType,
         entityId: params.entityId,
