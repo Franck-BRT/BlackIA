@@ -6,7 +6,7 @@
 import { randomUUID } from 'crypto';
 import path from 'path';
 import fs from 'fs/promises';
-import { db } from '../database/client';
+import { getDatabase } from '../database/client';
 import {
   libraryDocuments,
   manualChunks,
@@ -81,6 +81,7 @@ export class LibraryDocumentService {
     mimeType: string;
     tags?: string[];
   }): Promise<DocumentWithParsedFields> {
+    const db = getDatabase();
     const startTime = Date.now();
 
     try {
@@ -216,6 +217,7 @@ export class LibraryDocumentService {
    * Obtenir tous les documents d'une bibliothèque
    */
   async getDocuments(libraryId: string, filters?: DocumentFilters): Promise<DocumentWithParsedFields[]> {
+    const db = getDatabase();
     try {
       let query = db.select().from(libraryDocuments).where(eq(libraryDocuments.libraryId, libraryId));
 
@@ -257,6 +259,7 @@ export class LibraryDocumentService {
    * Obtenir un document par ID
    */
   async getById(id: string): Promise<DocumentWithParsedFields | null> {
+    const db = getDatabase();
     const [doc] = await db.select().from(libraryDocuments).where(eq(libraryDocuments.id, id)).limit(1);
 
     return doc ? this.parseDocument(doc) : null;
@@ -276,6 +279,7 @@ export class LibraryDocumentService {
       isFavorite?: boolean;
     }
   ): Promise<DocumentWithParsedFields> {
+    const db = getDatabase();
     const now = new Date();
     const updateData: Partial<NewLibraryDocument> = {
       updatedAt: now,
@@ -310,6 +314,7 @@ export class LibraryDocumentService {
    * Supprimer un document
    */
   async delete(id: string): Promise<void> {
+    const db = getDatabase();
     const doc = await this.getById(id);
     if (!doc) {
       throw new Error(`Document not found: ${id}`);
@@ -341,6 +346,7 @@ export class LibraryDocumentService {
    * Indexer un document (TEXT, VISION, ou HYBRID)
    */
   async indexDocument(params: IndexDocumentParams): Promise<IndexResult> {
+    const db = getDatabase();
     const startTime = Date.now();
 
     try {
@@ -459,6 +465,7 @@ export class LibraryDocumentService {
    * Supprimer l'index d'un document
    */
   async deleteIndex(documentId: string): Promise<void> {
+    const db = getDatabase();
     try {
       // Supprimer de LanceDB
       await vectorStore.deleteByAttachmentId(documentId);

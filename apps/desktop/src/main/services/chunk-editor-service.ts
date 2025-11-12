@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from 'crypto';
-import { db } from '../database/client';
+import { getDatabase } from '../database/client';
 import { manualChunks, type NewManualChunk, type ManualChunk } from '../database/schema';
 import { eq, and } from 'drizzle-orm';
 import { textRAGService } from './text-rag-service';
@@ -73,6 +73,7 @@ export class ChunkEditorService {
    * Obtenir tous les chunks d'un document
    */
   async getDocumentChunks(documentId: string): Promise<FullChunk[]> {
+    const db = getDatabase();
     try {
       // 1. Récupérer les chunks de LanceDB via textRAGService
       const textChunks = await textRAGService.getDocumentChunks(documentId);
@@ -137,6 +138,7 @@ export class ChunkEditorService {
     reason: string;
     modifiedBy?: string;
   }): Promise<EditChunkResult> {
+    const db = getDatabase();
     try {
       const now = new Date();
 
@@ -208,6 +210,7 @@ export class ChunkEditorService {
     documentId: string;
     splitPosition: number; // Position de split (index de caractère)
   }): Promise<SplitChunkResult> {
+    const db = getDatabase();
     try {
       // 1. Récupérer le chunk original
       const chunk = await this.getChunkById(params.chunkId, params.documentId);
@@ -296,6 +299,7 @@ export class ChunkEditorService {
     chunk2Id: string;
     documentId: string;
   }): Promise<MergeChunksResult> {
+    const db = getDatabase();
     try {
       // 1. Récupérer les deux chunks
       const chunk1 = await this.getChunkById(params.chunk1Id, params.documentId);
@@ -377,6 +381,7 @@ export class ChunkEditorService {
     documentId: string;
     reason?: string;
   }): Promise<EditChunkResult> {
+    const db = getDatabase();
     try {
       const now = new Date();
 
@@ -417,6 +422,7 @@ export class ChunkEditorService {
     text: string;
     reason?: string;
   }): Promise<EditChunkResult> {
+    const db = getDatabase();
     try {
       const now = new Date();
       const newChunkId = randomUUID();

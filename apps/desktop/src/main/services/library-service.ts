@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import { app } from 'electron';
 import fs from 'fs/promises';
-import { db } from '../database/client';
+import { getDatabase } from '../database/client';
 import { libraries, libraryDocuments, type Library, type NewLibrary } from '../database/schema';
 import { eq, desc, and, like, sql } from 'drizzle-orm';
 
@@ -101,6 +101,7 @@ export class LibraryService {
    * Créer une nouvelle bibliothèque
    */
   async create(input: CreateLibraryInput): Promise<Library> {
+    const db = getDatabase();
     const id = randomUUID();
     const now = new Date();
 
@@ -146,6 +147,7 @@ export class LibraryService {
    * Obtenir toutes les bibliothèques
    */
   async getAll(): Promise<Library[]> {
+    const db = getDatabase();
     const result = await db
       .select()
       .from(libraries)
@@ -158,6 +160,7 @@ export class LibraryService {
    * Obtenir une bibliothèque par ID
    */
   async getById(id: string): Promise<Library | null> {
+    const db = getDatabase();
     const [library] = await db
       .select()
       .from(libraries)
@@ -171,6 +174,7 @@ export class LibraryService {
    * Rechercher des bibliothèques par nom
    */
   async search(query: string): Promise<Library[]> {
+    const db = getDatabase();
     const result = await db
       .select()
       .from(libraries)
@@ -184,6 +188,7 @@ export class LibraryService {
    * Mettre à jour une bibliothèque
    */
   async update(id: string, input: UpdateLibraryInput): Promise<Library> {
+    const db = getDatabase();
     const now = new Date();
 
     // Préparer les updates
@@ -236,6 +241,7 @@ export class LibraryService {
    * Supprimer une bibliothèque
    */
   async delete(id: string, deleteFiles: boolean = false): Promise<void> {
+    const db = getDatabase();
     const library = await this.getById(id);
     if (!library) {
       throw new Error(`Library not found: ${id}`);
@@ -261,6 +267,7 @@ export class LibraryService {
    * Obtenir les statistiques d'une bibliothèque
    */
   async getStats(libraryId: string): Promise<LibraryStats> {
+    const db = getDatabase();
     // Récupérer tous les documents de la bibliothèque
     const docs = await db
       .select()
@@ -348,6 +355,7 @@ export class LibraryService {
    * Mettre à jour les statistiques d'une bibliothèque (dénormalisé)
    */
   async updateStats(libraryId: string): Promise<void> {
+    const db = getDatabase();
     const stats = await this.getStats(libraryId);
 
     await db
@@ -368,6 +376,7 @@ export class LibraryService {
    * Obtenir toutes les bibliothèques favorites
    */
   async getFavorites(): Promise<Library[]> {
+    const db = getDatabase();
     const result = await db
       .select()
       .from(libraries)
