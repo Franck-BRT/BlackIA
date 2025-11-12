@@ -146,6 +146,44 @@ Créer une plateforme d'assistance IA tout-en-un permettant :
 - Documentation automatique
 - Suivi de tâches et TODOs
 
+### 3.10 Module Bibliothèque de Documents ✅
+**Description:** Système de gestion documentaire avec capacités RAG avancées
+
+**Statut:** ✅ **CORE COMPLÉTÉ** - Phase de tests
+
+**Fonctionnalités Implémentées:**
+- Gestion de bibliothèques de documents :
+  - Création, édition, suppression avec configuration RAG
+  - Emplacement de stockage personnalisable
+  - Statistiques automatiques
+- Upload et gestion de documents :
+  - Support PDF, images, documents texte
+  - Extraction automatique du texte
+  - Génération de vignettes
+  - Système de validation (pending, validated, needs_review, rejected)
+- Indexation RAG multi-mode :
+  - **TEXT RAG** : Chunking configurable + Ollama embeddings
+  - **VISION RAG** : Intégration Colette/ColPali (JoliBrain)
+  - **HYBRID RAG** : Fusion text + vision
+  - **AUTO** : Sélection intelligente du mode optimal
+- Visualisation et édition des chunks :
+  - Affichage côte-à-côte (document + chunks)
+  - Opérations : split, merge, edit, insert, delete
+  - Système de chunks manuels avec historique
+  - Interface UX moderne (modals personnalisés)
+- Recherche RAG avancée :
+  - Late Interaction avec MaxSim scoring
+  - Filtres multiples
+  - Support multi-vecteurs
+
+**Technologies Clés:**
+- Colette/ColPali pour Vision RAG (JoliBrain)
+- LanceDB pour vector store
+- Drizzle ORM + SQLite
+- Python ↔ Node.js communication
+
+**Documentation Détaillée:** Voir [MODULE_BIBLIOTHEQUE_DOCUMENTS.md](MODULE_BIBLIOTHEQUE_DOCUMENTS.md)
+
 ---
 
 ## 4. Architecture Technique
@@ -362,25 +400,31 @@ BlackIA/
 
 ## 12. Phases de Développement
 
-### Phase 1: MVP (Minimum Viable Product)
-- Module Chat basique
-- Intégration Ollama
-- Bibliothèque de prompts simple
-- Interface de base
+### Phase 1: MVP (Minimum Viable Product) ✅ COMPLÉTÉ
+- ✅ Module Chat basique
+- ✅ Intégration Ollama
+- ✅ Bibliothèque de prompts simple
+- ✅ Interface de base
 
-### Phase 2: Modules Principaux
-- Workflow engine
-- Bibliothèque personas
-- Générateurs de prompts/personas
-- Module logs
+### Phase 2: Modules Principaux 🟡 EN COURS
+- ✅ **Module Bibliothèque de Documents (CORE COMPLÉTÉ)**
+  - Gestion de bibliothèques
+  - Upload et indexation de documents
+  - TEXT RAG + VISION RAG (Colette/ColPali)
+  - Édition de chunks
+  - Recherche RAG avancée
+- ⏳ Workflow engine
+- ⏳ Bibliothèque personas
+- ⏳ Générateurs de prompts/personas
+- ⏳ Module logs
 
-### Phase 3: Modules Avancés
+### Phase 3: Modules Avancés ⏳ À VENIR
 - Serveur MCP
 - Gestion de projets de code
 - Optimisations performances
 - Tests et stabilisation
 
-### Phase 4: Polish et Extensions
+### Phase 4: Polish et Extensions ⏳ À VENIR
 - UI/UX améliorée
 - Documentation complète
 - Système de plugins
@@ -468,7 +512,10 @@ BlackIA/
 
 ### C. Documents Complémentaires
 - [Décisions Techniques](DECISIONS_TECHNIQUES.md) - Choix technologiques détaillés et architecture
+- [Module Bibliothèque de Documents](MODULE_BIBLIOTHEQUE_DOCUMENTS.md) - Cahier des charges et état d'avancement détaillé du module RAG
+- [Tests de la Bibliothèque](LIBRARY_TESTS.md) - Plan de tests pour le module bibliothèque
 
 ---
 
 **Document vivant - Sera mis à jour au fil du développement**
+**Dernière mise à jour:** 12 Novembre 2025
