@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Paperclip, X } from 'lucide-react';
 import { AttachmentButton } from '../attachments/AttachmentButton';
 import { AttachmentPreview } from '../attachments/AttachmentPreview';
@@ -26,40 +26,44 @@ export function AttachmentHeaderButton({
   disabled = false,
 }: AttachmentHeaderButtonProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [uploadedAttachments, setUploadedAttachments] = useState<Attachment[]>([]);
 
-  const { upload: uploadAttachment, isLoading: isUploadingFiles } = useAttachments({
+  const {
+    attachments: uploadedAttachments,
+    upload: uploadAttachment,
+    remove: removeAttachment,
+    isLoading: isUploadingFiles,
+    load: loadAttachments,
+  } = useAttachments({
     entityType,
     entityId: entityId || conversationId || '',
-    autoLoad: false,
+    autoLoad: true, // Charger automatiquement les attachments existants
   });
 
   const viewer = useAttachmentViewer();
 
+  // Notifier le parent quand les attachments changent
+  useEffect(() => {
+    if (onAttachmentsChange) {
+      onAttachmentsChange(uploadedAttachments);
+    }
+  }, [uploadedAttachments, onAttachmentsChange]);
+
   const handleFilesUpload = async (files: File[]) => {
     try {
-      console.log('[AttachmentHeaderButton] Uploading files:', files.length);
+      console.log('[AttachmentHeaderButton] 📤 Uploading files:', files.length);
       const uploaded = await uploadAttachment(files);
-      const newAttachments = [...uploadedAttachments, ...uploaded];
-      setUploadedAttachments(newAttachments);
-
-      if (onAttachmentsChange) {
-        onAttachmentsChange(newAttachments);
-      }
-
-      console.log('[AttachmentHeaderButton] ✅ Files uploaded:', uploaded.length);
+      console.log('[AttachmentHeaderButton] ✅ Files uploaded:', uploaded.length, uploaded);
     } catch (error) {
       console.error('[AttachmentHeaderButton] ❌ Upload error:', error);
       alert(`Erreur lors de l'upload: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
   };
 
-  const handleRemoveAttachment = (attachmentId: string) => {
-    const newAttachments = uploadedAttachments.filter(a => a.id !== attachmentId);
-    setUploadedAttachments(newAttachments);
-
-    if (onAttachmentsChange) {
-      onAttachmentsChange(newAttachments);
+  const handleRemoveAttachment = async (attachmentId: string) => {
+    console.log('[AttachmentHeaderButton] 🗑️ Removing attachment:', attachmentId);
+    const success = await removeAttachment(attachmentId);
+    if (!success) {
+      alert('Erreur lors de la suppression du fichier');
     }
   };
 
@@ -124,6 +128,14 @@ export function AttachmentHeaderButton({
                 entityType={entityType}
                 entityId={entityId || conversationId}
                 onUpload={handleFilesUpload}
+                onError={(error) => {
+                  console.error('[AttachmentHeaderButton] ❌ Upload error:', error);
+                  alert(error);
+                }}
+                disabled={isUploadingFiles}
+                maxFiles={10}
+                maxSizeBytes={50 * 1024 * 1024}
+                accept="image/*,application/pdf,text/*"
                 className="w-full"
               />
             </div>
