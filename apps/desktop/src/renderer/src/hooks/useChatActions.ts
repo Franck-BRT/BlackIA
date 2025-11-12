@@ -192,23 +192,36 @@ export function useChatActions({
           console.log('[useChatActions] 📎 Récupération du contenu des attachments:', attachmentIds);
 
           // Récupérer les attachments depuis la DB
-          const attachments = await Promise.all(
-            attachmentIds.map(id => window.electronAPI.attachments.getById(id))
+          const responses = await Promise.all(
+            attachmentIds.map(id => window.electronAPI.attachments.getById({ attachmentId: id }))
           );
 
-          // Filtrer les attachments valides avec extractedText
-          const validAttachments = attachments.filter(
-            (att): att is NonNullable<typeof att> => att !== null && !!att.extractedText
-          );
+          console.log('[useChatActions] 🔍 Réponses API reçues:', responses.map(r => ({
+            success: r.success,
+            hasAttachment: !!r.attachment,
+            filename: r.attachment?.originalName,
+            hasText: !!r.attachment?.extractedText,
+            textLength: r.attachment?.extractedText?.length
+          })));
+
+          // Extraire les attachments des réponses et filtrer les valides avec extractedText
+          const validAttachments = responses
+            .filter(res => res.success && res.attachment)
+            .map(res => res.attachment)
+            .filter(att => att && !!att.extractedText);
+
+          console.log('[useChatActions] ✅ Attachments valides trouvés:', validAttachments.length);
 
           if (validAttachments.length > 0) {
             // Construire le contexte des fichiers
             const filesContext = validAttachments
               .map((attachment, index) => {
-                const truncatedText = attachment.extractedText!.length > 10000
+                const textLength = attachment.extractedText!.length;
+                const truncatedText = textLength > 10000
                   ? attachment.extractedText!.substring(0, 10000) + '\n\n[...texte tronqué...]'
                   : attachment.extractedText!;
 
+                console.log(`[useChatActions] 📄 Document ${index + 1}: ${attachment.originalName} (${textLength} caractères)`);
                 return `[Document ${index + 1}: ${attachment.originalName}]\n${truncatedText}`;
               })
               .join('\n\n---\n\n');
@@ -216,12 +229,15 @@ export function useChatActions({
             const filesPrompt = `\n\n---\n\nDOCUMENTS JOINTS (${validAttachments.length} fichier${validAttachments.length > 1 ? 's' : ''}):\n\n${filesContext}\n\n---\n\nUtilise ces documents pour répondre à la question de l'utilisateur.`;
             systemPromptToUse += filesPrompt;
 
-            console.log('[useChatActions] ✅ Contexte des fichiers ajouté:', validAttachments.map(a => a.originalName).join(', '));
+            console.log('[useChatActions] ✅ Contexte des fichiers ajouté au system prompt');
+            console.log('[useChatActions] 📊 Longueur totale du system prompt:', systemPromptToUse.length, 'caractères');
           } else {
             console.warn('[useChatActions] ⚠️ Aucun texte extrait des attachments');
+            console.warn('[useChatActions] 📊 Détails des réponses:', JSON.stringify(responses, null, 2));
           }
         } catch (error) {
           console.error('[useChatActions] ❌ Erreur lors de la récupération des attachments:', error);
+          console.error('[useChatActions] ❌ Stack trace:', error instanceof Error ? error.stack : 'No stack');
         }
       }
 
