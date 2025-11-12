@@ -42,20 +42,28 @@ export function registerAttachmentHandlers(): void {
     async (
       _event,
       params: {
-        filePath: string;
-        originalName: string;
+        fileName: string;
+        buffer: Buffer;
         mimeType: string;
         entityType: EntityType;
         entityId: string;
         tags?: string[];
-        extractedText?: string;
       }
     ) => {
       try {
-        const attachment = await attachmentService.upload(params);
-        return { success: true, data: attachment };
+        console.log('[Attachments] Upload request:', {
+          fileName: params.fileName,
+          mimeType: params.mimeType,
+          entityType: params.entityType,
+          entityId: params.entityId,
+          bufferSize: params.buffer.length,
+        });
+
+        const attachment = await attachmentService.uploadFromBuffer(params);
+        console.log('[Attachments] ✅ Upload successful:', attachment.id);
+        return { success: true, attachment };
       } catch (error) {
-        console.error('[Attachments] Error in upload:', error);
+        console.error('[Attachments] ❌ Error in upload:', error);
         return { success: false, error: String(error) };
       }
     }
@@ -66,13 +74,13 @@ export function registerAttachmentHandlers(): void {
   /**
    * Récupérer un attachment par ID
    */
-  ipcMain.handle('attachments:getById', async (_event, id: string) => {
+  ipcMain.handle('attachments:getById', async (_event, params: { attachmentId: string }) => {
     try {
-      const attachment = await attachmentService.getById(id);
+      const attachment = await attachmentService.getById(params.attachmentId);
       if (!attachment) {
         return { success: false, error: 'Attachment not found' };
       }
-      return { success: true, data: attachment };
+      return { success: true, attachment };
     } catch (error) {
       console.error('[Attachments] Error in getById:', error);
       return { success: false, error: String(error) };
@@ -84,12 +92,14 @@ export function registerAttachmentHandlers(): void {
    */
   ipcMain.handle(
     'attachments:getByEntity',
-    async (_event, entityType: EntityType, entityId: string) => {
+    async (_event, params: { entityType: EntityType; entityId: string }) => {
       try {
-        const attachments = await attachmentService.getByEntity(entityType, entityId);
-        return { success: true, data: attachments };
+        console.log('[Attachments] getByEntity request:', params);
+        const attachments = await attachmentService.getByEntity(params.entityType, params.entityId);
+        console.log('[Attachments] ✅ Found attachments:', attachments.length);
+        return { success: true, attachments };
       } catch (error) {
-        console.error('[Attachments] Error in getByEntity:', error);
+        console.error('[Attachments] ❌ Error in getByEntity:', error);
         return { success: false, error: String(error) };
       }
     }
@@ -156,12 +166,14 @@ export function registerAttachmentHandlers(): void {
   /**
    * Supprimer un attachment
    */
-  ipcMain.handle('attachments:delete', async (_event, id: string) => {
+  ipcMain.handle('attachments:delete', async (_event, params: { attachmentId: string }) => {
     try {
-      await attachmentService.delete(id);
-      return { success: true, data: true };
+      console.log('[Attachments] Delete request:', params.attachmentId);
+      await attachmentService.delete(params.attachmentId);
+      console.log('[Attachments] ✅ Deleted successfully');
+      return { success: true };
     } catch (error) {
-      console.error('[Attachments] Error in delete:', error);
+      console.error('[Attachments] ❌ Error in delete:', error);
       return { success: false, error: String(error) };
     }
   });
@@ -205,6 +217,22 @@ export function registerAttachmentHandlers(): void {
       return { success: true, data: stats };
     } catch (error) {
       console.error('[Attachments] Error in getStats:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  // ==================== OPEN ====================
+
+  /**
+   * Ouvrir un fichier attachment
+   */
+  ipcMain.handle('attachments:open', async (_event, params: { attachmentId: string }) => {
+    try {
+      console.log('[Attachments] Open request:', params.attachmentId);
+      await attachmentService.openFile(params.attachmentId);
+      return { success: true };
+    } catch (error) {
+      console.error('[Attachments] ❌ Error in open:', error);
       return { success: false, error: String(error) };
     }
   });

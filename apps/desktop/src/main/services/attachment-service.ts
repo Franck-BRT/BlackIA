@@ -184,6 +184,130 @@ export class AttachmentService {
   }
 
   /**
+   * Upload un fichier depuis un Buffer (frontend)
+   */
+  async uploadFromBuffer(params: {
+    fileName: string;
+    buffer: Buffer;
+    mimeType: string;
+    entityType: EntityType;
+    entityId: string;
+    tags?: string[];
+  }): Promise<AttachmentWithParsedFields> {
+    try {
+      const db = getDatabase();
+      const now = new Date();
+
+      // 1. Générer un ID unique
+      const id = randomUUID();
+
+      // 2. Déterminer le chemin de destination
+      const ext = path.extname(params.fileName);
+      const filename = `${id}${ext}`;
+      const destPath = path.join(this.attachmentsDir, filename);
+
+      // 3. Écrire le buffer sur disque
+      await fs.writeFile(destPath, params.buffer);
+
+      // 4. Obtenir la taille du fichier
+      const size = params.buffer.length;
+
+      // 5. Extraire le texte automatiquement (si applicable)
+      let extractedText: string | undefined = undefined;
+      try {
+        const autoExtractedText = await extractText(destPath, params.mimeType);
+        if (autoExtractedText) {
+          extractedText = autoExtractedText;
+          console.log('[AttachmentService] Text extracted:', {
+            filename: params.fileName,
+            textLength: autoExtractedText.length,
+          });
+        }
+      } catch (error) {
+        console.warn('[AttachmentService] Text extraction failed:', error);
+        // Continue sans texte extrait
+      }
+
+      // 6. Générer une vignette automatiquement (si applicable)
+      let thumbnailPath: string | undefined = undefined;
+      if (params.mimeType.startsWith('image/')) {
+        try {
+          const thumbFilename = getThumbnailFilename(filename);
+          const thumbPath = path.join(this.attachmentsDir, thumbFilename);
+
+          const success = await generateThumbnail(destPath, thumbPath, params.mimeType, {
+            width: 300,
+            height: 300,
+            fit: 'inside',
+            quality: 80,
+          });
+
+          if (success) {
+            thumbnailPath = thumbPath;
+            console.log('[AttachmentService] Thumbnail generated:', thumbFilename);
+          }
+        } catch (error) {
+          console.warn('[AttachmentService] Thumbnail generation failed:', error);
+          // Continue sans vignette
+        }
+      }
+
+      // 7. Recommander le mode RAG
+      const ragMode = recommendRAGMode(params.mimeType, extractedText);
+
+      // 8. Créer l'entrée DB
+      const newAttachment: NewAttachment = {
+        id,
+        filename,
+        originalName: params.fileName,
+        mimeType: params.mimeType,
+        size,
+        filePath: destPath,
+        thumbnailPath,
+        extractedText,
+        extractedMetadata: undefined,
+        entityType: params.entityType,
+        entityId: params.entityId,
+        tags: JSON.stringify(params.tags || []),
+        ragMode,
+        isIndexedText: false,
+        textEmbeddingModel: undefined,
+        textChunkCount: 0,
+        isIndexedVision: false,
+        visionEmbeddingModel: undefined,
+        visionPatchCount: 0,
+        pageCount: 0,
+        lastIndexedAt: undefined,
+        indexingDuration: undefined,
+        indexingError: undefined,
+        uploadedBy: undefined,
+        isAnalyzed: false,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await db.insert(attachments).values(newAttachment);
+
+      console.log('[AttachmentService] ✅ Uploaded from buffer:', {
+        id,
+        originalName: params.fileName,
+        size,
+        ragMode,
+      });
+
+      // Return with parsed fields
+      return {
+        ...newAttachment,
+        tags: params.tags || [],
+        extractedMetadata: undefined,
+      } as AttachmentWithParsedFields;
+    } catch (error) {
+      console.error('[AttachmentService] ❌ Upload from buffer error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Récupérer un attachment par ID
    */
   async getById(id: string): Promise<AttachmentWithParsedFields | null> {
@@ -452,6 +576,32 @@ export class AttachmentService {
       return stats;
     } catch (error) {
       console.error('[AttachmentService] Get stats error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Ouvrir un fichier avec l'application par défaut
+   */
+  async openFile(id: string): Promise<void> {
+    try {
+      const attachment = await this.getById(id);
+      if (!attachment) {
+        throw new Error(`Attachment ${id} not found`);
+      }
+
+      // Utiliser shell.openPath pour ouvrir le fichier
+      const { shell } = require('electron');
+      const result = await shell.openPath(attachment.filePath);
+
+      if (result) {
+        console.warn('[AttachmentService] Failed to open file:', result);
+        throw new Error(`Failed to open file: ${result}`);
+      }
+
+      console.log('[AttachmentService] ✅ File opened:', attachment.originalName);
+    } catch (error) {
+      console.error('[AttachmentService] ❌ Open file error:', error);
       throw error;
     }
   }
