@@ -186,6 +186,45 @@ export function useChatActions({
         systemPromptToUse = chatSettings.systemPrompt;
       }
 
+      // Ajouter le contenu des attachments au contexte
+      if (attachmentIds && attachmentIds.length > 0) {
+        try {
+          console.log('[useChatActions] 📎 Récupération du contenu des attachments:', attachmentIds);
+
+          // Récupérer les attachments depuis la DB
+          const attachments = await Promise.all(
+            attachmentIds.map(id => window.electronAPI.attachments.getById(id))
+          );
+
+          // Filtrer les attachments valides avec extractedText
+          const validAttachments = attachments.filter(
+            (att): att is NonNullable<typeof att> => att !== null && !!att.extractedText
+          );
+
+          if (validAttachments.length > 0) {
+            // Construire le contexte des fichiers
+            const filesContext = validAttachments
+              .map((attachment, index) => {
+                const truncatedText = attachment.extractedText!.length > 10000
+                  ? attachment.extractedText!.substring(0, 10000) + '\n\n[...texte tronqué...]'
+                  : attachment.extractedText!;
+
+                return `[Document ${index + 1}: ${attachment.originalName}]\n${truncatedText}`;
+              })
+              .join('\n\n---\n\n');
+
+            const filesPrompt = `\n\n---\n\nDOCUMENTS JOINTS (${validAttachments.length} fichier${validAttachments.length > 1 ? 's' : ''}):\n\n${filesContext}\n\n---\n\nUtilise ces documents pour répondre à la question de l'utilisateur.`;
+            systemPromptToUse += filesPrompt;
+
+            console.log('[useChatActions] ✅ Contexte des fichiers ajouté:', validAttachments.map(a => a.originalName).join(', '));
+          } else {
+            console.warn('[useChatActions] ⚠️ Aucun texte extrait des attachments');
+          }
+        } catch (error) {
+          console.error('[useChatActions] ❌ Erreur lors de la récupération des attachments:', error);
+        }
+      }
+
       // Recherche web si activée
       let webSearchData: WebSearchResponse | null = null;
       if (webSearchEnabled && webSearchSettings.enabled) {
