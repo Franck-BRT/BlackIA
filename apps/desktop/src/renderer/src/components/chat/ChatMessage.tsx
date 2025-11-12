@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { User, Bot, RefreshCw, Copy, Check, Edit2, X, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Bot, RefreshCw, Copy, Check, Edit2, X, Plus, Paperclip, Eye, ExternalLink } from 'lucide-react';
 import type { OllamaMessage } from '@blackia/ollama';
 import type { Persona } from '../../types/persona';
-import type { RAGMetadata, RAGSource } from '../../types/attachment';
+import type { RAGMetadata, RAGSource, Attachment } from '../../types/attachment';
 import { PERSONA_COLOR_CLASSES } from '../../types/persona';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { RAGSources } from './RAGSources';
@@ -27,6 +27,8 @@ interface ChatMessageProps {
   // Nouveaux props pour RAG
   ragMetadata?: RAGMetadata; // Métadonnées RAG si ce message a utilisé RAG
   onViewSource?: (source: RAGSource) => void; // Callback pour voir une source complète
+  // Nouveaux props pour Attachments
+  attachmentIds?: string[]; // IDs des fichiers attachés à ce message
 }
 
 export function ChatMessage({
@@ -47,6 +49,7 @@ export function ChatMessage({
   mentionedPersonas,
   ragMetadata,
   onViewSource,
+  attachmentIds,
 }: ChatMessageProps) {
   // Utiliser mentionedPersonas si disponible, sinon fallback sur mentionedPersona
   const personasToDisplay = mentionedPersonas || (mentionedPersona ? [mentionedPersona] : []);
@@ -56,6 +59,32 @@ export function ChatMessage({
   const [isCopied, setIsCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
+
+  // État pour les attachments
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+
+  // Charger les attachments au montage
+  useEffect(() => {
+    if (attachmentIds && attachmentIds.length > 0) {
+      setLoadingAttachments(true);
+      Promise.all(
+        attachmentIds.map(id => window.electronAPI.attachments.getById({ attachmentId: id }))
+      )
+        .then(responses => {
+          const validAttachments = responses
+            .filter(res => res.success && res.attachment)
+            .map(res => res.attachment);
+          setAttachments(validAttachments);
+        })
+        .catch(error => {
+          console.error('[ChatMessage] Error loading attachments:', error);
+        })
+        .finally(() => {
+          setLoadingAttachments(false);
+        });
+    }
+  }, [attachmentIds]);
 
   const handleCopy = async () => {
     try {
@@ -91,6 +120,28 @@ export function ChatMessage({
     } else if (e.key === 'Escape') {
       handleCancelEdit();
     }
+  };
+
+  const handleOpenAttachment = async (attachmentId: string) => {
+    try {
+      await window.electronAPI.attachments.open({ attachmentId });
+    } catch (error) {
+      console.error('[ChatMessage] Error opening attachment:', error);
+      await window.electronAPI.logs.log(
+        'error',
+        'attachments',
+        'Erreur lors de l\'ouverture du fichier',
+        error instanceof Error ? error.message : String(error),
+        { attachmentId }
+      );
+    }
+  };
+
+  const getFileIcon = (mimeType: string) => {
+    if (mimeType.startsWith('image/')) return '🖼️';
+    if (mimeType === 'application/pdf') return '📄';
+    if (mimeType.startsWith('text/')) return '📝';
+    return '📎';
   };
 
   if (isSystem) {
@@ -149,6 +200,33 @@ export function ChatMessage({
                   </React.Fragment>
                 ))}
                 <span className="text-xs text-white/40">(@mention)</span>
+              </div>
+            )}
+
+            {/* Affichage des pièces jointes */}
+            {isUser && attachments.length > 0 && (
+              <div className="mb-2 flex flex-wrap items-center gap-2 pb-2 border-b border-white/10">
+                <Paperclip className="w-4 h-4 text-blue-400" />
+                {attachments.map((attachment, index) => (
+                  <button
+                    key={attachment.id}
+                    onClick={() => handleOpenAttachment(attachment.id)}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-xs text-blue-400 hover:text-blue-300"
+                    title={`Ouvrir ${attachment.originalName}`}
+                  >
+                    <span>{getFileIcon(attachment.mimeType)}</span>
+                    <span className="max-w-[150px] truncate">{attachment.originalName}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Chargement des attachments */}
+            {isUser && loadingAttachments && (
+              <div className="mb-2 flex items-center gap-2 pb-2 border-b border-white/10">
+                <Paperclip className="w-4 h-4 text-blue-400 animate-pulse" />
+                <span className="text-xs text-muted-foreground">Chargement des pièces jointes...</span>
               </div>
             )}
 
