@@ -12,7 +12,7 @@ export function registerTextRAGHandlers(): void {
    * Indexer un document texte
    */
   ipcMain.handle(
-    'textRAG:indexDocument',
+    'text-rag:index',
     async (_event, params: TextRAGIndexParams) => {
       try {
         const result = await textRAGService.indexDocument(params);
@@ -33,7 +33,7 @@ export function registerTextRAGHandlers(): void {
    * Re-indexer un document texte (après modification)
    */
   ipcMain.handle(
-    'textRAG:reindexDocument',
+    'text-rag:reindex',
     async (_event, params: TextRAGIndexParams) => {
       try {
         const result = await textRAGService.reindexDocument(params);
@@ -53,7 +53,7 @@ export function registerTextRAGHandlers(): void {
   /**
    * Supprimer l'indexation d'un document
    */
-  ipcMain.handle('textRAG:deleteDocument', async (_event, attachmentId: string) => {
+  ipcMain.handle('text-rag:delete', async (_event, attachmentId: string) => {
     try {
       await textRAGService.deleteDocument(attachmentId);
       return { success: true, data: true };
@@ -68,7 +68,7 @@ export function registerTextRAGHandlers(): void {
   /**
    * Rechercher dans les documents indexés
    */
-  ipcMain.handle('textRAG:search', async (_event, params: RAGSearchParams) => {
+  ipcMain.handle('text-rag:search', async (_event, params: RAGSearchParams) => {
     try {
       const result = await textRAGService.search(params);
       return result; // Already has success/error structure
@@ -85,7 +85,7 @@ export function registerTextRAGHandlers(): void {
   /**
    * Obtenir les chunks d'un document (pour debug/preview)
    */
-  ipcMain.handle('textRAG:getDocumentChunks', async (_event, attachmentId: string) => {
+  ipcMain.handle('text-rag:getDocumentChunks', async (_event, attachmentId: string) => {
     try {
       const chunks = await textRAGService.getDocumentChunks(attachmentId);
       return { success: true, data: chunks };
@@ -101,7 +101,7 @@ export function registerTextRAGHandlers(): void {
    * Estimer le chunking d'un texte (avant indexation)
    */
   ipcMain.handle(
-    'textRAG:estimateChunking',
+    'text-rag:estimateChunking',
     async (
       _event,
       text: string,
@@ -121,7 +121,7 @@ export function registerTextRAGHandlers(): void {
   /**
    * Vérifier la disponibilité d'Ollama
    */
-  ipcMain.handle('textRAG:checkOllama', async () => {
+  ipcMain.handle('text-rag:checkOllama', async () => {
     try {
       const result = await textRAGService.checkOllamaAvailability();
       return { success: true, data: result };
@@ -134,7 +134,7 @@ export function registerTextRAGHandlers(): void {
   /**
    * Vérifier si un modèle est disponible
    */
-  ipcMain.handle('textRAG:isModelAvailable', async (_event, model: string) => {
+  ipcMain.handle('text-rag:isModelAvailable', async (_event, model: string) => {
     try {
       const available = await textRAGService.isModelAvailable(model);
       return { success: true, data: available };
@@ -147,7 +147,7 @@ export function registerTextRAGHandlers(): void {
   /**
    * Mettre à jour l'URL Ollama
    */
-  ipcMain.handle('textRAG:setOllamaUrl', async (_event, url: string) => {
+  ipcMain.handle('text-rag:setOllamaUrl', async (_event, url: string) => {
     try {
       textRAGService.setOllamaUrl(url);
       return { success: true, data: true };
@@ -160,12 +160,25 @@ export function registerTextRAGHandlers(): void {
   /**
    * Mettre à jour le modèle par défaut
    */
-  ipcMain.handle('textRAG:setDefaultModel', async (_event, model: string) => {
+  ipcMain.handle('text-rag:setDefaultModel', async (_event, model: string) => {
     try {
       textRAGService.setDefaultModel(model);
       return { success: true, data: true };
     } catch (error) {
       console.error('[TextRAG] Error in setDefaultModel:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  /**
+   * Obtenir les statistiques
+   */
+  ipcMain.handle('text-rag:getStats', async () => {
+    try {
+      // Return basic stats for now
+      return { success: true, data: { indexed: 0, chunks: 0 } };
+    } catch (error) {
+      console.error('[TextRAG] Error in getStats:', error);
       return { success: false, error: String(error) };
     }
   });

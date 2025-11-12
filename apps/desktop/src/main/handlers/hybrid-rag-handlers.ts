@@ -11,7 +11,7 @@ export function registerHybridRAGHandlers(): void {
   /**
    * Recherche hybride (text + vision avec RRF)
    */
-  ipcMain.handle('hybridRAG:search', async (_event, params: RAGSearchParams) => {
+  ipcMain.handle('hybrid-rag:search', async (_event, params: RAGSearchParams) => {
     try {
       const result = await hybridRAGService.search(params);
       return result; // Already has success/error/mode structure
@@ -31,7 +31,7 @@ export function registerHybridRAGHandlers(): void {
   /**
    * Configurer le K constant pour RRF
    */
-  ipcMain.handle('hybridRAG:setRRFConstant', async (_event, k: number) => {
+  ipcMain.handle('hybrid-rag:setRRFConstant', async (_event, k: number) => {
     try {
       hybridRAGService.setRRFConstant(k);
       return { success: true, data: k };
@@ -44,7 +44,7 @@ export function registerHybridRAGHandlers(): void {
   /**
    * Obtenir le K constant actuel
    */
-  ipcMain.handle('hybridRAG:getRRFConstant', async () => {
+  ipcMain.handle('hybrid-rag:getRRFConstant', async () => {
     try {
       const k = hybridRAGService.getRRFConstant();
       return { success: true, data: k };
@@ -59,7 +59,7 @@ export function registerHybridRAGHandlers(): void {
   /**
    * Obtenir les statistiques RAG hybride
    */
-  ipcMain.handle('hybridRAG:getStats', async () => {
+  ipcMain.handle('hybrid-rag:getStats', async () => {
     try {
       const stats = await hybridRAGService.getStats();
       return { success: true, data: stats };

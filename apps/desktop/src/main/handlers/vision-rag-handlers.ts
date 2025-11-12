@@ -12,7 +12,7 @@ export function registerVisionRAGHandlers(): void {
    * Indexer un document avec Vision RAG
    */
   ipcMain.handle(
-    'visionRAG:indexDocument',
+    'vision-rag:index',
     async (_event, params: VisionRAGIndexParams) => {
       try {
         const result = await visionRAGService.indexDocument(params);
@@ -32,7 +32,7 @@ export function registerVisionRAGHandlers(): void {
   /**
    * Supprimer l'indexation d'un document
    */
-  ipcMain.handle('visionRAG:deleteDocument', async (_event, attachmentId: string) => {
+  ipcMain.handle('vision-rag:delete', async (_event, attachmentId: string) => {
     try {
       await visionRAGService.deleteDocument(attachmentId);
       return { success: true, data: true };
@@ -47,7 +47,7 @@ export function registerVisionRAGHandlers(): void {
   /**
    * Rechercher dans les documents indexés
    */
-  ipcMain.handle('visionRAG:search', async (_event, params: RAGSearchParams) => {
+  ipcMain.handle('vision-rag:search', async (_event, params: RAGSearchParams) => {
     try {
       const result = await visionRAGService.search(params);
       return result; // Already has success/error structure
@@ -67,7 +67,7 @@ export function registerVisionRAGHandlers(): void {
    * Convertir un PDF en images
    */
   ipcMain.handle(
-    'visionRAG:convertPDF',
+    'vision-rag:convertPDF',
     async (_event, pdfPath: string, outputDir: string, dpi: number = 200) => {
       try {
         const result = await visionRAGService.convertPDFToImages(pdfPath, outputDir, dpi);
@@ -87,7 +87,7 @@ export function registerVisionRAGHandlers(): void {
   /**
    * Vérifier l'environnement Python
    */
-  ipcMain.handle('visionRAG:checkPython', async () => {
+  ipcMain.handle('vision-rag:checkPython', async () => {
     try {
       const result = await visionRAGService.checkPythonEnvironment();
       return { success: true, data: result };
@@ -100,12 +100,25 @@ export function registerVisionRAGHandlers(): void {
   /**
    * Mettre à jour le modèle par défaut
    */
-  ipcMain.handle('visionRAG:setDefaultModel', async (_event, model: string) => {
+  ipcMain.handle('vision-rag:setDefaultModel', async (_event, model: string) => {
     try {
       visionRAGService.setDefaultModel(model);
       return { success: true, data: true };
     } catch (error) {
       console.error('[VisionRAG] Error in setDefaultModel:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  /**
+   * Obtenir les statistiques
+   */
+  ipcMain.handle('vision-rag:getStats', async () => {
+    try {
+      // Return basic stats for now
+      return { success: true, data: { indexed: 0, patches: 0 } };
+    } catch (error) {
+      console.error('[VisionRAG] Error in getStats:', error);
       return { success: false, error: String(error) };
     }
   });
