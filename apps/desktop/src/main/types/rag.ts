@@ -406,3 +406,41 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
+
+/**
+ * Helper pour recommander le mode RAG selon MIME type
+ */
+export function recommendRAGMode(mimeType: string, extractedText?: string): RAGMode {
+  // Images → vision obligatoire
+  if (mimeType.startsWith('image/')) {
+    return 'vision';
+  }
+
+  // Code source → text
+  const codeExtensions = [
+    'text/javascript', 'text/typescript', 'text/python',
+    'text/java', 'text/c', 'text/cpp', 'text/go', 'text/rust'
+  ];
+  if (codeExtensions.some(ext => mimeType.includes(ext))) {
+    return 'text';
+  }
+
+  // Markdown/texte pur → text
+  if (mimeType === 'text/plain' || mimeType === 'text/markdown') {
+    return 'text';
+  }
+
+  // PDF → analyser ratio texte/visuel
+  if (mimeType === 'application/pdf') {
+    if (extractedText && extractedText.length > 1000) {
+      // Si beaucoup de texte extrait → probablement textuel
+      return 'text';
+    } else {
+      // Sinon → probablement des schémas/images
+      return 'vision';
+    }
+  }
+
+  // Default: text (plus rapide)
+  return 'text';
+}

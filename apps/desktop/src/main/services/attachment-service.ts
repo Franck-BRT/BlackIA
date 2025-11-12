@@ -6,7 +6,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { app } from 'electron';
 import type { EntityType, RAGMode } from '../types/rag';
-import { recommendRAGMode } from '../../renderer/src/types/attachment';
+import { recommendRAGMode } from '../types/rag';
 
 /**
  * Attachment with parsed JSON fields
