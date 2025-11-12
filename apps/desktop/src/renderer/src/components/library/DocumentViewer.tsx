@@ -33,6 +33,12 @@ export function DocumentViewer({ document, onClose, onReindex, onValidate }: Doc
 
   useEffect(() => {
     if (document.id) {
+      console.log('[DocumentViewer] Mounted with document:', {
+        id: document.id,
+        name: document.originalName,
+        hasExtractedText: !!document.extractedText,
+        textLength: document.extractedText?.length || 0
+      });
       getDocumentChunks(document.id);
     }
   }, [document.id, getDocumentChunks]);
@@ -53,21 +59,29 @@ export function DocumentViewer({ document, onClose, onReindex, onValidate }: Doc
   };
 
   // Render using portal to avoid z-index stacking context issues
+  const portalRoot = document.getElementById('root');
+  if (!portalRoot) return null;
+
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex flex-col bg-neutral-950">
+    <div className="fixed inset-0 z-[9999] flex flex-col bg-neutral-950" style={{ color: 'white' }}>
+      {/* Debug indicator */}
+      <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 text-xs rounded">
+        DocumentViewer Active
+      </div>
+
       {/* Header */}
       <div className="flex-none p-6 border-b border-white/10">
         <div className="flex items-center gap-4">
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
             title="Fermer"
           >
             <X className="w-5 h-5" />
           </button>
 
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-neutral-100">{document.originalName}</h1>
+            <h1 className="text-2xl font-bold text-white">{document.originalName}</h1>
             <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
               <span>{formatBytes(document.size)}</span>
               <span>•</span>
@@ -311,7 +325,7 @@ export function DocumentViewer({ document, onClose, onReindex, onValidate }: Doc
         </div>
       )}
     </div>,
-    document.body
+    portalRoot
   );
 }
 
