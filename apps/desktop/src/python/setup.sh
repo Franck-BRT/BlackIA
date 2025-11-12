@@ -1,6 +1,7 @@
 #!/bin/bash
 # Setup script for BlackIA Python environment
-# Requires Python 3.11+ and Apple Silicon (M1/M2/M3/M4)
+# Requires Python 3.11+
+# Supports: Colette/ColPali (multi-platform) or MLX-VLM (Apple Silicon only)
 
 set -e
 
@@ -12,19 +13,15 @@ echo ""
 python_version=$(python3 --version 2>&1 | awk '{print $2}')
 echo "✓ Python version: $python_version"
 
-# Check if on Apple Silicon
+# Check architecture
 arch=$(uname -m)
-if [ "$arch" != "arm64" ]; then
-    echo "⚠️  WARNING: MLX requires Apple Silicon (arm64)"
-    echo "   Current architecture: $arch"
-    echo "   Vision RAG will not work on this platform"
-    echo ""
-    read -p "Continue anyway? (y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
+echo "✓ Architecture: $arch"
+if [ "$arch" = "arm64" ]; then
+    echo "  (Apple Silicon detected - Colette with MPS acceleration available)"
+else
+    echo "  (Colette will use CUDA or CPU)"
 fi
+echo ""
 
 # Create virtual environment if not exists
 if [ ! -d "venv" ]; then
@@ -53,9 +50,9 @@ echo ""
 echo "To activate the environment:"
 echo "  source venv/bin/activate"
 echo ""
-echo "To test MLX installation:"
-echo "  python -c 'import mlx.core as mx; print(mx.ones((2,2)))'"
+echo "To test Colette/ColPali installation:"
+echo "  python -c 'import colpali_engine; import torch; print(\"✓ Colette dependencies OK\")'"
 echo ""
-echo "To test MLX-VLM:"
-echo "  python -c 'import mlx_vlm; print(\"MLX-VLM OK\")'"
+echo "To test device acceleration:"
+echo "  python -c 'import torch; print(f\"CUDA: {torch.cuda.is_available()}\"); print(f\"MPS: {torch.backends.mps.is_available()}\")'"
 echo ""

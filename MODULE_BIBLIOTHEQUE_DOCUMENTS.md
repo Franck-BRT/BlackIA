@@ -493,10 +493,41 @@ pip install colpali-engine torch torchvision pdf2image pillow
 ## 8. Prochaines Étapes Recommandées
 
 ### Étape 1 : Installation des Dépendances Python ⚠️
+
+**Option A: Utiliser votre Python système/conda (Si les packages sont déjà installés)**
+
+Le service détecte automatiquement votre Python s'il a les dépendances requises. Vérifiez :
+
 ```bash
-cd apps/desktop
-source venv/bin/activate  # ou équivalent
-pip install colpali-engine torch torchvision pdf2image pillow
+python3 -c "import colpali_engine; import torch; import torchvision; import pdf2image; import PIL; print('✓ Toutes les dépendances sont disponibles')"
+```
+
+Si cette commande réussit, vous êtes prêt ! BlackIA utilisera automatiquement ce Python.
+
+**Option B: Créer un environnement virtuel dédié (Recommandé pour isolation)**
+
+```bash
+cd apps/desktop/src/python
+bash setup.sh
+```
+
+Ou manuellement :
+
+```bash
+cd apps/desktop/src/python
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Vérification de l'installation :**
+
+```bash
+# Vérifier les dépendances
+python3 -c "import colpali_engine; import torch; print('✓ Colette OK')"
+
+# Vérifier l'accélération matérielle
+python3 -c "import torch; print(f'CUDA: {torch.cuda.is_available()}'); print(f'MPS (Apple): {torch.backends.mps.is_available()}')"
 ```
 
 ### Étape 2 : Tests Fonctionnels

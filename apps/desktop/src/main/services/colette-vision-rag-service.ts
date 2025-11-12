@@ -10,7 +10,8 @@
 
 import path from 'path';
 import { app } from 'electron';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
+import { existsSync } from 'fs';
 import type {
   VisionRAGIndexParams,
   RAGSearchParams,
@@ -56,10 +57,10 @@ export class ColetteVisionRAGService {
     const appPath = app.getAppPath();
 
     if (isDev) {
-      // Development: utiliser le venv local
+      // Development: détecter le meilleur Python disponible
       const scriptsPath = path.join(appPath, 'apps/desktop/src/python');
-      this.pythonPath = path.join(scriptsPath, 'venv/bin/python3');
       this.scriptPath = path.join(scriptsPath, 'vision_rag/colette_embedder.py');
+      this.pythonPath = this.detectPythonPath(scriptsPath);
     } else {
       // Production: Python sera dans les resources
       const scriptsPath = path.join(process.resourcesPath, 'python');
@@ -69,6 +70,40 @@ export class ColetteVisionRAGService {
 
     console.log('[Colette] Python path:', this.pythonPath);
     console.log('[Colette] Script path:', this.scriptPath);
+  }
+
+  /**
+   * Détecter le meilleur Python disponible avec les dépendances Colette
+   */
+  private detectPythonPath(scriptsPath: string): string {
+    // 1. Essayer le venv local d'abord
+    const venvPython = path.join(scriptsPath, 'venv/bin/python3');
+    if (existsSync(venvPython)) {
+      console.log('[Colette] Using venv Python:', venvPython);
+      return venvPython;
+    }
+
+    // 2. Essayer Python système avec vérification des dépendances
+    const systemPythons = ['python3', 'python'];
+    for (const pythonCmd of systemPythons) {
+      try {
+        // Vérifier si Python a les dépendances requises
+        execSync(
+          `${pythonCmd} -c "import colpali_engine; import torch; import torchvision; import pdf2image; import PIL"`,
+          { stdio: 'ignore' }
+        );
+        console.log('[Colette] Using system Python with required dependencies:', pythonCmd);
+        return pythonCmd;
+      } catch {
+        // Continue au suivant
+      }
+    }
+
+    // 3. Si aucun Python valide trouvé, retourner le chemin du venv (même s'il n'existe pas)
+    // L'erreur sera gérée lors de l'exécution avec un message clair
+    console.warn('[Colette] No valid Python found. Defaulting to venv path (may not exist).');
+    console.warn('[Colette] Please run: cd apps/desktop/src/python && python3 -m venv venv && source venv/bin/activate && pip install colpali-engine torch torchvision pdf2image pillow');
+    return venvPython;
   }
 
   /**
