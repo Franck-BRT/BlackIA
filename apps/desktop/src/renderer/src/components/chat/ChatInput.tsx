@@ -52,7 +52,7 @@ export function ChatInput({
   conversationId,
   entityType = 'conversation',
   entityId,
-  ragEnabled: ragEnabledProp = true,
+  ragEnabled: ragEnabledProp = false, // Désactivé par défaut en attendant l'implémentation des handlers RAG
   headerAttachments = [],
 }: ChatInputProps) {
   const [message, setMessage] = useState(initialMessage);
