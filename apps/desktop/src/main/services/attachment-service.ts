@@ -13,7 +13,7 @@ import { recommendRAGMode } from '../../renderer/src/types/attachment';
  * DB stores tags/metadata as JSON strings, we parse them here
  */
 export type AttachmentWithParsedFields = Omit<
-  ReturnType<typeof attachments.$inferSelect>,
+  typeof attachments.$inferSelect,
   'tags' | 'extractedMetadata'
 > & {
   tags: string[];
@@ -185,7 +185,7 @@ export class AttachmentService {
         extractedMetadata: attachment.extractedMetadata
           ? JSON.parse(attachment.extractedMetadata as string)
           : undefined,
-      })) as Attachment[];
+      })) as AttachmentWithParsedFields[];
     } catch (error) {
       console.error('[AttachmentService] Get by entity error:', error);
       throw error;
@@ -207,7 +207,7 @@ export class AttachmentService {
         extractedMetadata: attachment.extractedMetadata
           ? JSON.parse(attachment.extractedMetadata as string)
           : undefined,
-      })) as Attachment[];
+      })) as AttachmentWithParsedFields[];
     } catch (error) {
       console.error('[AttachmentService] Get all error:', error);
       throw error;
@@ -400,7 +400,7 @@ export class AttachmentService {
       };
 
       // Compter par entity type
-      allAttachments.forEach((a) => {
+      allAttachments.forEach((a: AttachmentWithParsedFields) => {
         stats.byEntityType[a.entityType] = (stats.byEntityType[a.entityType] || 0) + 1;
         stats.byMimeType[a.mimeType] = (stats.byMimeType[a.mimeType] || 0) + 1;
       });

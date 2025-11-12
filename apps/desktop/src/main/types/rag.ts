@@ -11,7 +11,7 @@ export type EntityType = 'message' | 'workflow' | 'document' | 'persona' | 'prom
 /**
  * RAG modes
  */
-export type RAGMode = 'text' | 'vision' | 'hybrid' | 'none';
+export type RAGMode = 'text' | 'vision' | 'hybrid' | 'none' | 'auto';
 
 /**
  * Text chunking options
