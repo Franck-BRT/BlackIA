@@ -1,17 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Square } from 'lucide-react';
+import { Send, Square, Paperclip } from 'lucide-react';
 import { PersonaMentionDropdown } from './PersonaMentionDropdown';
 import { PromptMentionDropdown } from './PromptMentionDropdown';
 import { PromptVariablesModal } from '../prompts/PromptVariablesModal';
+import { RAGToggle } from './RAGToggle';
 import type { Persona } from '../../types/persona';
 import type { Prompt } from '../../types/prompt';
+import type { Attachment, RAGMetadata } from '../../types/attachment';
 import { extractVariables, replaceVariables } from '../../types/prompt';
 import { useSettings } from '../../contexts/SettingsContext';
 import { usePersonaSuggestions } from '../../hooks/usePersonaSuggestions';
 import { usePrompts } from '../../hooks/usePrompts';
+import { useRAG } from '../../hooks/useRAG';
 
 interface ChatInputProps {
-  onSend: (message: string, personaIds?: string[], includeFewShots?: boolean) => void;
+  onSend: (
+    message: string,
+    personaIds?: string[],
+    includeFewShots?: boolean,
+    attachmentIds?: string[],
+    ragMetadata?: RAGMetadata
+  ) => void;
   onStop?: () => void;
   disabled?: boolean;
   isGenerating?: boolean;
@@ -21,6 +30,12 @@ interface ChatInputProps {
   onMessageChange?: () => void; // Callback quand le message change
   prefillPersonaId?: string; // Persona pré-sélectionné depuis un prompt
   prefillIncludeFewShots?: boolean; // Inclure les few-shots du persona pré-sélectionné
+  // Nouveaux props pour RAG et attachments
+  conversationId?: string; // ID de la conversation pour attachments et RAG
+  entityType?: 'conversation' | 'message';
+  entityId?: string;
+  ragEnabled?: boolean; // Activer/désactiver RAG par défaut
+  headerAttachments?: Attachment[]; // Attachments gérés depuis le header
 }
 
 export function ChatInput({
@@ -34,6 +49,11 @@ export function ChatInput({
   onMessageChange,
   prefillPersonaId,
   prefillIncludeFewShots = false,
+  conversationId,
+  entityType = 'conversation',
+  entityId,
+  ragEnabled: ragEnabledProp = false, // Désactivé par défaut en attendant l'implémentation des handlers RAG
+  headerAttachments = [],
 }: ChatInputProps) {
   const [message, setMessage] = useState(initialMessage);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
@@ -52,6 +72,10 @@ export function ChatInput({
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [showPromptVariablesModal, setShowPromptVariablesModal] = useState(false);
 
+  // NOUVEAUX ÉTATS pour RAG
+  const [ragEnabled, setRagEnabled] = useState(ragEnabledProp);
+  const [ragMode, setRagMode] = useState<'text' | 'vision' | 'hybrid' | 'auto'>('auto');
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -59,6 +83,14 @@ export function ChatInput({
   const { settings } = useSettings();
   const { keywords: allKeywords } = usePersonaSuggestions();
   const { prompts } = usePrompts();
+
+  // NOUVEAUX HOOKS pour RAG
+  const { contextualizeMessage, isSearching } = useRAG({
+    enabled: ragEnabled,
+    defaultMode: ragMode,
+    topK: 5,
+    minScore: 0.7,
+  });
 
   // Filtrer uniquement les keywords actifs si nécessaire
   const activeKeywords = settings.personaSuggestions.showOnlyActive
@@ -118,9 +150,10 @@ export function ChatInput({
     return suggestions.slice(0, settings.personaSuggestions.maxSuggestions);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim() && !disabled && !isGenerating) {
+    if (message.trim() && !disabled && !isGenerating && !isSearching) {
       // Extraire tous les @mentions du texte
       const mentionedIds = extractMentionsFromText(message);
 
@@ -137,12 +170,45 @@ export function ChatInput({
 
       console.log('[ChatInput] 📤 Envoi du message avec personas:', allPersonaIds, 'includeFewShots:', shouldIncludeFewShots);
 
-      // Envoyer le message avec tous les personas mentionnés
+      // NOUVEAU: Contextualisation RAG si activé et qu'il y a des attachments
+      let ragMetadata: RAGMetadata | undefined;
+      let finalMessage = message.trim();
+
+      if (ragEnabled && headerAttachments.length > 0) {
+        console.log('[ChatInput] RAG enabled, contextualizing message...');
+
+        const { context, metadata } = await contextualizeMessage(finalMessage, {
+          conversationId,
+          entityType,
+          entityId: entityId || conversationId,
+          mode: ragMode,
+        });
+
+        if (context) {
+          // Enrichir le message avec le contexte
+          finalMessage = `${context}\n\nUser: ${finalMessage}`;
+          ragMetadata = metadata;
+
+          console.log('[ChatInput] Message contextualized:', {
+            chunksUsed: metadata.chunksUsed,
+            mode: metadata.mode,
+          });
+        }
+      }
+
+      // NOUVEAU: Extraire les IDs des attachments
+      const attachmentIds = headerAttachments.map(a => a.id);
+
+      // Envoyer le message avec tous les personas mentionnés + attachments + RAG
       onSend(
-        message.trim(),
+        finalMessage,
         allPersonaIds.length > 0 ? allPersonaIds : undefined,
-        allPersonaIds.length > 0 ? shouldIncludeFewShots : false
+        allPersonaIds.length > 0 ? shouldIncludeFewShots : false,
+        attachmentIds.length > 0 ? attachmentIds : undefined,
+        ragMetadata
       );
+
+      // Reset
       setMessage('');
       setSelectedPersonaIds([]);
       setIncludeMentionFewShots(false);
@@ -445,6 +511,7 @@ export function ChatInput({
   const totalFewShots = selectedPersonas.reduce((sum, p) => sum + (p.fewShotExamples?.length || 0), 0);
 
   return (
+    <>
     <form ref={formRef} onSubmit={handleSubmit} className="glass-card rounded-2xl p-4 relative">
       {/* Dropdown de mention @persona */}
       {showMentionDropdown && (
@@ -563,14 +630,39 @@ export function ChatInput({
         </div>
       )}
 
+      {/* RAG Controls */}
+      {conversationId && (
+        <div className="flex items-center gap-2 mb-2">
+          <RAGToggle
+            enabled={ragEnabled}
+            mode={ragMode}
+            onToggle={() => setRagEnabled(!ragEnabled)}
+            onModeChange={setRagMode}
+          />
+
+          {isSearching && (
+            <span className="text-xs text-purple-500 dark:text-purple-400 animate-pulse">
+              Recherche RAG...
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="flex items-end gap-3">
+        {/* Indicateur de fichiers attachés */}
+        {headerAttachments.length > 0 && (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400">
+            <Paperclip className="w-4 h-4" />
+            <span className="text-xs font-medium">{headerAttachments.length}</span>
+          </div>
+        )}
         <textarea
           ref={textareaRef}
           value={message}
           onChange={handleMessageChange}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          disabled={disabled}
+          disabled={disabled || isSearching}
           rows={1}
           className="flex-1 bg-transparent resize-none outline-none placeholder:text-muted-foreground max-h-32 overflow-y-auto"
           style={{ minHeight: '24px' }}
@@ -602,7 +694,15 @@ export function ChatInput({
         <span className="hidden md:inline">⇧ + ↵ pour nouvelle ligne</span>
         <span className="truncate">@ mention</span>
         <span className="truncate">/ prompt</span>
+
+        {/* Hints pour RAG */}
+        {ragEnabled && conversationId && (
+          <span className="truncate text-purple-400">
+            ✨ RAG {ragMode}
+          </span>
+        )}
       </div>
     </form>
+  </>
   );
 }

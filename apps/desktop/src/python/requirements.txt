@@ -1,0 +1,32 @@
+# BlackIA Python Dependencies for RAG System
+# Requires Python 3.11+
+# Apple Silicon (M1/M2/M3/M4) required for MLX
+
+# ===== MLX Framework (Apple Silicon optimized) =====
+mlx==0.20.0
+mlx-lm==0.20.1
+
+# ===== MLX-VLM for Vision RAG =====
+# NOTE: MLX-VLM doit être installé depuis source ou PyPI
+# pip install mlx-vlm
+mlx-vlm==0.0.13
+
+# ===== Image Processing =====
+Pillow==10.4.0
+pdf2image==1.17.0
+
+# ===== Vector Store =====
+lancedb==0.15.0
+pyarrow==17.0.0
+
+# ===== Utilities =====
+numpy==1.26.4
+python-dotenv==1.0.1
+
+# ===== Optional: Text Extraction (déjà géré par Node mais utile pour tests) =====
+# PyMuPDF==1.24.0  # Alternative plus rapide que pdf2image pour texte seul
+
+# ===== Development (optionnel) =====
+# pytest==8.3.0
+# black==24.8.0
+# mypy==1.11.0

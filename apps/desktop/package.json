@@ -49,12 +49,18 @@
     "react-syntax-highlighter": "^15.5.0",
     "highlight.js": "^11.9.0",
     "axios": "^1.6.0",
-    "cheerio": "^1.0.0-rc.12"
+    "cheerio": "^1.0.0-rc.12",
+    "pdf-parse": "^1.1.1",
+    "sharp": "^0.33.5",
+    "vectordb": "^0.4.14",
+    "apache-arrow": "^14.0.0",
+    "python-shell": "^5.0.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.0",
     "@types/better-sqlite3": "^7.6.8",
     "@types/node": "^20.11.5",
+    "@types/pdf-parse": "^1.1.4",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
     "@types/react-syntax-highlighter": "^15.5.11",

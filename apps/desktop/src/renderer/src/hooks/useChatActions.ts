@@ -4,6 +4,7 @@ import type { Persona } from '../types/persona';
 import type { ChatSettingsData } from '../components/chat/ChatSettings';
 import type { MessageMetadata } from './useConversations';
 import type { WebSearchResponse, WebSearchSettings, WebSearchProviderConfig } from '@blackia/shared';
+import type { RAGMetadata } from '../types/attachment';
 
 interface UseChatActionsParams {
   // États
@@ -74,9 +75,16 @@ export function useChatActions({
   const handleSendMessage = async (
     content: string,
     mentionedPersonaIds?: string[],
-    includeMentionFewShots: boolean = false
+    includeMentionFewShots: boolean = false,
+    attachmentIds?: string[],
+    ragMetadata?: RAGMetadata
   ) => {
-    console.log('[useChatActions] 📥 handleSendMessage reçu:', { mentionedPersonaIds, includeMentionFewShots });
+    console.log('[useChatActions] 📥 handleSendMessage reçu:', {
+      mentionedPersonaIds,
+      includeMentionFewShots,
+      attachmentIds,
+      hasRagMetadata: !!ragMetadata,
+    });
 
     if (!selectedModel) {
       alert('Veuillez sélectionner un modèle');
@@ -102,15 +110,24 @@ export function useChatActions({
     const userMessageIndex = messages.length;
     setMessages((prev) => [...prev, userMessage]);
 
-    // Si des personas ont été mentionnés, stocker les métadonnées
-    if (mentionedPersonaIds && mentionedPersonaIds.length > 0) {
+    // Stocker les métadonnées (personas, attachments, RAG)
+    if (mentionedPersonaIds || attachmentIds || ragMetadata) {
+      const metadata: MessageMetadata = {
+        timestamp: Date.now(),
+      };
+
+      if (mentionedPersonaIds && mentionedPersonaIds.length > 0) {
+        metadata.personaId = mentionedPersonaIds[0];
+        metadata.personaIds = mentionedPersonaIds;
+      }
+
+      if (attachmentIds && attachmentIds.length > 0) {
+        metadata.attachmentIds = attachmentIds;
+      }
+
       setMessageMetadata((prev) => ({
         ...prev,
-        [userMessageIndex]: {
-          personaId: mentionedPersonaIds[0],
-          personaIds: mentionedPersonaIds,
-          timestamp: Date.now(),
-        },
+        [userMessageIndex]: metadata,
       }));
       console.log('[useChatActions] 📝 Métadonnées ajoutées pour message utilisateur index', userMessageIndex);
     }
@@ -263,6 +280,20 @@ export function useChatActions({
           [assistantMessageIndex]: webSearchData,
         }));
         console.log('[useChatActions] 💾 Résultats web sauvegardés pour message index', assistantMessageIndex);
+      }
+
+      // Sauvegarder les métadonnées RAG pour l'affichage
+      if (ragMetadata && ragMetadata.enabled) {
+        const assistantMessageIndex = messages.length + 1; // Index du prochain message assistant
+        setMessageMetadata((prev) => ({
+          ...prev,
+          [assistantMessageIndex]: {
+            ...prev[assistantMessageIndex],
+            ragMetadata,
+            timestamp: Date.now(),
+          },
+        }));
+        console.log('[useChatActions] 💾 Métadonnées RAG sauvegardées pour message index', assistantMessageIndex);
       }
 
       console.log('[useChatActions] ✅ Handler chatStream terminé');

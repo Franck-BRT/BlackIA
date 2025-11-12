@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ConversationSidebar } from '../components/chat/ConversationSidebarWithFolders';
 import { ChatHeader } from '../components/chat/ChatHeader';
@@ -39,6 +39,9 @@ export function ChatPage() {
 
   // 0. Responsive
   const { chatSidebarWidth, isMobile, isTablet } = useResponsive();
+
+  // État pour gérer les attachments depuis le header
+  const [currentAttachments, setCurrentAttachments] = useState<any[]>([]);
 
   // 1. États centralisés
   const {
@@ -256,6 +259,16 @@ export function ChatPage() {
     }
   }, [location]);
 
+  // Créer automatiquement une conversation vide au démarrage pour permettre les attachments
+  useEffect(() => {
+    // Si pas de conversation active, pas de messages, et un modèle est sélectionné
+    if (!currentConversationId && messages.length === 0 && selectedModel) {
+      const newConv = createConversation(selectedModel, 'Nouvelle conversation');
+      setCurrentConversationId(newConv.id);
+      console.log('[ChatPage] ✨ Conversation vide créée automatiquement au démarrage:', newConv.id);
+    }
+  }, [selectedModel]); // Se déclenche quand un modèle est sélectionné
+
   // Auto-sauvegarder la conversation quand les messages changent
   useEffect(() => {
     if (currentConversationId && messages.length > 0) {
@@ -286,9 +299,17 @@ export function ChatPage() {
       return;
     }
 
-    setCurrentConversationId(null);
     resetChatState();
-    console.log('[ChatPage] ✨ Prêt pour une nouvelle conversation');
+
+    // Créer immédiatement une conversation vide pour permettre les attachments
+    if (selectedModel) {
+      const newConv = createConversation(selectedModel, 'Nouvelle conversation');
+      setCurrentConversationId(newConv.id);
+      console.log('[ChatPage] ✨ Nouvelle conversation créée:', newConv.id);
+    } else {
+      setCurrentConversationId(null);
+      console.log('[ChatPage] ✨ Prêt pour une nouvelle conversation (sélectionnez un modèle)');
+    }
   };
 
   // Charger une conversation
@@ -524,6 +545,7 @@ export function ChatPage() {
           handleClearChat={handleClearChat}
           handleImportConversation={handleImportConversation}
           handleImportBackup={handleImportBackup}
+          onAttachmentsChange={setCurrentAttachments}
         />
 
         {/* Search Bar */}
@@ -585,6 +607,9 @@ export function ChatPage() {
               }}
               prefillPersonaId={prefillPersonaId}
               prefillIncludeFewShots={prefillIncludeFewShots}
+              conversationId={currentConversationId || undefined}
+              ragEnabled={true}
+              headerAttachments={currentAttachments}
             />
           </div>
         </div>

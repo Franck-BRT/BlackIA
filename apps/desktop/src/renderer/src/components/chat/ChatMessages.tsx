@@ -134,6 +134,7 @@ export function ChatMessages({
                 syntaxTheme={chatSettings.syntaxTheme}
                 showLineNumbers={chatSettings.showLineNumbers}
                 mentionedPersonas={mentionedPersonas}
+                ragMetadata={metadata?.ragMetadata}
               />
               {shouldShowSources && (
                 <SourcesList

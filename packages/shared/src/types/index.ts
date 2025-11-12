@@ -349,7 +349,9 @@ export type LogCategory =
   | 'prompt'
   | 'chat'
   | 'api'
-  | 'ui';
+  | 'ui'
+  | 'attachments'
+  | 'rag';
 
 export interface Log {
   id: string;

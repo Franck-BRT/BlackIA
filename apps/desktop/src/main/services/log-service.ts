@@ -163,6 +163,8 @@ class LogService {
         chat: 0,
         api: 0,
         ui: 0,
+        attachments: 0,
+        rag: 0,
       },
       recentErrors: 0,
       recentWarnings: 0,

@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { User, Bot, RefreshCw, Copy, Check, Edit2, X, Plus } from 'lucide-react';
 import type { OllamaMessage } from '@blackia/ollama';
 import type { Persona } from '../../types/persona';
+import type { RAGMetadata, RAGSource } from '../../types/attachment';
 import { PERSONA_COLOR_CLASSES } from '../../types/persona';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { RAGSources } from './RAGSources';
 import './markdown-styles.css';
 
 interface ChatMessageProps {
@@ -22,6 +24,9 @@ interface ChatMessageProps {
   showLineNumbers?: boolean;
   mentionedPersona?: Persona; // Persona utilisé via @mention pour ce message (legacy)
   mentionedPersonas?: Persona[]; // Personas utilisés via @mention multiples
+  // Nouveaux props pour RAG
+  ragMetadata?: RAGMetadata; // Métadonnées RAG si ce message a utilisé RAG
+  onViewSource?: (source: RAGSource) => void; // Callback pour voir une source complète
 }
 
 export function ChatMessage({
@@ -40,6 +45,8 @@ export function ChatMessage({
   showLineNumbers,
   mentionedPersona,
   mentionedPersonas,
+  ragMetadata,
+  onViewSource,
 }: ChatMessageProps) {
   // Utiliser mentionedPersonas si disponible, sinon fallback sur mentionedPersona
   const personasToDisplay = mentionedPersonas || (mentionedPersona ? [mentionedPersona] : []);
@@ -189,6 +196,15 @@ export function ChatMessage({
             )}
           </div>
         </div>
+
+        {/* RAG Sources - only for assistant messages with RAG metadata */}
+        {isAssistant && ragMetadata && (
+          <RAGSources
+            metadata={ragMetadata}
+            onViewSource={onViewSource}
+            className="w-full"
+          />
+        )}
 
         {/* Edit button for last user message */}
         {isUser && isLastUserMessage && onEdit && !isEditing && !isStreaming && (

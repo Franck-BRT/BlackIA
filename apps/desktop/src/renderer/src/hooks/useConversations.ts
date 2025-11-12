@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { OllamaMessage } from '@blackia/ollama';
+import type { RAGMetadata } from '../types/attachment';
 
 export interface MessageMetadata {
   personaId?: string; // Persona utilisé via @mention pour ce message spécifique (legacy)
   personaIds?: string[]; // Personas utilisés via @mention multiples
   timestamp?: number;
+  attachmentIds?: string[]; // IDs des fichiers attachés à ce message
+  ragMetadata?: RAGMetadata; // Métadonnées RAG si ce message a utilisé RAG
 }
 
 export interface Conversation {

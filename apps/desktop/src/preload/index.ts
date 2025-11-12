@@ -14,7 +14,7 @@ import type {
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
-contextBridge.exposeInMainWorld('electronAPI', {
+const api = {
   // Basic IPC
   ping: () => ipcRenderer.invoke('ping'),
 
@@ -299,7 +299,49 @@ contextBridge.exposeInMainWorld('electronAPI', {
     search: (query: string) => ipcRenderer.invoke('documents:search', query),
     getFavorites: () => ipcRenderer.invoke('documents:getFavorites'),
   },
-});
+
+  // Attachments API
+  attachments: {
+    upload: (params: { fileName: string; buffer: Buffer; mimeType: string; entityType: string; entityId: string }) =>
+      ipcRenderer.invoke('attachments:upload', params),
+    getByEntity: (params: { entityType: string; entityId: string }) =>
+      ipcRenderer.invoke('attachments:getByEntity', params),
+    getById: (params: { attachmentId: string }) =>
+      ipcRenderer.invoke('attachments:getById', params),
+    delete: (params: { attachmentId: string }) =>
+      ipcRenderer.invoke('attachments:delete', params),
+    getStats: () =>
+      ipcRenderer.invoke('attachments:getStats'),
+    open: (params: { attachmentId: string }) =>
+      ipcRenderer.invoke('attachments:open', params),
+  },
+
+  // Text RAG API
+  textRAG: {
+    index: (params: any) => ipcRenderer.invoke('text-rag:index', params),
+    search: (params: any) => ipcRenderer.invoke('text-rag:search', params),
+    delete: (params: any) => ipcRenderer.invoke('text-rag:delete', params),
+    getStats: () => ipcRenderer.invoke('text-rag:getStats'),
+  },
+
+  // Vision RAG API
+  visionRAG: {
+    index: (params: any) => ipcRenderer.invoke('vision-rag:index', params),
+    search: (params: any) => ipcRenderer.invoke('vision-rag:search', params),
+    delete: (params: any) => ipcRenderer.invoke('vision-rag:delete', params),
+    getStats: () => ipcRenderer.invoke('vision-rag:getStats'),
+  },
+
+  // Hybrid RAG API
+  hybridRAG: {
+    search: (params: any) => ipcRenderer.invoke('hybrid-rag:search', params),
+    getStats: () => ipcRenderer.invoke('hybrid-rag:getStats'),
+  },
+};
+
+// Exposer l'API dans le window
+contextBridge.exposeInMainWorld('electronAPI', api);
+contextBridge.exposeInMainWorld('api', api); // Alias pour compatibilité
 
 // Type definitions for the exposed API
 export interface ElectronAPI {
@@ -528,10 +570,39 @@ export interface ElectronAPI {
     search: (query: string) => Promise<any>;
     getFavorites: () => Promise<any>;
   };
+
+  attachments: {
+    upload: (params: { fileName: string; buffer: Buffer; mimeType: string; entityType: string; entityId: string }) => Promise<any>;
+    getByEntity: (params: { entityType: string; entityId: string }) => Promise<any>;
+    getById: (params: { attachmentId: string }) => Promise<any>;
+    delete: (params: { attachmentId: string }) => Promise<any>;
+    getStats: () => Promise<any>;
+    open: (params: { attachmentId: string }) => Promise<any>;
+  };
+
+  textRAG: {
+    index: (params: any) => Promise<any>;
+    search: (params: any) => Promise<any>;
+    delete: (params: any) => Promise<any>;
+    getStats: () => Promise<any>;
+  };
+
+  visionRAG: {
+    index: (params: any) => Promise<any>;
+    search: (params: any) => Promise<any>;
+    delete: (params: any) => Promise<any>;
+    getStats: () => Promise<any>;
+  };
+
+  hybridRAG: {
+    search: (params: any) => Promise<any>;
+    getStats: () => Promise<any>;
+  };
 }
 
 declare global {
   interface Window {
     electronAPI: ElectronAPI;
+    api: ElectronAPI; // Alias pour compatibilité
   }
 }
