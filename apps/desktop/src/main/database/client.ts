@@ -66,23 +66,37 @@ export function runMigrations() {
     console.log('[Database] Running migrations...');
 
     const migrationsFolder = path.join(__dirname, 'migrations');
+    console.log('[Database] Migrations folder:', migrationsFolder);
+    console.log('[Database] Migrations folder exists:', fs.existsSync(migrationsFolder));
 
     // Vérifier si les fichiers de migration existent
+    if (fs.existsSync(migrationsFolder)) {
+      const files = fs.readdirSync(migrationsFolder);
+      console.log('[Database] Migration files found:', files);
+    }
+
     const hasMigrations = fs.existsSync(migrationsFolder) &&
                           fs.readdirSync(migrationsFolder).some(f => f.endsWith('.sql'));
 
     if (hasMigrations) {
       migrate(dbInstance, { migrationsFolder });
       console.log('[Database] Migrations completed successfully');
+
+      // Verify library tables exist
+      verifyLibraryTables();
     } else {
       console.log('[Database] No migration files found, creating tables directly...');
       createTablesDirectly();
+      // Verify library tables even when using direct table creation
+      verifyLibraryTables();
     }
   } catch (error) {
     console.error('[Database] Migration failed:', error);
     console.log('[Database] Falling back to direct table creation...');
     try {
       createTablesDirectly();
+      // Verify library tables even in fallback mode
+      verifyLibraryTables();
     } catch (fallbackError) {
       console.error('[Database] Fallback table creation also failed:', fallbackError);
       throw fallbackError;
@@ -207,9 +221,197 @@ function createTablesDirectly() {
     CREATE INDEX IF NOT EXISTS attachments_entity_idx ON attachments(entity_type, entity_id);
     CREATE INDEX IF NOT EXISTS attachments_indexed_text_idx ON attachments(is_indexed_text);
     CREATE INDEX IF NOT EXISTS attachments_indexed_vision_idx ON attachments(is_indexed_vision);
+
+    -- Library System Tables (from migration 0004)
+    CREATE TABLE IF NOT EXISTS libraries (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '' NOT NULL,
+      color TEXT DEFAULT 'blue' NOT NULL,
+      icon TEXT DEFAULT '📚' NOT NULL,
+      rag_config TEXT DEFAULT '{}' NOT NULL,
+      storage_path TEXT NOT NULL,
+      document_count INTEGER DEFAULT 0 NOT NULL,
+      total_size INTEGER DEFAULT 0 NOT NULL,
+      total_chunks INTEGER DEFAULT 0 NOT NULL,
+      total_patches INTEGER DEFAULT 0 NOT NULL,
+      allowed_tags TEXT DEFAULT '[]' NOT NULL,
+      is_favorite INTEGER DEFAULT 0 NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS libraries_name_idx ON libraries(name);
+
+    CREATE TABLE IF NOT EXISTS library_documents (
+      id TEXT PRIMARY KEY NOT NULL,
+      library_id TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      file_path TEXT NOT NULL,
+      thumbnail_path TEXT,
+      extracted_text TEXT,
+      extracted_metadata TEXT,
+      tags TEXT DEFAULT '[]' NOT NULL,
+      rag_mode TEXT DEFAULT 'text' NOT NULL CHECK(rag_mode IN ('text', 'vision', 'hybrid', 'none')),
+      is_indexed_text INTEGER DEFAULT 0 NOT NULL,
+      text_embedding_model TEXT,
+      text_chunk_count INTEGER DEFAULT 0 NOT NULL,
+      is_indexed_vision INTEGER DEFAULT 0 NOT NULL,
+      vision_embedding_model TEXT,
+      vision_patch_count INTEGER DEFAULT 0 NOT NULL,
+      page_count INTEGER DEFAULT 0 NOT NULL,
+      validation_status TEXT DEFAULT 'pending' NOT NULL CHECK(validation_status IN ('pending', 'validated', 'needs_review', 'rejected')),
+      validated_by TEXT,
+      validated_at INTEGER,
+      validation_notes TEXT,
+      last_indexed_at INTEGER,
+      indexing_duration INTEGER,
+      indexing_error TEXT,
+      uploaded_by TEXT,
+      is_analyzed INTEGER DEFAULT 0 NOT NULL,
+      is_favorite INTEGER DEFAULT 0 NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (library_id) REFERENCES libraries(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS library_documents_library_idx ON library_documents(library_id);
+    CREATE INDEX IF NOT EXISTS library_documents_validation_idx ON library_documents(validation_status);
+    CREATE INDEX IF NOT EXISTS library_documents_rag_mode_idx ON library_documents(rag_mode);
+
+    CREATE TABLE IF NOT EXISTS manual_chunks (
+      id TEXT PRIMARY KEY NOT NULL,
+      document_id TEXT NOT NULL,
+      original_chunk_id TEXT NOT NULL,
+      modified_text TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      modified_by TEXT NOT NULL,
+      modified_at INTEGER NOT NULL,
+      FOREIGN KEY (document_id) REFERENCES library_documents(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS manual_chunks_document_idx ON manual_chunks(document_id);
   `);
 
   console.log('[Database] Tables created successfully');
+}
+
+/**
+ * Verify library tables exist and create them if missing
+ */
+function verifyLibraryTables() {
+  if (!sqliteInstance) {
+    return;
+  }
+
+  try {
+    const tables = sqliteInstance.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'librar%'"
+    ).all();
+
+    console.log('[Database] Library tables found:', tables);
+
+    if (tables.length === 0) {
+      console.warn('[Database] ⚠️  WARNING: No library tables found after migrations!');
+      console.log('[Database] Creating library tables manually...');
+      createLibraryTables();
+    }
+  } catch (error) {
+    console.error('[Database] Failed to verify library tables:', error);
+  }
+}
+
+/**
+ * Create library tables manually
+ */
+function createLibraryTables() {
+  if (!sqliteInstance) {
+    throw new Error('Database not initialized');
+  }
+
+  try {
+    sqliteInstance.exec(`
+      CREATE TABLE IF NOT EXISTS libraries (
+        id TEXT PRIMARY KEY NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '' NOT NULL,
+        color TEXT DEFAULT 'blue' NOT NULL,
+        icon TEXT DEFAULT '📚' NOT NULL,
+        rag_config TEXT DEFAULT '{}' NOT NULL,
+        storage_path TEXT NOT NULL,
+        document_count INTEGER DEFAULT 0 NOT NULL,
+        total_size INTEGER DEFAULT 0 NOT NULL,
+        total_chunks INTEGER DEFAULT 0 NOT NULL,
+        total_patches INTEGER DEFAULT 0 NOT NULL,
+        allowed_tags TEXT DEFAULT '[]' NOT NULL,
+        is_favorite INTEGER DEFAULT 0 NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS libraries_name_idx ON libraries(name);
+
+      CREATE TABLE IF NOT EXISTS library_documents (
+        id TEXT PRIMARY KEY NOT NULL,
+        library_id TEXT NOT NULL,
+        filename TEXT NOT NULL,
+        original_name TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        file_path TEXT NOT NULL,
+        thumbnail_path TEXT,
+        extracted_text TEXT,
+        extracted_metadata TEXT,
+        tags TEXT DEFAULT '[]' NOT NULL,
+        rag_mode TEXT DEFAULT 'text' NOT NULL CHECK(rag_mode IN ('text', 'vision', 'hybrid', 'none')),
+        is_indexed_text INTEGER DEFAULT 0 NOT NULL,
+        text_embedding_model TEXT,
+        text_chunk_count INTEGER DEFAULT 0 NOT NULL,
+        is_indexed_vision INTEGER DEFAULT 0 NOT NULL,
+        vision_embedding_model TEXT,
+        vision_patch_count INTEGER DEFAULT 0 NOT NULL,
+        page_count INTEGER DEFAULT 0 NOT NULL,
+        validation_status TEXT DEFAULT 'pending' NOT NULL CHECK(validation_status IN ('pending', 'validated', 'needs_review', 'rejected')),
+        validated_by TEXT,
+        validated_at INTEGER,
+        validation_notes TEXT,
+        last_indexed_at INTEGER,
+        indexing_duration INTEGER,
+        indexing_error TEXT,
+        uploaded_by TEXT,
+        is_analyzed INTEGER DEFAULT 0 NOT NULL,
+        is_favorite INTEGER DEFAULT 0 NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (library_id) REFERENCES libraries(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS library_documents_library_idx ON library_documents(library_id);
+      CREATE INDEX IF NOT EXISTS library_documents_validation_idx ON library_documents(validation_status);
+      CREATE INDEX IF NOT EXISTS library_documents_rag_mode_idx ON library_documents(rag_mode);
+
+      CREATE TABLE IF NOT EXISTS manual_chunks (
+        id TEXT PRIMARY KEY NOT NULL,
+        document_id TEXT NOT NULL,
+        original_chunk_id TEXT NOT NULL,
+        modified_text TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        modified_by TEXT NOT NULL,
+        modified_at INTEGER NOT NULL,
+        FOREIGN KEY (document_id) REFERENCES library_documents(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS manual_chunks_document_idx ON manual_chunks(document_id);
+    `);
+
+    console.log('[Database] ✅ Library tables created successfully');
+  } catch (error) {
+    console.error('[Database] Failed to create library tables:', error);
+    throw error;
+  }
 }
 
 /**

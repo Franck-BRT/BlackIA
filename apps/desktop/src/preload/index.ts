@@ -339,6 +339,45 @@ const api = {
     search: (params: any) => ipcRenderer.invoke('hybrid-rag:search', params),
     getStats: () => ipcRenderer.invoke('hybrid-rag:getStats'),
   },
+
+  // Library API
+  library: {
+    create: (input: any) => ipcRenderer.invoke('library:create', input),
+    getAll: () => ipcRenderer.invoke('library:getAll'),
+    getById: (id: string) => ipcRenderer.invoke('library:getById', id),
+    search: (query: string) => ipcRenderer.invoke('library:search', query),
+    update: (id: string, input: any) => ipcRenderer.invoke('library:update', id, input),
+    delete: (id: string, deleteFiles?: boolean) => ipcRenderer.invoke('library:delete', id, deleteFiles),
+    getStats: (libraryId: string) => ipcRenderer.invoke('library:getStats', libraryId),
+    updateStats: (libraryId: string) => ipcRenderer.invoke('library:updateStats', libraryId),
+    getFavorites: () => ipcRenderer.invoke('library:getFavorites'),
+  },
+
+  // Library Document API
+  libraryDocument: {
+    add: (params: any) => ipcRenderer.invoke('library-document:add', params),
+    getDocuments: (libraryId: string, filters?: any) => ipcRenderer.invoke('library-document:getDocuments', libraryId, filters),
+    getById: (id: string) => ipcRenderer.invoke('library-document:getById', id),
+    update: (id: string, updates: any) => ipcRenderer.invoke('library-document:update', id, updates),
+    delete: (id: string) => ipcRenderer.invoke('library-document:delete', id),
+    index: (params: any) => ipcRenderer.invoke('library-document:index', params),
+    deleteIndex: (documentId: string) => ipcRenderer.invoke('library-document:deleteIndex', documentId),
+    getChunks: (documentId: string) => ipcRenderer.invoke('library-document:getChunks', documentId),
+    search: (params: any) => ipcRenderer.invoke('library-document:search', params),
+  },
+
+  // Chunk Editor API
+  chunkEditor: {
+    getDocumentChunks: (documentId: string) => ipcRenderer.invoke('chunk-editor:getDocumentChunks', documentId),
+    getChunkById: (chunkId: string, documentId: string) => ipcRenderer.invoke('chunk-editor:getChunkById', chunkId, documentId),
+    editChunk: (params: any) => ipcRenderer.invoke('chunk-editor:editChunk', params),
+    splitChunk: (params: any) => ipcRenderer.invoke('chunk-editor:splitChunk', params),
+    mergeChunks: (params: any) => ipcRenderer.invoke('chunk-editor:mergeChunks', params),
+    deleteChunk: (params: any) => ipcRenderer.invoke('chunk-editor:deleteChunk', params),
+    insertChunk: (params: any) => ipcRenderer.invoke('chunk-editor:insertChunk', params),
+    getChunksForTextSelection: (params: any) => ipcRenderer.invoke('chunk-editor:getChunksForTextSelection', params),
+    getTextPositionForChunk: (chunkId: string, documentId: string) => ipcRenderer.invoke('chunk-editor:getTextPositionForChunk', chunkId, documentId),
+  },
 };
 
 // Exposer l'API dans le window

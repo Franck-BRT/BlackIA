@@ -13,6 +13,7 @@ import {
   BookOpen,
   PenSquare,
   X,
+  Library,
 } from 'lucide-react';
 import { cn } from '@blackia/ui';
 
@@ -36,6 +37,7 @@ const navItems: NavItem[] = [
   { icon: FileText, label: 'Prompts', path: '/prompts' },
   { icon: User, label: 'Personas', path: '/personas' },
   { icon: FolderOpen, label: 'Projets', path: '/projects' },
+  { icon: Library, label: 'Bibliothèque', path: '/library' },
   { icon: ScrollText, label: 'Logs', path: '/logs' },
   { icon: BookOpen, label: 'Documentation', path: '/documentation' },
 ];

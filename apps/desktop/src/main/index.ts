@@ -18,6 +18,9 @@ import { registerTextRAGHandlers } from './handlers/text-rag-handlers';
 import { registerVisionRAGHandlers } from './handlers/vision-rag-handlers';
 import { registerHybridRAGHandlers } from './handlers/hybrid-rag-handlers';
 import { registerAttachmentHandlers } from './handlers/attachment-handlers';
+import { registerLibraryHandlers } from './handlers/library-handlers';
+import { registerLibraryDocumentHandlers } from './handlers/library-document-handlers';
+import { registerChunkEditorHandlers } from './handlers/chunk-editor-handlers';
 import { initDatabase, runMigrations } from './database/client';
 import { DocumentationService } from './services/documentation-db-service';
 import { WorkflowTemplateService } from './services/workflow-db-service';
@@ -177,6 +180,9 @@ app.whenReady().then(async () => {
     registerVisionRAGHandlers(); // Vision RAG
     registerHybridRAGHandlers(); // Hybrid RAG
     registerAttachmentHandlers(); // Attachments
+    registerLibraryHandlers(); // Library management
+    registerLibraryDocumentHandlers(); // Library documents
+    registerChunkEditorHandlers(); // Chunk editor
     console.log('[App] ✅ IPC handlers registered');
 
     console.log('[App] =====================================');
