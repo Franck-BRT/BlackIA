@@ -217,6 +217,19 @@ export class TextRAGService {
             `Model "${model}" not found. Run: ollama pull ${model}`
           );
         }
+        if (error.response?.status === 500) {
+          const errorMsg = error.response?.data?.error || 'Internal server error';
+          throw new Error(
+            `Ollama server error (500): ${errorMsg}. This usually means the model is not properly loaded or incompatible.`
+          );
+        }
+        // Log détaillé pour autres erreurs HTTP
+        console.error('[TextRAG] Ollama HTTP error:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          url: error.config?.url,
+        });
       }
       console.error('[TextRAG] Embedding generation error:', error);
       throw error;

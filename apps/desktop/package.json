@@ -53,6 +53,7 @@
     "pdf-parse": "^1.1.1",
     "sharp": "^0.33.5",
     "vectordb": "^0.4.14",
+    "apache-arrow": "^14.0.0",
     "python-shell": "^5.0.0"
   },
   "devDependencies": {
