@@ -332,68 +332,99 @@ export class AttachmentService {
         const { textRAGService } = await import('./text-rag-service');
 
         try {
-          const indexResult = await textRAGService.indexDocument({
-            attachmentId: id,
-            text: extractedText,
-            entityType: params.entityType,
-            entityId: params.entityId,
-            model: 'nomic-embed-text',
-            chunkingOptions: {
-              chunkSize: 500,
-              chunkOverlap: 50,
-              separator: '\n\n',
-            },
-          });
-
-          if (indexResult.success) {
-            logger.success('attachments', 'Auto-indexing completed successfully', undefined, {
+          // Vérifier si le modèle d'embeddings est disponible avant d'indexer
+          const modelCheck = await textRAGService.isModelAvailable('nomic-embed-text');
+          if (!modelCheck) {
+            const errorMsg = 'Le modèle "nomic-embed-text" n\'est pas disponible. Veuillez l\'installer avec: ollama pull nomic-embed-text';
+            logger.warning('attachments', 'Auto-indexing skipped', errorMsg, {
               attachmentId: id,
-              chunkCount: indexResult.chunkCount,
-              totalTokens: indexResult.totalTokens,
-            });
-
-            // Mettre à jour le statut d'indexation dans la DB
-            await db
-              .update(attachments)
-              .set({
-                isIndexedText: true,
-                textEmbeddingModel: 'nomic-embed-text',
-                textChunkCount: indexResult.chunkCount,
-                lastIndexedAt: new Date(),
-                updatedAt: new Date(),
-              })
-              .where(eq(attachments.id, id));
-
-            // Mettre à jour l'objet de retour
-            newAttachment.isIndexedText = true;
-            newAttachment.textEmbeddingModel = 'nomic-embed-text';
-            newAttachment.textChunkCount = indexResult.chunkCount;
-            newAttachment.lastIndexedAt = new Date();
-          } else {
-            logger.warning('attachments', 'Auto-indexing failed', indexResult.error, {
-              attachmentId: id,
+              solution: 'Run: ollama pull nomic-embed-text',
             });
 
             // Enregistrer l'erreur dans la DB
             await db
               .update(attachments)
               .set({
-                indexingError: indexResult.error,
+                indexingError: errorMsg,
                 updatedAt: new Date(),
               })
               .where(eq(attachments.id, id));
+
+            // Continuer sans bloquer l'upload
+          } else {
+            const indexResult = await textRAGService.indexDocument({
+              attachmentId: id,
+              text: extractedText,
+              entityType: params.entityType,
+              entityId: params.entityId,
+              model: 'nomic-embed-text',
+              chunkingOptions: {
+                chunkSize: 500,
+                chunkOverlap: 50,
+                separator: '\n\n',
+              },
+            });
+
+            if (indexResult.success) {
+              logger.success('attachments', 'Auto-indexing completed successfully', undefined, {
+                attachmentId: id,
+                chunkCount: indexResult.chunkCount,
+                totalTokens: indexResult.totalTokens,
+              });
+
+              // Mettre à jour le statut d'indexation dans la DB
+              await db
+                .update(attachments)
+                .set({
+                  isIndexedText: true,
+                  textEmbeddingModel: 'nomic-embed-text',
+                  textChunkCount: indexResult.chunkCount,
+                  lastIndexedAt: new Date(),
+                  updatedAt: new Date(),
+                })
+                .where(eq(attachments.id, id));
+
+              // Mettre à jour l'objet de retour
+              newAttachment.isIndexedText = true;
+              newAttachment.textEmbeddingModel = 'nomic-embed-text';
+              newAttachment.textChunkCount = indexResult.chunkCount;
+              newAttachment.lastIndexedAt = new Date();
+            } else {
+              const errorMsg = indexResult.error || 'Unknown error during indexing';
+              logger.warning('attachments', 'Auto-indexing failed', errorMsg, {
+                attachmentId: id,
+              });
+
+              // Si l'erreur contient "model not found" ou "500", donner plus d'info
+              if (errorMsg.includes('not found') || errorMsg.includes('500') || errorMsg.includes('EOF')) {
+                logger.warning('attachments', 'Ollama model issue detected', 'The embeddings model may not be loaded properly', {
+                  suggestion: 'Try running: ollama pull nomic-embed-text',
+                  note: 'File content will still be available to the AI without RAG indexing',
+                });
+              }
+
+              // Enregistrer l'erreur dans la DB
+              await db
+                .update(attachments)
+                .set({
+                  indexingError: errorMsg,
+                  updatedAt: new Date(),
+                })
+                .where(eq(attachments.id, id));
+            }
           }
         } catch (indexError) {
-          logger.error('attachments', 'Auto-indexing error', String(indexError), {
+          const errorMsg = indexError instanceof Error ? indexError.message : String(indexError);
+          logger.error('attachments', 'Auto-indexing error', errorMsg, {
             attachmentId: id,
-            error: indexError instanceof Error ? indexError.message : String(indexError),
+            note: 'File uploaded successfully but indexing failed. Content is still accessible without RAG.',
           });
 
           // Enregistrer l'erreur dans la DB
           await db
             .update(attachments)
             .set({
-              indexingError: String(indexError),
+              indexingError: errorMsg,
               updatedAt: new Date(),
             })
             .where(eq(attachments.id, id));
@@ -448,6 +479,33 @@ export class AttachmentService {
     } catch (error) {
       console.error('[AttachmentService] Get by ID error:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Lire le contenu brut d'un fichier attaché
+   */
+  async readFile(id: string): Promise<{ success: boolean; buffer?: Buffer; mimeType?: string; error?: string }> {
+    try {
+      const attachment = await this.getById(id);
+      if (!attachment) {
+        return { success: false, error: 'Attachment not found' };
+      }
+
+      // Lire le fichier depuis le disque
+      const buffer = await fs.readFile(attachment.filePath);
+
+      return {
+        success: true,
+        buffer,
+        mimeType: attachment.mimeType,
+      };
+    } catch (error) {
+      console.error('[AttachmentService] ❌ Read file error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 

@@ -314,6 +314,8 @@ const api = {
       ipcRenderer.invoke('attachments:getStats'),
     open: (params: { attachmentId: string }) =>
       ipcRenderer.invoke('attachments:open', params),
+    readFile: (params: { attachmentId: string }) =>
+      ipcRenderer.invoke('attachments:readFile', params),
   },
 
   // Text RAG API
@@ -578,6 +580,7 @@ export interface ElectronAPI {
     delete: (params: { attachmentId: string }) => Promise<any>;
     getStats: () => Promise<any>;
     open: (params: { attachmentId: string }) => Promise<any>;
+    readFile: (params: { attachmentId: string }) => Promise<{ success: boolean; buffer?: Buffer; mimeType?: string; error?: string }>;
   };
 
   textRAG: {

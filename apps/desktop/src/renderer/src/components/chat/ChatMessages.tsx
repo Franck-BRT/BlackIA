@@ -135,6 +135,7 @@ export function ChatMessages({
                 showLineNumbers={chatSettings.showLineNumbers}
                 mentionedPersonas={mentionedPersonas}
                 ragMetadata={metadata?.ragMetadata}
+                attachmentIds={metadata?.attachmentIds}
               />
               {shouldShowSources && (
                 <SourcesList

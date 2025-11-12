@@ -186,6 +186,112 @@ export function useChatActions({
         systemPromptToUse = chatSettings.systemPrompt;
       }
 
+      // Ajouter le contenu des attachments au contexte
+      if (attachmentIds && attachmentIds.length > 0) {
+        try {
+          await window.electronAPI.logs.log(
+            'info',
+            'attachments',
+            'Récupération du contenu des attachments',
+            `Nombre d'attachments: ${attachmentIds.length}`,
+            { attachmentIds }
+          );
+
+          // Récupérer les attachments depuis la DB
+          const responses = await Promise.all(
+            attachmentIds.map(id => window.electronAPI.attachments.getById({ attachmentId: id }))
+          );
+
+          // Log des réponses pour debug
+          const responseSummary = responses.map(r => ({
+            success: r.success,
+            hasAttachment: !!r.attachment,
+            filename: r.attachment?.originalName,
+            hasText: !!r.attachment?.extractedText,
+            textLength: r.attachment?.extractedText?.length
+          }));
+
+          await window.electronAPI.logs.log(
+            'info',
+            'attachments',
+            'Réponses API reçues',
+            JSON.stringify(responseSummary, null, 2),
+            { responsesCount: responses.length }
+          );
+
+          // Extraire les attachments des réponses et filtrer les valides avec extractedText
+          const validAttachments = responses
+            .filter(res => res.success && res.attachment)
+            .map(res => res.attachment)
+            .filter(att => att && !!att.extractedText);
+
+          await window.electronAPI.logs.log(
+            'info',
+            'attachments',
+            'Attachments valides trouvés',
+            `${validAttachments.length} fichier(s) avec texte extrait`,
+            { validCount: validAttachments.length, totalCount: attachmentIds.length }
+          );
+
+          if (validAttachments.length > 0) {
+            // Construire le contexte des fichiers
+            const filesContext = validAttachments
+              .map((attachment, index) => {
+                const textLength = attachment.extractedText!.length;
+                const truncatedText = textLength > 10000
+                  ? attachment.extractedText!.substring(0, 10000) + '\n\n[...texte tronqué...]'
+                  : attachment.extractedText!;
+
+                // Log de chaque document
+                window.electronAPI.logs.log(
+                  'info',
+                  'attachments',
+                  `Document ${index + 1} traité`,
+                  `Fichier: ${attachment.originalName}`,
+                  { filename: attachment.originalName, textLength, truncated: textLength > 10000 }
+                );
+
+                return `[Document ${index + 1}: ${attachment.originalName}]\n${truncatedText}`;
+              })
+              .join('\n\n---\n\n');
+
+            const filesPrompt = `\n\n---\n\nDOCUMENTS JOINTS (${validAttachments.length} fichier${validAttachments.length > 1 ? 's' : ''}):\n\n${filesContext}\n\n---\n\nUtilise ces documents pour répondre à la question de l'utilisateur.`;
+            systemPromptToUse += filesPrompt;
+
+            await window.electronAPI.logs.log(
+              'success',
+              'attachments',
+              'Contexte des fichiers ajouté au system prompt',
+              `Fichiers: ${validAttachments.map(a => a.originalName).join(', ')}`,
+              {
+                filesCount: validAttachments.length,
+                totalChars: filesContext.length,
+                systemPromptLength: systemPromptToUse.length
+              }
+            );
+          } else {
+            await window.electronAPI.logs.log(
+              'warning',
+              'attachments',
+              'Aucun texte extrait des attachments',
+              'Les fichiers ont été uploadés mais aucun texte n\'a pu être extrait',
+              { responses: responseSummary }
+            );
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          const errorStack = error instanceof Error ? error.stack : 'No stack trace';
+
+          await window.electronAPI.logs.log(
+            'error',
+            'attachments',
+            'Erreur lors de la récupération des attachments',
+            errorMsg,
+            { stack: errorStack, attachmentIds }
+          );
+        }
+      }
+
       // Recherche web si activée
       let webSearchData: WebSearchResponse | null = null;
       if (webSearchEnabled && webSearchSettings.enabled) {

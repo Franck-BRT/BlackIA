@@ -49,6 +49,8 @@ export function AttachmentViewer({
 }: AttachmentViewerProps) {
   const [zoom, setZoom] = useState(100);
   const [fileContent, setFileContent] = useState<string | null>(null);
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,13 +58,19 @@ export function AttachmentViewer({
   useEffect(() => {
     setZoom(100);
     setFileContent(null);
+    setImageDataUrl(null);
+    setPdfDataUrl(null);
     setError(null);
   }, [attachment.id]);
 
-  // Charger le contenu du fichier pour les fichiers texte
+  // Charger le contenu du fichier pour les fichiers texte, images et PDF
   useEffect(() => {
     if (attachment.mimeType.startsWith('text/') || isTextBasedMime(attachment.mimeType)) {
       loadTextContent();
+    } else if (attachment.mimeType.startsWith('image/')) {
+      loadImageContent();
+    } else if (attachment.mimeType === 'application/pdf') {
+      loadPdfContent();
     }
   }, [attachment.id, attachment.mimeType]);
 
@@ -71,13 +79,57 @@ export function AttachmentViewer({
     setError(null);
 
     try {
-      const result = await window.api.attachments.download(attachment.id);
-      if (result.success && result.data) {
+      const result = await window.electronAPI.attachments.readFile({ attachmentId: attachment.id });
+      if (result.success && result.buffer) {
         // Convertir le Buffer en texte
-        const text = new TextDecoder().decode(new Uint8Array(result.data.buffer));
+        const text = new TextDecoder().decode(new Uint8Array(result.buffer));
         setFileContent(text);
       } else {
         setError(result.error || 'Échec du chargement du fichier');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur inconnue');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadImageContent = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await window.electronAPI.attachments.readFile({ attachmentId: attachment.id });
+      if (result.success && result.buffer && result.mimeType) {
+        // Convertir le Buffer en base64 Data URL
+        const uint8Array = new Uint8Array(result.buffer);
+        const base64 = btoa(String.fromCharCode(...uint8Array));
+        const dataUrl = `data:${result.mimeType};base64,${base64}`;
+        setImageDataUrl(dataUrl);
+      } else {
+        setError(result.error || 'Échec du chargement de l\'image');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur inconnue');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadPdfContent = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await window.electronAPI.attachments.readFile({ attachmentId: attachment.id });
+      if (result.success && result.buffer && result.mimeType) {
+        // Convertir le Buffer en base64 Data URL pour PDF
+        const uint8Array = new Uint8Array(result.buffer);
+        const base64 = btoa(String.fromCharCode(...uint8Array));
+        const dataUrl = `data:${result.mimeType};base64,${base64}`;
+        setPdfDataUrl(dataUrl);
+      } else {
+        setError(result.error || 'Échec du chargement du PDF');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
@@ -184,7 +236,7 @@ export function AttachmentViewer({
             </>
           )}
 
-          {/* Zoom controls pour images */}
+          {/* Zoom controls pour images uniquement (pas pour PDF) */}
           {isImage && (
             <>
               <button
@@ -217,6 +269,16 @@ export function AttachmentViewer({
                 <Maximize2 className="w-5 h-5" />
               </button>
 
+              <div className="w-px h-6 bg-white/10 mx-2" />
+            </>
+          )}
+
+          {/* Info pour PDF (utilise contrôles natifs) */}
+          {isPdf && (
+            <>
+              <span className="text-sm text-gray-400">
+                Utilisez les contrôles du lecteur PDF intégré
+              </span>
               <div className="w-px h-6 bg-white/10 mx-2" />
             </>
           )}
@@ -261,9 +323,9 @@ export function AttachmentViewer({
         {!error && !isLoading && (
           <>
             {/* Image viewer */}
-            {isImage && (
+            {isImage && imageDataUrl && (
               <img
-                src={`attachment://${attachment.id}`}
+                src={imageDataUrl}
                 alt={attachment.originalName}
                 style={{
                   maxWidth: `${zoom}%`,
@@ -275,15 +337,24 @@ export function AttachmentViewer({
             )}
 
             {/* PDF viewer */}
-            {isPdf && (
+            {isPdf && pdfDataUrl && (
+              <div className="w-full h-full">
+                <embed
+                  src={pdfDataUrl}
+                  type="application/pdf"
+                  className="w-full h-full"
+                  style={{ minHeight: '600px' }}
+                />
+              </div>
+            )}
+
+            {/* PDF fallback si échec de chargement */}
+            {isPdf && !pdfDataUrl && !isLoading && !error && (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="text-center">
                   <div className="text-6xl mb-4">📄</div>
                   <div className="text-white text-xl mb-2">{attachment.originalName}</div>
-                  <div className="text-gray-400 mb-4">Visualisation PDF à venir</div>
-                  <div className="text-sm text-gray-500">
-                    Pour le moment, utilisez le bouton télécharger pour ouvrir le PDF dans votre lecteur
-                  </div>
+                  <div className="text-gray-400 mb-4">Chargement du PDF...</div>
                 </div>
               </div>
             )}
