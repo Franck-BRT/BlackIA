@@ -39,7 +39,16 @@ export class VectorStoreService {
   async initialize(): Promise<void> {
     try {
       // Dynamic import de vectordb (Node.js LanceDB client)
-      const lancedb = await import('vectordb');
+      // Vérifier si le module est disponible
+      let lancedb: any;
+      try {
+        lancedb = await import('vectordb');
+      } catch (importError) {
+        console.warn('[VectorStore] ⚠️  vectordb module not installed. Install with: pnpm add vectordb apache-arrow');
+        console.warn('[VectorStore] Vector store will not be available until dependencies are installed.');
+        // Ne pas throw ici, permettre au service de démarrer sans vector store
+        return;
+      }
 
       // Connexion à la base
       this.db = await lancedb.connect(this.dbPath);
@@ -51,7 +60,8 @@ export class VectorStoreService {
       console.log('[VectorStore] Initialized successfully');
     } catch (error) {
       console.error('[VectorStore] Initialization error:', error);
-      throw new Error(`Failed to initialize vector store: ${error}`);
+      console.warn('[VectorStore] Vector store will not be available. Error:', error);
+      // Ne pas throw pour permettre au reste de l'app de fonctionner
     }
   }
 
@@ -96,7 +106,7 @@ export class VectorStoreService {
    */
   async indexTextChunks(chunks: TextRAGChunkSchema[]): Promise<void> {
     if (!this.db) {
-      throw new Error('VectorStore not initialized');
+      throw new Error('VectorStore not initialized. Install dependencies: pnpm add vectordb apache-arrow');
     }
 
     try {

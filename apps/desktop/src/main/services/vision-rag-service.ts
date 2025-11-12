@@ -27,6 +27,7 @@ export class VisionRAGService {
   private pythonPath: string;
   private scriptsPath: string;
   private defaultModel: string;
+  private pythonShellAvailable: boolean = false;
 
   constructor(defaultModel: string = 'mlx-community/Qwen2-VL-2B-Instruct') {
     this.defaultModel = defaultModel;
@@ -47,6 +48,36 @@ export class VisionRAGService {
 
     console.log('[VisionRAG] Python path:', this.pythonPath);
     console.log('[VisionRAG] Scripts path:', this.scriptsPath);
+
+    // Vérifier si python-shell est disponible
+    this.checkPythonShellAvailability();
+  }
+
+  /**
+   * Vérifier si python-shell est disponible
+   */
+  private async checkPythonShellAvailability(): Promise<void> {
+    try {
+      await import('python-shell');
+      this.pythonShellAvailable = true;
+    } catch {
+      this.pythonShellAvailable = false;
+      console.warn('[VisionRAG] ⚠️  python-shell module not installed. Install with: pnpm add python-shell');
+    }
+  }
+
+  /**
+   * Obtenir PythonShell ou throw une erreur claire
+   */
+  private async getPythonShell(): Promise<any> {
+    try {
+      const module = await import('python-shell');
+      return module.PythonShell;
+    } catch (error) {
+      throw new Error(
+        'python-shell module not installed. Install dependencies: pnpm add python-shell @types/python-shell'
+      );
+    }
   }
 
   /**
@@ -215,7 +246,7 @@ export class VisionRAGService {
       console.log('[VisionRAG] Converting PDF to images:', pdfPath);
 
       // Utiliser python-shell pour exécuter document_processor.py
-      const { PythonShell } = await import('python-shell');
+      const PythonShell = await this.getPythonShell();
 
       const scriptPath = path.join(this.scriptsPath, 'vision_rag/document_processor.py');
 
@@ -264,7 +295,7 @@ export class VisionRAGService {
       console.log('[VisionRAG] Generating embeddings for', imagePaths.length, 'images...');
 
       // Utiliser python-shell pour exécuter mlx_vision_embedder.py
-      const { PythonShell } = await import('python-shell');
+      const PythonShell = await this.getPythonShell();
 
       const scriptPath = path.join(this.scriptsPath, 'vision_rag/mlx_vision_embedder.py');
 
@@ -315,7 +346,7 @@ export class VisionRAGService {
     error?: string;
   }> {
     try {
-      const { PythonShell } = await import('python-shell');
+      const PythonShell = await this.getPythonShell();
 
       // Test simple: exécuter Python et vérifier la version
       const options = {
