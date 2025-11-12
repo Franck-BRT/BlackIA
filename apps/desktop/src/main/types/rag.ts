@@ -125,8 +125,14 @@ export interface HybridRAGResult {
   id: string;
   attachmentId: string;
   score: number; // RRF score ou weighted score
-  type: 'text' | 'vision';
-  source: TextRAGResult | VisionRAGResult;
+  source: 'text' | 'vision'; // Source du résultat
+  textResult?: TextRAGResult; // Si source='text'
+  visionResult?: VisionRAGResult; // Si source='vision'
+  metadata: {
+    originalName: string;
+    entityType: EntityType;
+    [key: string]: any; // Autres métadonnées
+  };
 }
 
 /**

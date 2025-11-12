@@ -16,6 +16,7 @@ import { registerDocumentHandlers } from './handlers/document-handlers';
 import { registerLogHandlers } from './handlers/log-handlers';
 import { registerTextRAGHandlers } from './handlers/text-rag-handlers';
 import { registerVisionRAGHandlers } from './handlers/vision-rag-handlers';
+import { registerHybridRAGHandlers } from './handlers/hybrid-rag-handlers';
 import { initDatabase, runMigrations } from './database/client';
 import { DocumentationService } from './services/documentation-db-service';
 import { WorkflowTemplateService } from './services/workflow-db-service';
@@ -167,6 +168,7 @@ app.whenReady().then(async () => {
     registerLogHandlers(); // Logs system
     registerTextRAGHandlers(); // Text RAG
     registerVisionRAGHandlers(); // Vision RAG
+    registerHybridRAGHandlers(); // Hybrid RAG
     console.log('[App] ✅ IPC handlers registered');
 
     console.log('[App] =====================================');
