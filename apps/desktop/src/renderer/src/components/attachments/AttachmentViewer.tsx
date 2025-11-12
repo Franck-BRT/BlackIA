@@ -101,9 +101,9 @@ export function AttachmentViewer({
     try {
       const result = await window.electronAPI.attachments.readFile({ attachmentId: attachment.id });
       if (result.success && result.buffer && result.mimeType) {
-        // Convertir le Buffer en base64 Data URL
+        // Convertir le Buffer en base64 Data URL en traitant par chunks
         const uint8Array = new Uint8Array(result.buffer);
-        const base64 = btoa(String.fromCharCode(...uint8Array));
+        const base64 = uint8ArrayToBase64(uint8Array);
         const dataUrl = `data:${result.mimeType};base64,${base64}`;
         setImageDataUrl(dataUrl);
       } else {
@@ -123,9 +123,9 @@ export function AttachmentViewer({
     try {
       const result = await window.electronAPI.attachments.readFile({ attachmentId: attachment.id });
       if (result.success && result.buffer && result.mimeType) {
-        // Convertir le Buffer en base64 Data URL pour PDF
+        // Convertir le Buffer en base64 Data URL pour PDF en traitant par chunks
         const uint8Array = new Uint8Array(result.buffer);
-        const base64 = btoa(String.fromCharCode(...uint8Array));
+        const base64 = uint8ArrayToBase64(uint8Array);
         const dataUrl = `data:${result.mimeType};base64,${base64}`;
         setPdfDataUrl(dataUrl);
       } else {
@@ -399,6 +399,22 @@ export function AttachmentViewer({
 }
 
 // Helper functions
+
+/**
+ * Convertit un Uint8Array en base64 de manière sûre (sans dépassement de pile)
+ * Traite le buffer par chunks pour éviter l'erreur "Maximum call stack size exceeded"
+ */
+function uint8ArrayToBase64(uint8Array: Uint8Array): string {
+  const CHUNK_SIZE = 0x8000; // 32KB chunks
+  let binary = '';
+
+  for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
+    const chunk = uint8Array.subarray(i, i + CHUNK_SIZE);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+}
 
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
