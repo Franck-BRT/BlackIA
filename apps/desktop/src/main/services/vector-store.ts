@@ -289,10 +289,10 @@ export class VectorStoreService {
       });
 
       // 3. Trier par score décroissant et prendre top K
-      scoredResults.sort((a, b) => b.score - a.score);
+      scoredResults.sort((a: VisionRAGResult, b: VisionRAGResult) => b.score - a.score);
       const topResults = scoredResults.slice(0, topK);
 
-      console.log('[VectorStore] MaxSim top scores:', topResults.slice(0, 3).map((r) => r.score));
+      console.log('[VectorStore] MaxSim top scores:', topResults.slice(0, 3).map((r: VisionRAGResult) => r.score));
 
       return topResults;
     } catch (error) {
