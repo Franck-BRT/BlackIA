@@ -433,21 +433,36 @@ export class VectorStoreService {
    * Supprimer tous les chunks/patches d'un attachment
    */
   async deleteByAttachmentId(attachmentId: string): Promise<void> {
-    try {
-      // Supprimer des text chunks
-      if (this.textCollection) {
+    let textDeleted = false;
+    let visionDeleted = false;
+
+    // Supprimer des text chunks
+    if (this.textCollection) {
+      try {
         await this.textCollection.delete(`attachmentId = '${attachmentId}'`);
         console.log('[VectorStore] Deleted text chunks for attachment:', attachmentId);
+        textDeleted = true;
+      } catch (error) {
+        console.warn('[VectorStore] Could not delete text chunks (may not exist):', error);
       }
+    }
 
-      // Supprimer des vision patches
-      if (this.visionCollection) {
+    // Supprimer des vision patches
+    if (this.visionCollection) {
+      try {
         await this.visionCollection.delete(`attachmentId = '${attachmentId}'`);
         console.log('[VectorStore] Deleted vision patches for attachment:', attachmentId);
+        visionDeleted = true;
+      } catch (error) {
+        console.warn('[VectorStore] Could not delete vision patches (may not exist):', error);
       }
-    } catch (error) {
-      console.error('[VectorStore] Error deleting by attachment ID:', error);
-      throw error;
+    }
+
+    // Log le résultat
+    if (textDeleted || visionDeleted) {
+      console.log('[VectorStore] Successfully deleted vectors for attachment:', attachmentId);
+    } else {
+      console.log('[VectorStore] No vectors found for attachment (may not have been indexed):', attachmentId);
     }
   }
 

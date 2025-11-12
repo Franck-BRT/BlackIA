@@ -502,8 +502,14 @@ export class LibraryDocumentService {
   async deleteIndex(documentId: string): Promise<void> {
     const db = getDatabase();
     try {
-      // Supprimer de LanceDB
-      await vectorStore.deleteByAttachmentId(documentId);
+      // Supprimer de LanceDB (ne pas bloquer si ça échoue)
+      try {
+        await vectorStore.deleteByAttachmentId(documentId);
+        console.log('[LibraryDocumentService] Vector store index deleted for:', documentId);
+      } catch (vectorError) {
+        // Log mais ne pas bloquer la suppression si l'index n'existe pas
+        console.warn('[LibraryDocumentService] Could not delete vector store index (may not exist):', vectorError);
+      }
 
       // Réinitialiser les flags d'indexation
       await db
@@ -518,10 +524,12 @@ export class LibraryDocumentService {
         })
         .where(eq(libraryDocuments.id, documentId));
 
-      console.log('[LibraryDocumentService] Index deleted for document:', documentId);
+      console.log('[LibraryDocumentService] Index metadata reset for document:', documentId);
     } catch (error) {
       console.error('[LibraryDocumentService] Delete index error:', error);
-      throw error;
+      // Ne pas relancer l'erreur pour permettre la suppression du document
+      // même si l'index ne peut pas être supprimé
+      console.warn('[LibraryDocumentService] Continuing with document deletion despite index error');
     }
   }
 

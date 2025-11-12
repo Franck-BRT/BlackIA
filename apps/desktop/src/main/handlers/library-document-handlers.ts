@@ -95,8 +95,10 @@ export function registerLibraryDocumentHandlers() {
 
   // Delete document
   ipcMain.handle('library-document:delete', async (_, id: string) => {
+    console.log('[IPC] library-document:delete - Starting deletion for:', id);
     try {
       await libraryDocumentService.delete(id);
+      console.log('[IPC] library-document:delete - Successfully deleted:', id);
       return { success: true };
     } catch (error) {
       console.error('[IPC] library-document:delete error:', error);
