@@ -193,27 +193,27 @@ export function AttachmentButton({
         disabled={disabled}
         className={`
           flex items-center gap-2 px-3 py-2 rounded-lg
-          transition-all duration-200
+          border-2 transition-all duration-200 font-medium
           ${isDragging
-            ? 'bg-purple-600 text-white scale-105 shadow-lg'
-            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+            ? 'bg-purple-600 border-purple-400 text-white scale-105 shadow-lg'
+            : 'bg-blue-500/10 border-blue-500/40 text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/60'
           }
           ${disabled
             ? 'opacity-50 cursor-not-allowed'
             : 'cursor-pointer'
           }
         `}
-        title="Ajouter des fichiers (drag & drop ou click)"
+        title="📎 Ajouter des fichiers (drag & drop ou click)"
       >
         {isDragging ? (
           <>
-            <Upload className="w-4 h-4" />
+            <Upload className="w-5 h-5" />
             <span className="text-sm font-medium">Déposer les fichiers</span>
           </>
         ) : (
           <>
-            <Paperclip className="w-4 h-4" />
-            <span className="text-sm">Fichiers</span>
+            <Paperclip className="w-5 h-5" />
+            <span className="text-sm">Ajouter fichiers</span>
           </>
         )}
       </button>

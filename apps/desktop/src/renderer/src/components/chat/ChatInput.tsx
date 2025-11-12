@@ -174,10 +174,15 @@ export function ChatInput({
       console.log('[ChatInput] Uploading files:', files.length);
       const uploaded = await uploadAttachment(files);
       setUploadedAttachments([...uploadedAttachments, ...uploaded]);
-      console.log('[ChatInput] Files uploaded:', uploaded.length);
+      console.log('[ChatInput] ✅ Files uploaded successfully:', uploaded.length);
+
+      // Log success pour chaque fichier
+      uploaded.forEach(file => {
+        console.log('[ChatInput] ✅', file.originalName, '-', (file.size / 1024).toFixed(1), 'KB');
+      });
     } catch (error) {
-      console.error('[ChatInput] Upload error:', error);
-      // TODO: Afficher un toast d'erreur
+      console.error('[ChatInput] ❌ Upload error:', error);
+      alert(`Erreur lors de l'upload: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
   };
 
@@ -704,18 +709,30 @@ export function ChatInput({
       )}
 
       {/* NOUVEAU: Liste des fichiers uploadés */}
-      {uploadedAttachments.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-2">
-          {uploadedAttachments.map((attachment) => (
-            <AttachmentPreview
-              key={attachment.id}
-              attachment={attachment}
-              onRemove={() => handleRemoveAttachment(attachment.id)}
-              onView={() => viewer.openViewer(attachment, uploadedAttachments)}
-              compact
-              showActions
-            />
-          ))}
+      {(uploadedAttachments.length > 0 || isUploadingFiles) && (
+        <div className="mb-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-blue-300">
+              📎 Fichiers attachés ({uploadedAttachments.length})
+            </span>
+            {isUploadingFiles && (
+              <span className="text-xs text-blue-400 animate-pulse">
+                Téléchargement en cours...
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {uploadedAttachments.map((attachment) => (
+              <AttachmentPreview
+                key={attachment.id}
+                attachment={attachment}
+                onRemove={() => handleRemoveAttachment(attachment.id)}
+                onView={() => viewer.openViewer(attachment, uploadedAttachments)}
+                compact
+                showActions
+              />
+            ))}
+          </div>
         </div>
       )}
 
