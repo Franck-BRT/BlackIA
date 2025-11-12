@@ -14,10 +14,13 @@ import { registerWorkflowHandlers as registerWorkflowAdvancedHandlers } from './
 import { registerDocumentationHandlers } from './handlers/documentation-handlers';
 import { registerDocumentHandlers } from './handlers/document-handlers';
 import { registerLogHandlers } from './handlers/log-handlers';
+import { registerTextRAGHandlers } from './handlers/text-rag-handlers';
+import { registerVisionRAGHandlers } from './handlers/vision-rag-handlers';
 import { initDatabase, runMigrations } from './database/client';
 import { DocumentationService } from './services/documentation-db-service';
 import { WorkflowTemplateService } from './services/workflow-db-service';
 import { logService, logger } from './services/log-service';
+import { vectorStore } from './services/vector-store';
 
 // __dirname and __filename are available in CommonJS mode
 
@@ -145,6 +148,11 @@ app.whenReady().then(async () => {
     await personaSuggestionService.initializeDefaultKeywords(DEFAULT_KEYWORDS);
     console.log('[App] ✅ Persona suggestion keywords initialized');
 
+    // Initialiser le vector store (LanceDB)
+    console.log('[App] Initializing Vector Store (LanceDB)...');
+    await vectorStore.initialize();
+    console.log('[App] ✅ Vector Store initialized');
+
     // Enregistrer les handlers IPC
     console.log('[App] Registering IPC handlers...');
     registerOllamaHandlers();
@@ -157,6 +165,8 @@ app.whenReady().then(async () => {
     registerDocumentHandlers(); // General documents
     registerTagSyncHandlers();
     registerLogHandlers(); // Logs system
+    registerTextRAGHandlers(); // Text RAG
+    registerVisionRAGHandlers(); // Vision RAG
     console.log('[App] ✅ IPC handlers registered');
 
     console.log('[App] =====================================');

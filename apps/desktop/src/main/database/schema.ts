@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
 
 /**
  * Table Personas
@@ -319,3 +319,80 @@ export const documents = sqliteTable('documents', {
 
 export type Document = typeof documents.$inferSelect;
 export type NewDocument = typeof documents.$inferInsert;
+
+/**
+ * Table Attachments
+ * Pièces jointes pour messages, workflows, documents, etc. avec support RAG dual-mode
+ */
+export const attachments = sqliteTable('attachments', {
+  id: text('id').primaryKey(),
+
+  // Métadonnées fichier
+  filename: text('filename').notNull(), // Nom unique stocké (UUID-based)
+  originalName: text('original_name').notNull(), // Nom original du fichier
+  mimeType: text('mime_type').notNull(), // image/png, application/pdf, text/plain, etc.
+  size: integer('size').notNull(), // Taille en bytes
+
+  // Chemins (relatifs à userData)
+  filePath: text('file_path').notNull(), // Chemin relatif vers le fichier
+  thumbnailPath: text('thumbnail_path'), // Miniature pour images (optionnel)
+
+  // Contenu extrait
+  extractedText: text('extracted_text'), // Texte extrait (PDF, OCR futur)
+  extractedMetadata: text('extracted_metadata'), // JSON (dimensions, pages, auteur, etc.)
+
+  // Relation polymorphique (réutilisable pour n'importe quelle entité)
+  entityType: text('entity_type', {
+    enum: ['message', 'workflow', 'document', 'persona', 'prompt', 'conversation']
+  }).notNull(),
+  entityId: text('entity_id').notNull(), // ID de l'entité parente
+
+  // Tags (organisation manuelle)
+  tags: text('tags').notNull().default('[]'), // JSON array d'IDs de tags
+
+  // RAG MODE CONFIGURATION
+  ragMode: text('rag_mode', {
+    enum: ['text', 'vision', 'hybrid', 'none']
+  }).notNull().default('text'),
+
+  // TEXT RAG (embeddings textuels via Ollama)
+  isIndexedText: integer('is_indexed_text', { mode: 'boolean' }).notNull().default(false),
+  textEmbeddingModel: text('text_embedding_model'), // nomic-embed-text, mxbai-embed-large
+  textChunkCount: integer('text_chunk_count').notNull().default(0),
+
+  // VISION RAG (embeddings visuels via MLX-VLM)
+  isIndexedVision: integer('is_indexed_vision', { mode: 'boolean' }).notNull().default(false),
+  visionEmbeddingModel: text('vision_embedding_model'), // qwen2-vl-2b, qwen2-vl-7b, colpali-adapter
+  visionPatchCount: integer('vision_patch_count').notNull().default(0), // Nombre de patches (1024 par page)
+  pageCount: integer('page_count').notNull().default(0), // Nombre de pages (pour PDF/multi-page)
+
+  // Métadonnées indexation
+  lastIndexedAt: integer('last_indexed_at', { mode: 'timestamp' }),
+  indexingDuration: integer('indexing_duration'), // Durée en millisecondes
+  indexingError: text('indexing_error'), // Message d'erreur si échec
+
+  // Métadonnées générales
+  uploadedBy: text('uploaded_by'), // Pour futur multi-user
+  isAnalyzed: integer('is_analyzed', { mode: 'boolean' }).notNull().default(false),
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Index pour requêtes rapides sur attachments
+export const attachmentsEntityIndex = index('attachments_entity_idx').on(
+  attachments.entityType,
+  attachments.entityId
+);
+
+export const attachmentsIndexedTextIndex = index('attachments_indexed_text_idx').on(
+  attachments.isIndexedText
+);
+
+export const attachmentsIndexedVisionIndex = index('attachments_indexed_vision_idx').on(
+  attachments.isIndexedVision
+);
+
+export type Attachment = typeof attachments.$inferSelect;
+export type NewAttachment = typeof attachments.$inferInsert;
