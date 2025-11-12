@@ -9,6 +9,7 @@ import type { EntityType, StoredRAGMode } from '../types/rag';
 import { recommendRAGMode } from '../types/rag';
 import { extractText } from './text-extraction-service';
 import { generateThumbnail, getThumbnailFilename } from './thumbnail-service';
+import { logger } from './log-service';
 
 /**
  * Attachment with parsed JSON fields
@@ -195,7 +196,7 @@ export class AttachmentService {
     tags?: string[];
   }): Promise<AttachmentWithParsedFields> {
     try {
-      console.log('[AttachmentService] 📥 uploadFromBuffer called:', {
+      logger.info('attachments', 'Upload from buffer started', undefined, {
         fileName: params.fileName,
         mimeType: params.mimeType,
         entityType: params.entityType,
@@ -205,29 +206,25 @@ export class AttachmentService {
 
       // Vérifier que le répertoire existe
       await fs.mkdir(this.attachmentsDir, { recursive: true });
-      console.log('[AttachmentService] ✅ Attachments dir ready:', this.attachmentsDir);
 
       const db = getDatabase();
       const now = new Date();
 
       // 1. Générer un ID unique
       const id = randomUUID();
-      console.log('[AttachmentService] 📝 Generated ID:', id);
+      logger.info('attachments', 'Generated attachment ID', undefined, { id });
 
       // 2. Déterminer le chemin de destination
       const ext = path.extname(params.fileName);
       const filename = `${id}${ext}`;
       const destPath = path.join(this.attachmentsDir, filename);
-      console.log('[AttachmentService] 📂 Destination path:', destPath);
 
       // 3. Écrire le buffer sur disque
-      console.log('[AttachmentService] 💾 Writing file to disk...');
       await fs.writeFile(destPath, params.buffer);
-      console.log('[AttachmentService] ✅ File written successfully');
+      logger.success('attachments', 'File written to disk', undefined, { destPath });
 
       // 4. Obtenir la taille du fichier
       const size = params.buffer.length;
-      console.log('[AttachmentService] 📊 File size:', size, 'bytes');
 
       // 5. Extraire le texte automatiquement (si applicable)
       let extractedText: string | undefined = undefined;
@@ -235,13 +232,20 @@ export class AttachmentService {
         const autoExtractedText = await extractText(destPath, params.mimeType);
         if (autoExtractedText) {
           extractedText = autoExtractedText;
-          console.log('[AttachmentService] Text extracted:', {
+          logger.success('attachments', 'Text extracted from file', undefined, {
             filename: params.fileName,
             textLength: autoExtractedText.length,
           });
+        } else {
+          logger.info('attachments', 'No text extracted (not a text document)', undefined, {
+            filename: params.fileName,
+            mimeType: params.mimeType,
+          });
         }
       } catch (error) {
-        console.warn('[AttachmentService] Text extraction failed:', error);
+        logger.warning('attachments', 'Text extraction failed', String(error), {
+          filename: params.fileName,
+        });
         // Continue sans texte extrait
       }
 
@@ -261,16 +265,20 @@ export class AttachmentService {
 
           if (success) {
             thumbnailPath = thumbPath;
-            console.log('[AttachmentService] Thumbnail generated:', thumbFilename);
           }
         } catch (error) {
-          console.warn('[AttachmentService] Thumbnail generation failed:', error);
+          logger.warning('attachments', 'Thumbnail generation failed', String(error));
           // Continue sans vignette
         }
       }
 
       // 7. Recommander le mode RAG
       const ragMode = recommendRAGMode(params.mimeType, extractedText);
+      logger.info('attachments', 'RAG mode determined', undefined, {
+        ragMode,
+        hasExtractedText: !!extractedText,
+        textLength: extractedText?.length || 0,
+      });
 
       // 8. Créer l'entrée DB
       const newAttachment: NewAttachment = {
@@ -305,7 +313,7 @@ export class AttachmentService {
 
       await db.insert(attachments).values(newAttachment);
 
-      console.log('[AttachmentService] ✅ Uploaded from buffer:', {
+      logger.success('attachments', 'File uploaded successfully', undefined, {
         id,
         originalName: params.fileName,
         size,
@@ -314,7 +322,11 @@ export class AttachmentService {
 
       // 9. Index automatiquement pour RAG si du texte a été extrait
       if (extractedText && extractedText.length > 0 && (ragMode === 'text' || ragMode === 'hybrid')) {
-        console.log('[AttachmentService] 🔍 Auto-indexing for RAG...');
+        logger.info('attachments', 'Starting auto-indexing for RAG', undefined, {
+          attachmentId: id,
+          ragMode,
+          textLength: extractedText.length,
+        });
 
         // Import dynamique pour éviter les dépendances circulaires
         const { textRAGService } = await import('./text-rag-service');
@@ -334,9 +346,10 @@ export class AttachmentService {
           });
 
           if (indexResult.success) {
-            console.log('[AttachmentService] ✅ Auto-indexed:', {
-              chunks: indexResult.chunkCount,
-              tokens: indexResult.totalTokens,
+            logger.success('attachments', 'Auto-indexing completed successfully', undefined, {
+              attachmentId: id,
+              chunkCount: indexResult.chunkCount,
+              totalTokens: indexResult.totalTokens,
             });
 
             // Mettre à jour le statut d'indexation dans la DB
@@ -357,7 +370,9 @@ export class AttachmentService {
             newAttachment.textChunkCount = indexResult.chunkCount;
             newAttachment.lastIndexedAt = new Date();
           } else {
-            console.warn('[AttachmentService] ⚠️ Auto-indexing failed:', indexResult.error);
+            logger.warning('attachments', 'Auto-indexing failed', indexResult.error, {
+              attachmentId: id,
+            });
 
             // Enregistrer l'erreur dans la DB
             await db
@@ -369,7 +384,10 @@ export class AttachmentService {
               .where(eq(attachments.id, id));
           }
         } catch (indexError) {
-          console.error('[AttachmentService] ❌ Auto-indexing error:', indexError);
+          logger.error('attachments', 'Auto-indexing error', String(indexError), {
+            attachmentId: id,
+            error: indexError instanceof Error ? indexError.message : String(indexError),
+          });
 
           // Enregistrer l'erreur dans la DB
           await db
@@ -380,6 +398,15 @@ export class AttachmentService {
             })
             .where(eq(attachments.id, id));
         }
+      } else {
+        logger.info('attachments', 'Auto-indexing skipped', undefined, {
+          attachmentId: id,
+          reason: extractedText
+            ? `RAG mode is '${ragMode}' (need 'text' or 'hybrid')`
+            : 'No text extracted from file',
+          ragMode,
+          hasExtractedText: !!extractedText,
+        });
       }
 
       // Return with parsed fields
@@ -389,7 +416,10 @@ export class AttachmentService {
         extractedMetadata: undefined,
       } as AttachmentWithParsedFields;
     } catch (error) {
-      console.error('[AttachmentService] ❌ Upload from buffer error:', error);
+      logger.error('attachments', 'Upload from buffer failed', String(error), {
+        fileName: params.fileName,
+        error: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }
