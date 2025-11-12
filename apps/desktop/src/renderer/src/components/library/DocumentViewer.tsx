@@ -2,9 +2,11 @@
  * Document Viewer with Split View
  * Shows document source and RAG chunks side-by-side
  * Reuses MarkdownEditor's proven preview rendering
+ * Uses React Portal to render outside of main layout and avoid z-index issues
  */
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -50,8 +52,9 @@ export function DocumentViewer({ document, onClose, onReindex, onValidate }: Doc
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-neutral-950">
+  // Render using portal to avoid z-index stacking context issues
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex flex-col bg-neutral-950">
       {/* Header */}
       <div className="flex-none p-6 border-b border-white/10">
         <div className="flex items-center gap-4">
@@ -307,7 +310,8 @@ export function DocumentViewer({ document, onClose, onReindex, onValidate }: Doc
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 
