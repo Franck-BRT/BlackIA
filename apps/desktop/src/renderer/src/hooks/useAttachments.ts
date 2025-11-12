@@ -73,10 +73,18 @@ export function useAttachments({
   const upload = useCallback(async (files: File[]): Promise<Attachment[]> => {
     const uploadedAttachments: Attachment[] = [];
 
+    console.log('[useAttachments] 📤 Starting upload for', files.length, 'files');
+
     for (const file of files) {
       const fileId = `${file.name}-${Date.now()}`;
 
       try {
+        console.log('[useAttachments] 📄 Processing file:', {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+        });
+
         // Initialiser le suivi de progression
         setUploadProgress(prev => new Map(prev).set(fileId, {
           fileName: file.name,
@@ -86,7 +94,11 @@ export function useAttachments({
 
         // Lire le fichier en ArrayBuffer
         const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+        console.log('[useAttachments] ✅ File read, size:', arrayBuffer.byteLength);
+
+        // Convertir en Uint8Array pour Electron IPC
+        const uint8Array = new Uint8Array(arrayBuffer);
+        console.log('[useAttachments] ✅ Converted to Uint8Array, length:', uint8Array.length);
 
         // Appeler l'API backend
         setUploadProgress(prev => new Map(prev).set(fileId, {
@@ -95,16 +107,20 @@ export function useAttachments({
           status: 'processing',
         }));
 
+        console.log('[useAttachments] 🚀 Calling backend API...');
         const result = await window.api.attachments.upload({
           fileName: file.name,
-          buffer,
+          buffer: uint8Array as any, // IPC accepte Uint8Array
           mimeType: file.type,
           entityType,
           entityId,
         });
 
+        console.log('[useAttachments] 📦 Backend response:', result);
+
         if (result.success && result.attachment) {
           uploadedAttachments.push(result.attachment);
+          console.log('[useAttachments] ✅ Upload successful for:', file.name);
 
           // Marquer comme complété
           setUploadProgress(prev => new Map(prev).set(fileId, {
@@ -116,10 +132,11 @@ export function useAttachments({
           // Ajouter à la liste locale
           setAttachments(prev => [...prev, result.attachment!]);
         } else {
+          console.error('[useAttachments] ❌ Upload failed:', result.error);
           throw new Error(result.error || 'Échec de l\'upload');
         }
       } catch (err) {
-        console.error('[useAttachments] Upload error:', file.name, err);
+        console.error('[useAttachments] ❌ Upload error for', file.name, ':', err);
 
         // Marquer comme erreur
         setUploadProgress(prev => new Map(prev).set(fileId, {
@@ -128,6 +145,9 @@ export function useAttachments({
           status: 'error',
           error: err instanceof Error ? err.message : 'Erreur inconnue',
         }));
+
+        // Afficher l'erreur à l'utilisateur
+        alert(`Erreur d'upload pour ${file.name}: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
       }
     }
 
@@ -136,6 +156,7 @@ export function useAttachments({
       setUploadProgress(new Map());
     }, 3000);
 
+    console.log('[useAttachments] ✅ Upload complete. Total uploaded:', uploadedAttachments.length);
     return uploadedAttachments;
   }, [entityType, entityId]);
 

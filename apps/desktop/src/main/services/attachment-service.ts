@@ -195,22 +195,39 @@ export class AttachmentService {
     tags?: string[];
   }): Promise<AttachmentWithParsedFields> {
     try {
+      console.log('[AttachmentService] 📥 uploadFromBuffer called:', {
+        fileName: params.fileName,
+        mimeType: params.mimeType,
+        entityType: params.entityType,
+        entityId: params.entityId,
+        bufferSize: params.buffer.length,
+      });
+
+      // Vérifier que le répertoire existe
+      await fs.mkdir(this.attachmentsDir, { recursive: true });
+      console.log('[AttachmentService] ✅ Attachments dir ready:', this.attachmentsDir);
+
       const db = getDatabase();
       const now = new Date();
 
       // 1. Générer un ID unique
       const id = randomUUID();
+      console.log('[AttachmentService] 📝 Generated ID:', id);
 
       // 2. Déterminer le chemin de destination
       const ext = path.extname(params.fileName);
       const filename = `${id}${ext}`;
       const destPath = path.join(this.attachmentsDir, filename);
+      console.log('[AttachmentService] 📂 Destination path:', destPath);
 
       // 3. Écrire le buffer sur disque
+      console.log('[AttachmentService] 💾 Writing file to disk...');
       await fs.writeFile(destPath, params.buffer);
+      console.log('[AttachmentService] ✅ File written successfully');
 
       // 4. Obtenir la taille du fichier
       const size = params.buffer.length;
+      console.log('[AttachmentService] 📊 File size:', size, 'bytes');
 
       // 5. Extraire le texte automatiquement (si applicable)
       let extractedText: string | undefined = undefined;

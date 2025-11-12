@@ -43,7 +43,7 @@ export function registerAttachmentHandlers(): void {
       _event,
       params: {
         fileName: string;
-        buffer: Buffer;
+        buffer: Buffer | Uint8Array;
         mimeType: string;
         entityType: EntityType;
         entityId: string;
@@ -51,16 +51,33 @@ export function registerAttachmentHandlers(): void {
       }
     ) => {
       try {
-        console.log('[Attachments] Upload request:', {
+        console.log('[Attachments] 📥 Upload request received:', {
           fileName: params.fileName,
           mimeType: params.mimeType,
           entityType: params.entityType,
           entityId: params.entityId,
+          bufferType: params.buffer.constructor.name,
           bufferSize: params.buffer.length,
         });
 
-        const attachment = await attachmentService.uploadFromBuffer(params);
-        console.log('[Attachments] ✅ Upload successful:', attachment.id);
+        // Convertir Uint8Array en Buffer si nécessaire
+        const buffer = Buffer.isBuffer(params.buffer)
+          ? params.buffer
+          : Buffer.from(params.buffer);
+
+        console.log('[Attachments] ✅ Buffer converted, size:', buffer.length);
+
+        const attachment = await attachmentService.uploadFromBuffer({
+          ...params,
+          buffer,
+        });
+
+        console.log('[Attachments] ✅ Upload successful:', {
+          id: attachment.id,
+          fileName: attachment.originalName,
+          size: attachment.size,
+        });
+
         return { success: true, attachment };
       } catch (error) {
         console.error('[Attachments] ❌ Error in upload:', error);
