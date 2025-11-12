@@ -1,11 +1,15 @@
 /**
  * Document Viewer with Split View
  * Shows document source and RAG chunks side-by-side
- * Design aligned with EditorPage for consistency
+ * Reuses MarkdownEditor's proven preview rendering
  */
 
 import React, { useState, useEffect } from 'react';
-import { X, ZoomIn, ZoomOut, FileText, Grid3X3, RefreshCw, Check, AlertCircle, List } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { X, FileText, List, Grid3X3, RefreshCw, Check, AlertCircle } from 'lucide-react';
 import { useChunkEditor } from '../../hooks/useChunkEditor';
 import { ChunkList } from './ChunkList';
 import { cn } from '@blackia/ui';
@@ -21,8 +25,7 @@ interface DocumentViewerProps {
 export function DocumentViewer({ document, onClose, onReindex, onValidate }: DocumentViewerProps) {
   const { chunks, loading, getDocumentChunks } = useChunkEditor();
   const [selectedChunkId, setSelectedChunkId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'split' | 'source' | 'chunks'>('split');
-  const [zoom, setZoom] = useState(100);
+  const [viewMode, setViewMode] = useState<'split' | 'preview' | 'chunks'>('split');
   const [showValidationPanel, setShowValidationPanel] = useState(false);
   const [validationNotes, setValidationNotes] = useState('');
 
@@ -88,12 +91,12 @@ export function DocumentViewer({ document, onClose, onReindex, onValidate }: Doc
         {/* View Mode Toggle */}
         <div className="flex items-center gap-1">
           <button
-            onClick={() => setViewMode('source')}
+            onClick={() => setViewMode('preview')}
             className={cn(
               'p-2 rounded transition-colors',
-              viewMode === 'source' ? 'bg-white/20' : 'hover:bg-white/10'
+              viewMode === 'preview' ? 'bg-white/20' : 'hover:bg-white/10'
             )}
-            title="Vue source uniquement"
+            title="Aperçu uniquement"
           >
             <FileText className="w-4 h-4" />
           </button>
@@ -118,30 +121,6 @@ export function DocumentViewer({ document, onClose, onReindex, onValidate }: Doc
             <List className="w-4 h-4" />
           </button>
         </div>
-
-        {/* Zoom Controls */}
-        {(viewMode === 'source' || viewMode === 'split') && (
-          <>
-            <div className="w-px h-6 bg-white/10 mx-1" />
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setZoom(Math.max(50, zoom - 10))}
-                className="p-2 rounded hover:bg-white/10 transition-colors"
-                title="Zoom arrière"
-              >
-                <ZoomOut className="w-4 h-4" />
-              </button>
-              <span className="px-2 text-sm text-muted-foreground min-w-[3rem] text-center">{zoom}%</span>
-              <button
-                onClick={() => setZoom(Math.min(200, zoom + 10))}
-                className="p-2 rounded hover:bg-white/10 transition-colors"
-                title="Zoom avant"
-              >
-                <ZoomIn className="w-4 h-4" />
-              </button>
-            </div>
-          </>
-        )}
 
         <div className="flex-1" />
 
@@ -177,33 +156,76 @@ export function DocumentViewer({ document, onClose, onReindex, onValidate }: Doc
       </div>
 
       {/* Content - Takes remaining space */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
-        {/* Source Panel */}
-        {(viewMode === 'source' || viewMode === 'split') && (
+      <div className="flex-1 flex overflow-hidden">
+        {/* Preview Panel - Using MarkdownEditor's proven rendering */}
+        {(viewMode === 'preview' || viewMode === 'split') && (
           <div
             className={cn(
-              'flex flex-col overflow-auto',
+              'flex-1 overflow-auto p-6',
               viewMode === 'split' ? 'w-1/2 border-r border-white/10' : 'w-full'
             )}
           >
-            <div className="p-6">
-              <h3 className="text-sm font-medium text-muted-foreground mb-4">Document source</h3>
-              {document.extractedText ? (
-                <div className="prose prose-invert max-w-none" style={{ fontSize: `${zoom}%` }}>
-                  <pre className="whitespace-pre-wrap text-gray-300 font-mono text-sm leading-relaxed bg-transparent border-0 p-0">
-                    {document.extractedText}
-                  </pre>
-                </div>
-              ) : (
-                <div className="text-center text-muted-foreground py-12">
-                  <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-base">Pas de texte extrait</p>
-                  <p className="text-sm mt-2 opacity-75">
-                    Le texte n'a pas pu être extrait de ce document
-                  </p>
-                </div>
-              )}
-            </div>
+            {document.extractedText ? (
+              <div className="prose prose-invert max-w-none
+                prose-headings:text-white prose-headings:font-bold
+                prose-h1:text-3xl prose-h1:mt-8 prose-h1:mb-4
+                prose-h2:text-2xl prose-h2:mt-6 prose-h2:mb-3 prose-h2:border-b prose-h2:border-white/10 prose-h2:pb-2
+                prose-h3:text-xl prose-h3:mt-4 prose-h3:mb-2
+                prose-p:text-gray-300 prose-p:leading-7
+                prose-a:text-purple-400 prose-a:no-underline hover:prose-a:underline
+                prose-strong:text-white prose-strong:font-semibold
+                prose-code:text-pink-400 prose-code:bg-white/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
+                prose-pre:bg-gray-900 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-lg
+                prose-ul:text-gray-300 prose-ol:text-gray-300
+                prose-li:marker:text-purple-400
+                prose-blockquote:border-l-purple-500 prose-blockquote:text-gray-400 prose-blockquote:italic
+                prose-table:border prose-table:border-white/10
+                prose-th:bg-white/5 prose-th:text-white prose-th:font-semibold prose-th:border prose-th:border-white/10
+                prose-td:border prose-td:border-white/10 prose-td:text-gray-300
+                prose-img:rounded-lg prose-img:border prose-img:border-white/10
+                prose-hr:border-white/10
+              ">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    code({ inline, className, children, ...props }) {
+                      const match = /language-(\w+)/.exec(className || '');
+                      const language = match ? match[1] : '';
+
+                      return !inline && language ? (
+                        <SyntaxHighlighter
+                          style={vscDarkPlus}
+                          language={language}
+                          PreTag="div"
+                          customStyle={{
+                            margin: 0,
+                            borderRadius: '0.5rem',
+                            fontSize: '0.875rem',
+                          }}
+                          {...props}
+                        >
+                          {String(children).replace(/\n$/, '')}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      );
+                    },
+                  }}
+                >
+                  {document.extractedText}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-12">
+                <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p className="text-base">Pas de texte extrait</p>
+                <p className="text-sm mt-2 opacity-75">
+                  Le texte n'a pas pu être extrait de ce document
+                </p>
+              </div>
+            )}
           </div>
         )}
 
