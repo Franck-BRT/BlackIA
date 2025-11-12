@@ -33,16 +33,28 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
         id: doc.id,
         name: doc.originalName,
         hasExtractedText: !!doc.extractedText,
-        textLength: doc.extractedText?.length || 0
+        textLength: doc.extractedText?.length || 0,
+        isIndexedText: doc.isIndexedText,
+        textChunkCount: doc.textChunkCount
       });
-      getDocumentChunks(doc.id);
+
+      // Load chunks
+      getDocumentChunks(doc.id).then((loadedChunks) => {
+        console.log('[DocumentViewer] Chunks loaded:', loadedChunks.length, loadedChunks);
+      });
     }
   }, [doc.id, getDocumentChunks]);
 
   const handleReindex = async () => {
+    console.log('[DocumentViewer] Reindex button clicked for document:', doc.id);
     if (onReindex) {
+      console.log('[DocumentViewer] Calling onReindex...');
       await onReindex(doc.id);
-      await getDocumentChunks(doc.id);
+      console.log('[DocumentViewer] Reindex complete, reloading chunks...');
+      const reloadedChunks = await getDocumentChunks(doc.id);
+      console.log('[DocumentViewer] Chunks after reindex:', reloadedChunks.length, reloadedChunks);
+    } else {
+      console.warn('[DocumentViewer] onReindex callback not provided');
     }
   };
 

@@ -63,10 +63,17 @@ export function LibraryPage() {
   };
 
   const handleReindexDocument = async (documentId: string) => {
-    await indexDocument({ documentId });
-    if (selectedLibrary) {
-      await getDocuments(selectedLibrary.id);
-      await refreshLibraries();
+    console.log('[LibraryPage] Starting reindex for document:', documentId);
+    try {
+      const result = await indexDocument({ documentId });
+      console.log('[LibraryPage] Index result:', result);
+      if (selectedLibrary) {
+        await getDocuments(selectedLibrary.id);
+        await refreshLibraries();
+      }
+      console.log('[LibraryPage] Reindex complete');
+    } catch (error) {
+      console.error('[LibraryPage] Reindex error:', error);
     }
   };
 
