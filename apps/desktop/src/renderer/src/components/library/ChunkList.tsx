@@ -25,6 +25,8 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
   const [editingChunkId, setEditingChunkId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [editReason, setEditReason] = useState('');
+  const [splittingChunkId, setSplittingChunkId] = useState<string | null>(null);
+  const [splitPosition, setSplitPosition] = useState(0);
 
   const handleStartEdit = (chunk: FullChunk) => {
     setEditingChunkId(chunk.id);
@@ -63,6 +65,44 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
     }
   };
 
+  const handleStartSplit = (chunk: FullChunk) => {
+    setSplittingChunkId(chunk.id);
+    setSplitPosition(Math.floor(chunk.text.length / 2)); // Default to middle
+  };
+
+  const handleSaveSplit = async (chunk: FullChunk) => {
+    if (splitPosition <= 0 || splitPosition >= chunk.text.length) {
+      alert('Position de division invalide');
+      return;
+    }
+
+    await splitChunk({
+      chunkId: chunk.id,
+      documentId,
+      position: splitPosition,
+    });
+
+    setSplittingChunkId(null);
+    setSplitPosition(0);
+  };
+
+  const handleCancelSplit = () => {
+    setSplittingChunkId(null);
+    setSplitPosition(0);
+  };
+
+  const handleInsertChunk = async (afterChunkId: string | null) => {
+    const text = prompt('Entrez le texte du nouveau chunk:');
+    if (!text) return;
+
+    await insertChunk({
+      documentId,
+      afterChunkId,
+      text,
+      reason: 'Manually inserted',
+    });
+  };
+
   if (chunks.length === 0) {
     return (
       <div className="text-center text-neutral-400 py-12">
@@ -77,6 +117,7 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
     <div className="space-y-3">
       {chunks.map((chunk, index) => {
         const isEditing = editingChunkId === chunk.id;
+        const isSplitting = splittingChunkId === chunk.id;
         const isSelected = selectedChunkId === chunk.id;
 
         return (
@@ -107,7 +148,7 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
                 </span>
               </div>
 
-              {!isEditing && (
+              {!isEditing && !isSplitting && (
                 <div className="flex items-center gap-1">
                   <button
                     onClick={(e) => {
@@ -122,7 +163,7 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      // TODO: Implement split
+                      handleStartSplit(chunk);
                     }}
                     className="p-1.5 hover:bg-neutral-700 rounded transition-colors"
                     title="Diviser"
@@ -198,6 +239,50 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
                   </button>
                 </div>
               </div>
+            ) : isSplitting ? (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <p className="text-sm text-neutral-300 leading-relaxed font-mono whitespace-pre-wrap border-b border-neutral-700 pb-2">
+                    {chunk.text.slice(0, splitPosition)}
+                    <span className="bg-blue-500/30 text-blue-300">|</span>
+                    {chunk.text.slice(splitPosition)}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-neutral-400 whitespace-nowrap">
+                      Position: {splitPosition} / {chunk.text.length}
+                    </label>
+                    <input
+                      type="range"
+                      min={1}
+                      max={chunk.text.length - 1}
+                      value={splitPosition}
+                      onChange={(e) => setSplitPosition(parseInt(e.target.value))}
+                      className="flex-1"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCancelSplit();
+                    }}
+                    className="px-3 py-1.5 bg-neutral-700 hover:bg-neutral-600 text-neutral-100 rounded text-sm transition-colors"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSaveSplit(chunk);
+                    }}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
+                  >
+                    Diviser
+                  </button>
+                </div>
+              </div>
             ) : (
               <div>
                 <p className="text-sm text-neutral-300 leading-relaxed font-mono whitespace-pre-wrap">
@@ -231,9 +316,7 @@ export function ChunkList({ chunks, selectedChunkId, onSelectChunk, documentId }
 
       {/* Add chunk button */}
       <button
-        onClick={() => {
-          // TODO: Implement insert chunk
-        }}
+        onClick={() => handleInsertChunk(chunks.length > 0 ? chunks[chunks.length - 1].id : null)}
         className="w-full p-4 border-2 border-dashed border-neutral-700 hover:border-neutral-600 rounded-lg text-neutral-400 hover:text-neutral-300 transition-colors flex items-center justify-center gap-2"
       >
         <Plus className="w-4 h-4" />
