@@ -135,6 +135,22 @@ export function registerAttachmentHandlers(): void {
     }
   });
 
+  /**
+   * Lire le contenu brut d'un fichier attaché
+   */
+  ipcMain.handle('attachments:readFile', async (_event, params: { attachmentId: string }) => {
+    try {
+      const result = await attachmentService.readFile(params.attachmentId);
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
+      return { success: true, buffer: result.buffer, mimeType: result.mimeType };
+    } catch (error) {
+      console.error('[Attachments] Error in readFile:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
   // ==================== UPDATE ====================
 
   /**

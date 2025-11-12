@@ -483,6 +483,33 @@ export class AttachmentService {
   }
 
   /**
+   * Lire le contenu brut d'un fichier attaché
+   */
+  async readFile(id: string): Promise<{ success: boolean; buffer?: Buffer; mimeType?: string; error?: string }> {
+    try {
+      const attachment = await this.getById(id);
+      if (!attachment) {
+        return { success: false, error: 'Attachment not found' };
+      }
+
+      // Lire le fichier depuis le disque
+      const buffer = await fs.readFile(attachment.filePath);
+
+      return {
+        success: true,
+        buffer,
+        mimeType: attachment.mimeType,
+      };
+    } catch (error) {
+      console.error('[AttachmentService] ❌ Read file error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
    * Récupérer tous les attachments d'une entité
    */
   async getByEntity(entityType: EntityType, entityId: string): Promise<AttachmentWithParsedFields[]> {

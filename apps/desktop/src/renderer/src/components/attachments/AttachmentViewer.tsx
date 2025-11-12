@@ -49,6 +49,7 @@ export function AttachmentViewer({
 }: AttachmentViewerProps) {
   const [zoom, setZoom] = useState(100);
   const [fileContent, setFileContent] = useState<string | null>(null);
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,13 +57,16 @@ export function AttachmentViewer({
   useEffect(() => {
     setZoom(100);
     setFileContent(null);
+    setImageDataUrl(null);
     setError(null);
   }, [attachment.id]);
 
-  // Charger le contenu du fichier pour les fichiers texte
+  // Charger le contenu du fichier pour les fichiers texte et images
   useEffect(() => {
     if (attachment.mimeType.startsWith('text/') || isTextBasedMime(attachment.mimeType)) {
       loadTextContent();
+    } else if (attachment.mimeType.startsWith('image/')) {
+      loadImageContent();
     }
   }, [attachment.id, attachment.mimeType]);
 
@@ -71,13 +75,35 @@ export function AttachmentViewer({
     setError(null);
 
     try {
-      const result = await window.api.attachments.download(attachment.id);
-      if (result.success && result.data) {
+      const result = await window.electronAPI.attachments.readFile({ attachmentId: attachment.id });
+      if (result.success && result.buffer) {
         // Convertir le Buffer en texte
-        const text = new TextDecoder().decode(new Uint8Array(result.data.buffer));
+        const text = new TextDecoder().decode(new Uint8Array(result.buffer));
         setFileContent(text);
       } else {
         setError(result.error || 'Échec du chargement du fichier');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur inconnue');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadImageContent = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await window.electronAPI.attachments.readFile({ attachmentId: attachment.id });
+      if (result.success && result.buffer && result.mimeType) {
+        // Convertir le Buffer en base64 Data URL
+        const uint8Array = new Uint8Array(result.buffer);
+        const base64 = btoa(String.fromCharCode(...uint8Array));
+        const dataUrl = `data:${result.mimeType};base64,${base64}`;
+        setImageDataUrl(dataUrl);
+      } else {
+        setError(result.error || 'Échec du chargement de l\'image');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
@@ -261,9 +287,9 @@ export function AttachmentViewer({
         {!error && !isLoading && (
           <>
             {/* Image viewer */}
-            {isImage && (
+            {isImage && imageDataUrl && (
               <img
-                src={`attachment://${attachment.id}`}
+                src={imageDataUrl}
                 alt={attachment.originalName}
                 style={{
                   maxWidth: `${zoom}%`,
