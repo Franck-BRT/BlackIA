@@ -384,7 +384,7 @@ export class LibraryDocumentService {
             attachmentId: doc.id,
             entityType: 'document' as EntityType,
             entityId: doc.libraryId,
-            model: ragConfig.text.model,
+            // model parameter removed - uses MLX default model from textRAGService
             chunkingOptions: {
               chunkSize: params.chunkSize || ragConfig.text.chunkSize,
               chunkOverlap: params.chunkOverlap || (ragConfig.text.chunkSize * ragConfig.text.chunkOverlap) / 100,
@@ -398,7 +398,7 @@ export class LibraryDocumentService {
               .update(libraryDocuments)
               .set({
                 isIndexedText: true,
-                textEmbeddingModel: ragConfig.text.model,
+                textEmbeddingModel: 'sentence-transformers/all-MiniLM-L6-v2',
                 textChunkCount: chunkCount,
               })
               .where(eq(libraryDocuments.id, doc.id));
