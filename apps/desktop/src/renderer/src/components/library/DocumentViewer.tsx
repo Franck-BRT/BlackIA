@@ -26,6 +26,8 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   const [showChunksPanel, setShowChunksPanel] = useState(true);
   const [showValidationPanel, setShowValidationPanel] = useState(false);
   const [validationNotes, setValidationNotes] = useState('');
+  const [isIndexing, setIsIndexing] = useState(false);
+  const [indexingMessage, setIndexingMessage] = useState('');
 
   useEffect(() => {
     if (doc.id) {
@@ -52,11 +54,31 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   const handleReindex = async () => {
     console.log('[DocumentViewer] Reindex button clicked for document:', doc.id);
     if (onReindex) {
-      console.log('[DocumentViewer] Calling onReindex...');
-      await onReindex(doc.id);
-      console.log('[DocumentViewer] Reindex complete, reloading chunks...');
-      const reloadedChunks = await getDocumentChunks(doc.id);
-      console.log('[DocumentViewer] Chunks after reindex:', reloadedChunks.length, reloadedChunks);
+      setIsIndexing(true);
+      setIndexingMessage('Indexation en cours...');
+
+      try {
+        console.log('[DocumentViewer] Calling onReindex...');
+        await onReindex(doc.id);
+
+        setIndexingMessage('Rechargement des chunks...');
+        console.log('[DocumentViewer] Reindex complete, reloading chunks...');
+        const reloadedChunks = await getDocumentChunks(doc.id);
+        console.log('[DocumentViewer] Chunks after reindex:', reloadedChunks.length, reloadedChunks);
+
+        setIndexingMessage(`✓ Indexation terminée - ${reloadedChunks.length} chunks générés`);
+        setTimeout(() => {
+          setIsIndexing(false);
+          setIndexingMessage('');
+        }, 3000);
+      } catch (error) {
+        console.error('[DocumentViewer] Reindex error:', error);
+        setIndexingMessage('❌ Erreur lors de l\'indexation');
+        setTimeout(() => {
+          setIsIndexing(false);
+          setIndexingMessage('');
+        }, 3000);
+      }
     } else {
       console.warn('[DocumentViewer] onReindex callback not provided');
     }
@@ -119,12 +141,27 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
           {onReindex && (
             <button
               onClick={handleReindex}
-              className="px-3 py-2 rounded-lg hover:bg-white/10 transition-colors flex items-center gap-2 text-sm"
+              disabled={isIndexing}
+              className={cn(
+                "px-3 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm",
+                isIndexing ? "opacity-50 cursor-not-allowed" : "hover:bg-white/10"
+              )}
               title="Réindexer le document"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className={cn("w-4 h-4", isIndexing && "animate-spin")} />
               <span>Réindexer</span>
             </button>
+          )}
+
+          {indexingMessage && (
+            <div className={cn(
+              "px-3 py-2 rounded-lg text-sm flex items-center gap-2",
+              indexingMessage.includes('✓') ? "bg-green-500/20 text-green-300" :
+              indexingMessage.includes('❌') ? "bg-red-500/20 text-red-300" :
+              "bg-blue-500/20 text-blue-300"
+            )}>
+              {indexingMessage}
+            </div>
           )}
 
           {onValidate && (

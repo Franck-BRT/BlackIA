@@ -304,6 +304,8 @@ export class TextRAGService {
    */
   async getDocumentChunks(attachmentId: string): Promise<TextRAGResult[]> {
     try {
+      console.log('[TextRAG] Getting chunks for document:', attachmentId);
+
       // Recherche avec un vecteur dummy (on veut juste récupérer tous les chunks)
       // Note: LanceDB ne supporte pas de "get all by filter", on doit passer par search
       const dummyVector = new Array(768).fill(0); // 768 dims pour nomic-embed-text
@@ -311,6 +313,15 @@ export class TextRAGService {
       const results = await vectorStore.searchTextChunks(dummyVector, 1000, {
         attachmentIds: [attachmentId],
       });
+
+      console.log('[TextRAG] Found', results.length, 'chunks for document:', attachmentId);
+      if (results.length > 0) {
+        console.log('[TextRAG] First chunk:', {
+          chunkId: results[0].chunkId,
+          attachmentId: results[0].attachmentId,
+          textPreview: results[0].text.substring(0, 100),
+        });
+      }
 
       return results.sort((a, b) => a.metadata.chunkIndex - b.metadata.chunkIndex);
     } catch (error) {
