@@ -163,6 +163,8 @@ export class VectorStoreService {
     }
 
     try {
+      console.log('[VectorStore] searchTextChunks called with filters:', JSON.stringify(filters));
+
       // Recherche vectorielle avec LanceDB
       let query = this.textCollection
         .search(queryEmbedding)
@@ -181,11 +183,15 @@ export class VectorStoreService {
           const attachmentFilter = filters.attachmentIds
             .map((id) => `'${id}'`)
             .join(', ');
-          query = query.where(`attachmentId IN (${attachmentFilter})`);
+          const whereClause = `attachmentId IN (${attachmentFilter})`;
+          console.log('[VectorStore] Applying WHERE clause:', whereClause);
+          query = query.where(whereClause);
         }
       }
 
+      console.log('[VectorStore] Executing LanceDB query...');
       const results = await query.execute();
+      console.log('[VectorStore] LanceDB returned', results.length, 'results');
 
       // Transformer en TextRAGResult
       return results.map((row: any) => {

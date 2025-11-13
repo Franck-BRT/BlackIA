@@ -13,7 +13,16 @@ export function registerChunkEditorHandlers() {
   // Get document chunks
   ipcMain.handle('chunk-editor:getDocumentChunks', async (_, documentId: string) => {
     try {
+      console.log('[IPC] chunk-editor:getDocumentChunks called for:', documentId);
       const chunks = await chunkEditorService.getDocumentChunks(documentId);
+      console.log('[IPC] chunk-editor:getDocumentChunks returned:', chunks.length, 'chunks');
+      if (chunks.length > 0) {
+        console.log('[IPC] First chunk sample:', {
+          id: chunks[0].id,
+          documentId: chunks[0].documentId,
+          text: chunks[0].text.substring(0, 50)
+        });
+      }
       return { success: true, data: chunks };
     } catch (error) {
       console.error('[IPC] chunk-editor:getDocumentChunks error:', error);
