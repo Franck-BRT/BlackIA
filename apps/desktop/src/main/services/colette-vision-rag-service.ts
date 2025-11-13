@@ -62,10 +62,20 @@ export class ColetteVisionRAGService {
       this.scriptPath = path.join(scriptsPath, 'vision_rag/colette_embedder.py');
       this.pythonPath = this.detectPythonPath(scriptsPath);
     } else {
-      // Production: Python sera dans les resources
+      // Production: essayer plusieurs chemins et détecter Python système
       const scriptsPath = path.join(process.resourcesPath, 'python');
-      this.pythonPath = path.join(scriptsPath, 'venv/bin/python3');
       this.scriptPath = path.join(scriptsPath, 'vision_rag/colette_embedder.py');
+
+      // Essayer la détection même en production
+      const venvPython = path.join(scriptsPath, 'venv/bin/python3');
+      if (existsSync(venvPython)) {
+        this.pythonPath = venvPython;
+        console.log('[Colette] Using bundled venv Python:', this.pythonPath);
+      } else {
+        // Fallback: détecter Python système avec dépendances
+        this.pythonPath = this.detectSystemPython();
+        console.log('[Colette] Bundled venv not found, using system Python:', this.pythonPath);
+      }
     }
 
     console.log('[Colette] Python path:', this.pythonPath);
@@ -84,6 +94,13 @@ export class ColetteVisionRAGService {
     }
 
     // 2. Essayer Python système avec vérification des dépendances
+    return this.detectSystemPython();
+  }
+
+  /**
+   * Détecter Python système avec les dépendances Colette installées
+   */
+  private detectSystemPython(): string {
     const systemPythons = ['python3', 'python'];
     for (const pythonCmd of systemPythons) {
       try {
@@ -99,11 +116,11 @@ export class ColetteVisionRAGService {
       }
     }
 
-    // 3. Si aucun Python valide trouvé, retourner le chemin du venv (même s'il n'existe pas)
+    // Si aucun Python valide trouvé, retourner 'python3' comme fallback
     // L'erreur sera gérée lors de l'exécution avec un message clair
-    console.warn('[Colette] No valid Python found. Defaulting to venv path (may not exist).');
-    console.warn('[Colette] Please run: cd apps/desktop/src/python && python3 -m venv venv && source venv/bin/activate && pip install colpali-engine torch torchvision pdf2image pillow');
-    return venvPython;
+    console.warn('[Colette] No valid Python found with Colette dependencies.');
+    console.warn('[Colette] Please install dependencies: pip install colpali-engine torch torchvision pdf2image pillow');
+    return 'python3';
   }
 
   /**
