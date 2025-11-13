@@ -135,6 +135,16 @@ export class VectorStoreService {
           chunkCount: chunks.length
         });
       }
+
+      // Re-open table to ensure fresh reference (fixes query timing issues)
+      try {
+        this.textCollection = await this.db.openTable(this.TEXT_COLLECTION);
+        logger.debug('rag', 'Refreshed text collection reference', 'Collection ready for queries');
+      } catch (refreshError) {
+        logger.warning('rag', 'Could not refresh collection reference', 'Queries may be delayed', {
+          error: refreshError instanceof Error ? refreshError.message : String(refreshError)
+        });
+      }
     } catch (error) {
       logger.error('rag', 'LanceDB indexing failed', 'Error indexing text chunks', {
         error: error instanceof Error ? error.message : String(error),
@@ -216,21 +226,33 @@ export class VectorStoreService {
 
       // LanceDB 0.4.x: Pas de méthode query() ou limit() directe sur la collection
       // On doit utiliser search() mais avec des paramètres pour récupérer tout sans filtrage par similarité
-      // Utiliser un vecteur de zéros et une très grande limite, avec nprobes élevé
-      const dummyVector = new Array(768).fill(0);
+      // Use a small non-zero vector to avoid issues with zero vector searches
+      const dummyVector = new Array(768).fill(0.001);
 
       let query = this.textCollection
         .search(dummyVector)
-        .limit(limit);
+        .limit(limit)
+        .nprobes(100); // Increase search scope to find all matching vectors
 
       if (whereClause) {
         query = query.where(whereClause);
       }
 
+      logger.debug('rag', 'Executing LanceDB query', `Limit: ${limit}, nprobes: 100`, {
+        limit,
+        hasWhereClause: !!whereClause
+      });
+
       const results = await query.execute();
 
       logger.debug('rag', 'LanceDB query completed', `Returned ${results.length} results`, {
-        resultCount: results.length
+        resultCount: results.length,
+        sampleResult: results[0] ? {
+          id: results[0].id,
+          attachmentId: results[0].attachmentId,
+          hasText: !!results[0].text,
+          hasVector: !!results[0].vector
+        } : null
       });
 
       // Transformer en TextRAGResult
