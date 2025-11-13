@@ -6,7 +6,7 @@
 import { logger } from '../log-service';
 import { backendManager } from './backend-manager';
 import { OllamaExternalBackend } from './ollama/ollama-external-backend';
-// import { MLXBackend } from './mlx/mlx-backend'; // Phase 2
+import { MLXBackend } from './mlx/mlx-backend';
 // import { OllamaEmbeddedBackend } from './ollama/ollama-embedded-backend'; // Phase 3
 
 /**
@@ -18,13 +18,13 @@ export async function initializeBackends(): Promise<void> {
   try {
     // Créer les instances de backends
     const backends = [
-      // Phase 1: Ollama External seulement
+      // Phase 2: MLX en priorité (natif Apple Silicon)
+      new MLXBackend(),
+
+      // Phase 1: Ollama External en fallback
       new OllamaExternalBackend('http://localhost:11434', 120000),
 
-      // Phase 2: Ajouter MLX
-      // new MLXBackend(),
-
-      // Phase 3: Ajouter Ollama Embedded
+      // Phase 3: Ollama Embedded (TODO)
       // new OllamaEmbeddedBackend(),
     ];
 
