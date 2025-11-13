@@ -170,6 +170,93 @@ export class VectorStoreService {
   }
 
   /**
+   * TEXT RAG: Récupérer tous les chunks par filtre (sans recherche vectorielle)
+   * Utilisé pour récupérer tous les chunks d'un document sans faire de recherche sémantique
+   */
+  async getAllChunksByFilter(
+    filters: RAGSearchFilters,
+    limit: number = 1000
+  ): Promise<TextRAGResult[]> {
+    if (!this.textCollection) {
+      logger.warning('rag', 'No text collection available', 'Text collection not initialized');
+      return [];
+    }
+
+    try {
+      logger.debug('rag', 'LanceDB getAllChunksByFilter starting', `Filters: ${JSON.stringify(filters)}`, {
+        limit,
+        filters
+      });
+
+      // Construire la clause WHERE
+      const whereClauses: string[] = [];
+
+      if (filters.entityType) {
+        whereClauses.push(`"entityType" = '${filters.entityType}'`);
+      }
+      if (filters.entityId) {
+        whereClauses.push(`"entityId" = '${filters.entityId}'`);
+      }
+      if (filters.attachmentIds && filters.attachmentIds.length > 0) {
+        const attachmentFilter = filters.attachmentIds
+          .map((id) => `'${id}'`)
+          .join(', ');
+        whereClauses.push(`"attachmentId" IN (${attachmentFilter})`);
+      }
+
+      if (whereClauses.length === 0) {
+        logger.warning('rag', 'No filters provided for getAllChunksByFilter', 'This could return all chunks');
+      }
+
+      const whereClause = whereClauses.join(' AND ');
+      logger.debug('rag', 'Applying LanceDB WHERE clause', whereClause, {
+        whereClause,
+        filters
+      });
+
+      // Utiliser query() au lieu de search() pour éviter la recherche vectorielle
+      const results = await this.textCollection
+        .query()
+        .where(whereClause)
+        .limit(limit)
+        .execute();
+
+      logger.debug('rag', 'LanceDB query completed', `Returned ${results.length} results`, {
+        resultCount: results.length
+      });
+
+      // Transformer en TextRAGResult
+      return results.map((row: any) => {
+        const metadata = typeof row.metadata === 'string'
+          ? JSON.parse(row.metadata)
+          : row.metadata;
+
+        return {
+          chunkId: row.id,
+          attachmentId: row.attachmentId,
+          text: row.text,
+          score: 1.0, // Pas de score de similarité puisque ce n'est pas une recherche
+          vector: row.vector,
+          metadata: {
+            originalName: metadata.originalName || '',
+            entityType: row.entityType as EntityType,
+            chunkIndex: row.chunkIndex,
+            page: metadata.page,
+            lineStart: metadata.lineStart,
+            lineEnd: metadata.lineEnd,
+          },
+        };
+      });
+    } catch (error) {
+      logger.error('rag', 'Error in getAllChunksByFilter', '', {
+        error: error instanceof Error ? error.message : String(error),
+        filters
+      });
+      throw error;
+    }
+  }
+
+  /**
    * TEXT RAG: Recherche vectorielle
    */
   async searchTextChunks(

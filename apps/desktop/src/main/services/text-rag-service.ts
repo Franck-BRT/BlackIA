@@ -449,15 +449,12 @@ export class TextRAGService {
     try {
       logger.debug('rag', 'Getting chunks for document', `AttachmentId: ${attachmentId}`);
 
-      // Recherche avec un vecteur normalisé (on veut juste récupérer tous les chunks)
-      // Note: LanceDB ne supporte pas de "get all by filter", on doit passer par search
-      // Important: On ne peut pas utiliser un vecteur de zéros car la similarité cosinus
-      // divise par la magnitude, ce qui causerait une division par zéro
-      const dummyVector = new Array(768).fill(1.0 / Math.sqrt(768)); // Vecteur unitaire normalisé
-
-      const results = await vectorStore.searchTextChunks(dummyVector, 1000, {
-        attachmentIds: [attachmentId],
-      });
+      // Utiliser getAllChunksByFilter pour récupérer tous les chunks sans recherche vectorielle
+      // C'est plus efficace et plus fiable que d'utiliser un vecteur dummy avec search()
+      const results = await vectorStore.getAllChunksByFilter(
+        { attachmentIds: [attachmentId] },
+        1000
+      );
 
       logger.debug('rag', 'Chunks retrieval result', `Found ${results.length} chunks for document ${attachmentId}`, {
         count: results.length,
