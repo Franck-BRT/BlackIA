@@ -271,9 +271,14 @@ export class MLXBackend extends BaseAIBackend {
   /**
    * Communication IPC avec le processus Python
    */
-  private async sendRequest(request: MLXRequest): Promise<MLXResponse> {
-    if (!this.pythonProcess || !this.isReady) {
+  private async sendRequest(request: MLXRequest, skipReadyCheck: boolean = false): Promise<MLXResponse> {
+    // Permettre le ping initial sans vérifier isReady (pour éviter le deadlock)
+    if (!skipReadyCheck && (!this.pythonProcess || !this.isReady)) {
       throw new Error('MLX backend not ready');
+    }
+
+    if (!this.pythonProcess) {
+      throw new Error('MLX backend process not started');
     }
 
     return new Promise((resolve, reject) => {
@@ -328,13 +333,18 @@ export class MLXBackend extends BaseAIBackend {
 
     while (Date.now() - startTime < timeout) {
       try {
-        const response = await this.sendRequest({ command: 'ping' });
+        // Utiliser skipReadyCheck=true pour éviter le deadlock lors du ping initial
+        const response = await this.sendRequest({ command: 'ping' }, true);
         if (response.success) {
           this.isReady = true;
+          logger.info('backend', 'MLX backend ready', 'Ping successful');
           return;
         }
-      } catch {
+      } catch (error) {
         // Attendre et réessayer
+        logger.debug('backend', 'MLX ping retry', '', {
+          error: error instanceof Error ? error.message : String(error)
+        });
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
     }
