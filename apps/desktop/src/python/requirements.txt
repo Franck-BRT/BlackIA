@@ -1,6 +1,9 @@
 # BlackIA Python Dependencies for RAG System
 # Requires Python 3.11+
 
+# ===== Text RAG (Sentence Transformers for embeddings) =====
+sentence-transformers>=2.2.2
+
 # ===== Colette / ColPali for Vision RAG (Multi-platform: CUDA/MPS/CPU) =====
 colpali-engine>=0.3.12
 torch>=2.7.0
