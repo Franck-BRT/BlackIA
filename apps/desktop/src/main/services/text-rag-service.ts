@@ -210,18 +210,32 @@ export class TextRAGService {
   }
 
   /**
-   * Générer un embedding via Ollama CLI (fallback method)
+   * Générer un embedding via curl (fallback method quand axios échoue)
+   * Utilise curl pour appeler l'API Ollama, ce qui peut mieux gérer les connexions
    */
   private generateEmbeddingViaCLI(text: string, model: string): number[] {
     try {
-      logger.debug('rag', 'Generating embedding via CLI', `Model: ${model}, using ollama run`, {
+      logger.debug('rag', 'Generating embedding via curl', `Model: ${model}, calling Ollama API via curl`, {
         model,
-        textLength: text.length
+        textLength: text.length,
+        url: `${this.ollamaBaseUrl}/api/embeddings`
       });
 
-      // Escape quotes in text for shell
-      const escapedText = text.replace(/"/g, '\\"').replace(/\$/g, '\\$').replace(/`/g, '\\`');
-      const command = `ollama run ${model} "${escapedText}"`;
+      // Créer le payload JSON
+      const payload = {
+        model,
+        prompt: text
+      };
+
+      // Échapper les guillemets dans le JSON
+      const jsonPayload = JSON.stringify(JSON.stringify(payload));
+
+      // Utiliser curl pour appeler l'API Ollama
+      const command = `curl -s -X POST ${this.ollamaBaseUrl}/api/embeddings \
+        -H "Content-Type: application/json" \
+        -H "Connection: close" \
+        -d ${jsonPayload} \
+        --max-time 120`;
 
       const output = execSync(command, {
         encoding: 'utf-8',
@@ -229,21 +243,25 @@ export class TextRAGService {
         maxBuffer: 10 * 1024 * 1024, // 10MB buffer
       });
 
-      // Parse the JSON array output
-      const embedding = JSON.parse(output.trim());
+      // Parse la réponse JSON
+      const response = JSON.parse(output.trim());
 
-      logger.debug('rag', 'CLI embedding generated successfully', `Got ${embedding.length} dimensions`, {
-        dimensions: embedding.length,
+      if (!response.embedding || !Array.isArray(response.embedding)) {
+        throw new Error(`Invalid response from Ollama: ${output.substring(0, 200)}`);
+      }
+
+      logger.debug('rag', 'curl embedding generated successfully', `Got ${response.embedding.length} dimensions`, {
+        dimensions: response.embedding.length,
         model
       });
 
-      return embedding;
+      return response.embedding;
     } catch (error) {
-      logger.error('rag', 'CLI embedding generation failed', `Model: ${model}`, {
+      logger.error('rag', 'curl embedding generation failed', `Model: ${model}`, {
         error: error instanceof Error ? error.message : String(error),
         model
       });
-      throw new Error(`Failed to generate embedding via CLI: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to generate embedding via curl: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -318,17 +336,17 @@ export class TextRAGService {
         if (error.response?.status === 500) {
           const errorMsg = error.response?.data?.error || 'Internal server error';
 
-          // Check if it's the EOF error - use CLI fallback
+          // Check if it's the EOF error - use curl fallback
           if (errorMsg.includes('EOF') && errorMsg.includes('embedding')) {
-            logger.warning('rag', 'Ollama HTTP API failed with EOF error, trying CLI fallback', errorMsg);
+            logger.warning('rag', 'Ollama HTTP API failed with EOF error, trying curl fallback', errorMsg);
             try {
               return this.generateEmbeddingViaCLI(text, model);
-            } catch (cliError) {
-              logger.error('rag', 'Both HTTP API and CLI fallback failed', 'All methods exhausted', {
+            } catch (curlError) {
+              logger.error('rag', 'Both HTTP API and curl fallback failed', 'All methods exhausted', {
                 httpError: errorMsg,
-                cliError: cliError instanceof Error ? cliError.message : String(cliError)
+                curlError: curlError instanceof Error ? curlError.message : String(curlError)
               });
-              throw new Error(`Failed to generate embedding: HTTP API and CLI both failed`);
+              throw new Error(`Failed to generate embedding: HTTP API and curl both failed`);
             }
           }
 
