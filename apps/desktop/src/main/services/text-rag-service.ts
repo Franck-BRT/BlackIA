@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { randomUUID } from 'crypto';
+import http from 'http';
+import https from 'https';
 import {
   chunkText,
   estimateTokenCount,
@@ -229,7 +231,11 @@ export class TextRAGService {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            'Connection': 'close', // Force close connection (fix Ollama keep-alive bug)
           },
+          // Disable HTTP keep-alive to prevent connection reuse issues with Ollama
+          httpAgent: new http.Agent({ keepAlive: false }),
+          httpsAgent: new https.Agent({ keepAlive: false }),
         }
       );
 
