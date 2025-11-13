@@ -30,6 +30,10 @@ export class TextRAGService {
   constructor(ollamaBaseUrl: string = 'http://localhost:11434', defaultModel: string = 'nomic-embed-text') {
     this.ollamaBaseUrl = ollamaBaseUrl;
     this.defaultModel = defaultModel;
+    logger.info('rag', 'TextRAGService initialized', `Ollama URL: ${ollamaBaseUrl}, Model: ${defaultModel}`, {
+      ollamaBaseUrl,
+      defaultModel
+    });
   }
 
   /**
@@ -207,8 +211,15 @@ export class TextRAGService {
    */
   private async generateEmbedding(text: string, model: string): Promise<number[]> {
     try {
+      const url = `${this.ollamaBaseUrl}/api/embeddings`;
+      logger.debug('rag', 'Generating embedding', `Model: ${model}, URL: ${url}`, {
+        model,
+        ollamaUrl: this.ollamaBaseUrl,
+        textLength: text.length
+      });
+
       const response = await axios.post<OllamaEmbeddingsResponse>(
-        `${this.ollamaBaseUrl}/api/embeddings`,
+        url,
         {
           model,
           prompt: text,
@@ -379,8 +390,12 @@ export class TextRAGService {
    * Mettre à jour l'URL Ollama (pour settings)
    */
   setOllamaUrl(url: string): void {
+    const oldUrl = this.ollamaBaseUrl;
     this.ollamaBaseUrl = url;
-    console.log('[TextRAG] Ollama URL updated:', url);
+    logger.info('rag', 'Ollama URL updated', `Changed from ${oldUrl} to ${url}`, {
+      oldUrl,
+      newUrl: url
+    });
   }
 
   /**
