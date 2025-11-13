@@ -31,6 +31,23 @@ export function registerMLXHandlers(): void {
   // Obtenir le statut MLX
   ipcMain.handle('mlx:getStatus', async () => {
     try {
+      // Vérifier d'abord la disponibilité sans initialiser
+      const mlxBackend = new (await import('./services/backends/mlx/mlx-backend')).MLXBackend(mlxConfig.pythonPath);
+      const available = await mlxBackend.isAvailable();
+
+      if (!available) {
+        return {
+          type: 'mlx',
+          available: false,
+          initialized: false,
+          capabilities: [],
+          models: [],
+          error: 'sentence-transformers n\'est pas installé',
+          config: mlxConfig
+        };
+      }
+
+      // Si disponible, obtenir le statut complet
       const status = await textRAGService.getStatus();
       return {
         ...status,
@@ -40,20 +57,39 @@ export function registerMLXHandlers(): void {
       logger.error('backend', 'Error getting MLX status', '', {
         error: error.message
       });
-      throw new Error(`Erreur statut MLX: ${error.message}`);
+      // Ne pas throw, retourner un statut d'erreur à la place
+      return {
+        type: 'mlx',
+        available: false,
+        initialized: false,
+        capabilities: [],
+        models: [],
+        error: error.message,
+        config: mlxConfig
+      };
     }
   });
 
   // Lister les modèles disponibles
   ipcMain.handle('mlx:listModels', async () => {
     try {
+      // Vérifier d'abord si MLX est disponible
+      const mlxBackend = new (await import('./services/backends/mlx/mlx-backend')).MLXBackend(mlxConfig.pythonPath);
+      const available = await mlxBackend.isAvailable();
+
+      if (!available) {
+        // Retourner une liste vide si MLX n'est pas disponible
+        return [];
+      }
+
       const models = await textRAGService.getAvailableModels();
       return models;
     } catch (error: any) {
       logger.error('backend', 'Error listing MLX models', '', {
         error: error.message
       });
-      throw new Error(`Erreur liste modèles MLX: ${error.message}`);
+      // Retourner une liste vide au lieu de throw
+      return [];
     }
   });
 
@@ -108,9 +144,22 @@ export function registerMLXHandlers(): void {
   // Tester la connexion MLX
   ipcMain.handle('mlx:test', async () => {
     try {
+      // D'abord vérifier si MLX est disponible sans essayer d'initialiser
+      const mlxBackend = new (await import('./services/backends/mlx/mlx-backend')).MLXBackend(mlxConfig.pythonPath);
+      const available = await mlxBackend.isAvailable();
+
+      if (!available) {
+        return {
+          success: false,
+          message: 'sentence-transformers n\'est pas installé. Installez-le avec : pip3 install sentence-transformers torch'
+        };
+      }
+
+      // Si disponible, vérifier si le service est prêt
       const isReady = await textRAGService.isReady();
 
       if (!isReady) {
+        // Essayer d'initialiser
         await textRAGService.initialize();
       }
 
@@ -119,16 +168,17 @@ export function registerMLXHandlers(): void {
 
       return {
         success: true,
-        message: 'MLX is ready',
+        message: 'MLX est opérationnel et prêt à générer des embeddings',
         ...testResult
       };
     } catch (error: any) {
       logger.error('backend', 'MLX test failed', '', {
-        error: error.message
+        error: error.message,
+        stack: error.stack
       });
       return {
         success: false,
-        message: error.message
+        message: `Erreur lors du test MLX : ${error.message}`
       };
     }
   });
