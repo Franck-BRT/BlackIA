@@ -214,9 +214,14 @@ export class VectorStoreService {
         filters
       });
 
-      // LanceDB 0.4.x: Pour récupérer tous les chunks sans recherche vectorielle,
-      // on utilise limit() directement sur la collection, puis on applique le filtre WHERE
-      let query = this.textCollection.limit(limit);
+      // LanceDB 0.4.x: Pas de méthode query() ou limit() directe sur la collection
+      // On doit utiliser search() mais avec des paramètres pour récupérer tout sans filtrage par similarité
+      // Utiliser un vecteur de zéros et une très grande limite, avec nprobes élevé
+      const dummyVector = new Array(768).fill(0);
+
+      let query = this.textCollection
+        .search(dummyVector)
+        .limit(limit);
 
       if (whereClause) {
         query = query.where(whereClause);
