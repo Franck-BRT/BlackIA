@@ -214,9 +214,12 @@ export class VectorStoreService {
         filters
       });
 
-      // Utiliser query() au lieu de search() pour éviter la recherche vectorielle
+      // LanceDB 0.4.x n'a pas query(), on doit utiliser search() avec un vecteur dummy
+      // mais on augmente drastiquement la limite pour récupérer tous les chunks
+      const dummyVector = new Array(768).fill(1.0 / Math.sqrt(768));
+
       const results = await this.textCollection
-        .query()
+        .search(dummyVector)
         .where(whereClause)
         .limit(limit)
         .execute();
