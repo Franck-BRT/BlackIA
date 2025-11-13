@@ -24,7 +24,7 @@ import { AppearanceSettings } from '../components/settings/AppearanceSettings';
 import { InterfaceSection } from '../components/settings/InterfaceSection';
 import { PersonaSuggestionsSettings } from '../components/settings/PersonaSuggestionsSettings';
 import { CategoriesSettings } from '../components/settings/CategoriesSettings';
-import { OllamaSettings } from '../components/settings/OllamaSettings';
+import { AILocalSettings } from '../components/settings/AILocalSettings';
 import { WebSearchSettings } from '../components/settings/WebSearchSettings';
 import { useConversations } from '../hooks/useConversations';
 import { useFolders } from '../hooks/useFolders';
@@ -136,7 +136,7 @@ export function SettingsPage() {
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto p-8">
           {activeSection === 'general' && <GeneralSettings />}
-          {activeSection === 'aiLocal' && <OllamaSettings />}
+          {activeSection === 'aiLocal' && <AILocalSettings />}
           {activeSection === 'webSearch' && (
             <div className="space-y-6">
               <div>
