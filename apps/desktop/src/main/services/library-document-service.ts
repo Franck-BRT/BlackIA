@@ -26,6 +26,7 @@ import { vectorStore } from './vector-store';
 import { recommendRAGMode } from '../types/rag';
 import type { EntityType, StoredRAGMode, TextRAGResult, RAGSearchParams } from '../types/rag';
 import { libraryService } from './library-service';
+import { logger } from './log-service';
 
 /**
  * Document with parsed JSON fields
@@ -369,15 +370,15 @@ export class LibraryDocumentService {
       let patchCount = 0;
 
       // Supprimer l'ancien index avant de réindexer
-      console.log('[LibraryDocumentService] Deleting old index before reindexing document:', params.documentId);
+      logger.debug('rag', 'Deleting old index before reindexing', `Document: ${params.documentId}`);
       await this.deleteIndex(params.documentId);
 
       // TEXT RAG
       if (mode === 'text' || mode === 'hybrid') {
         if (!doc.extractedText || doc.extractedText.length === 0) {
-          console.warn('[LibraryDocumentService] No text to index for document:', params.documentId);
+          logger.warning('rag', 'No text to index', `Document: ${params.documentId}`);
         } else {
-          console.log('[LibraryDocumentService] Indexing text with attachmentId:', doc.id);
+          logger.debug('rag', 'Indexing text RAG', `Document: ${params.documentId}, AttachmentId: ${doc.id}`);
           const textResult = await textRAGService.indexDocument({
             text: doc.extractedText,
             attachmentId: doc.id,

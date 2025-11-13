@@ -9,6 +9,7 @@ import type {
   RAGStats,
   EntityType,
 } from '../types/rag';
+import { logger } from './log-service';
 
 /**
  * LanceDB Vector Store Service
@@ -158,12 +159,15 @@ export class VectorStoreService {
     filters?: RAGSearchFilters
   ): Promise<TextRAGResult[]> {
     if (!this.textCollection) {
-      console.warn('[VectorStore] No text collection available');
+      logger.warning('rag', 'No text collection available', 'Text collection not initialized');
       return [];
     }
 
     try {
-      console.log('[VectorStore] searchTextChunks called with filters:', JSON.stringify(filters));
+      logger.debug('rag', 'LanceDB text search starting', `Filters: ${JSON.stringify(filters)}`, {
+        topK,
+        filters
+      });
 
       // Recherche vectorielle avec LanceDB
       let query = this.textCollection
@@ -184,14 +188,19 @@ export class VectorStoreService {
             .map((id) => `'${id}'`)
             .join(', ');
           const whereClause = `attachmentId IN (${attachmentFilter})`;
-          console.log('[VectorStore] Applying WHERE clause:', whereClause);
+          logger.debug('rag', 'Applying LanceDB WHERE clause', whereClause, {
+            attachmentIds: filters.attachmentIds,
+            whereClause
+          });
           query = query.where(whereClause);
         }
       }
 
-      console.log('[VectorStore] Executing LanceDB query...');
+      logger.debug('rag', 'Executing LanceDB query', 'Query built, executing search');
       const results = await query.execute();
-      console.log('[VectorStore] LanceDB returned', results.length, 'results');
+      logger.debug('rag', 'LanceDB query completed', `Returned ${results.length} results`, {
+        resultCount: results.length
+      });
 
       // Transformer en TextRAGResult
       return results.map((row: any) => {

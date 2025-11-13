@@ -11,6 +11,7 @@ import {
   type OllamaEmbeddingsResponse,
 } from '../types/rag';
 import { vectorStore } from './vector-store';
+import { logger } from './log-service';
 
 /**
  * Text RAG Service
@@ -304,7 +305,7 @@ export class TextRAGService {
    */
   async getDocumentChunks(attachmentId: string): Promise<TextRAGResult[]> {
     try {
-      console.log('[TextRAG] Getting chunks for document:', attachmentId);
+      logger.debug('rag', 'Getting chunks for document', `AttachmentId: ${attachmentId}`);
 
       // Recherche avec un vecteur dummy (on veut juste récupérer tous les chunks)
       // Note: LanceDB ne supporte pas de "get all by filter", on doit passer par search
@@ -314,18 +315,21 @@ export class TextRAGService {
         attachmentIds: [attachmentId],
       });
 
-      console.log('[TextRAG] Found', results.length, 'chunks for document:', attachmentId);
-      if (results.length > 0) {
-        console.log('[TextRAG] First chunk:', {
+      logger.debug('rag', 'Chunks retrieval result', `Found ${results.length} chunks for document ${attachmentId}`, {
+        count: results.length,
+        attachmentId,
+        firstChunk: results.length > 0 ? {
           chunkId: results[0].chunkId,
           attachmentId: results[0].attachmentId,
           textPreview: results[0].text.substring(0, 100),
-        });
-      }
+        } : null
+      });
 
       return results.sort((a, b) => a.metadata.chunkIndex - b.metadata.chunkIndex);
     } catch (error) {
-      console.error('[TextRAG] Get chunks error:', error);
+      logger.error('rag', 'Error getting document chunks', `AttachmentId: ${attachmentId}`, {
+        error: error instanceof Error ? error.message : String(error)
+      });
       return [];
     }
   }
