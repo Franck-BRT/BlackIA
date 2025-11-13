@@ -351,7 +351,8 @@ export type LogCategory =
   | 'api'
   | 'ui'
   | 'attachments'
-  | 'rag';
+  | 'rag'
+  | 'backend';
 
 export interface Log {
   id: string;

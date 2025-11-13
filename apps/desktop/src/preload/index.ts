@@ -227,6 +227,25 @@ const api = {
     },
   },
 
+  // MLX API (Apple Silicon embeddings)
+  mlx: {
+    // Vérification et statut
+    isAvailable: () => ipcRenderer.invoke('mlx:isAvailable'),
+    getStatus: () => ipcRenderer.invoke('mlx:getStatus'),
+
+    // Configuration
+    getConfig: () => ipcRenderer.invoke('mlx:getConfig'),
+    updateConfig: (config: { model?: string; pythonPath?: string; enabled?: boolean }) =>
+      ipcRenderer.invoke('mlx:updateConfig', config),
+
+    // Modèles
+    listModels: () => ipcRenderer.invoke('mlx:listModels'),
+
+    // Test et contrôle
+    test: () => ipcRenderer.invoke('mlx:test'),
+    restart: () => ipcRenderer.invoke('mlx:restart'),
+  },
+
   // Web Search API
   webSearch: {
     search: (

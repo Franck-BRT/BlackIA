@@ -26,6 +26,7 @@ import { vectorStore } from './vector-store';
 import { recommendRAGMode } from '../types/rag';
 import type { EntityType, StoredRAGMode, TextRAGResult, RAGSearchParams } from '../types/rag';
 import { libraryService } from './library-service';
+import { logger } from './log-service';
 
 /**
  * Document with parsed JSON fields
@@ -368,17 +369,22 @@ export class LibraryDocumentService {
       let chunkCount = 0;
       let patchCount = 0;
 
+      // Supprimer l'ancien index avant de réindexer
+      logger.debug('rag', 'Deleting old index before reindexing', `Document: ${params.documentId}`);
+      await this.deleteIndex(params.documentId);
+
       // TEXT RAG
       if (mode === 'text' || mode === 'hybrid') {
         if (!doc.extractedText || doc.extractedText.length === 0) {
-          console.warn('[LibraryDocumentService] No text to index for document:', params.documentId);
+          logger.warning('rag', 'No text to index', `Document: ${params.documentId}`);
         } else {
+          logger.debug('rag', 'Indexing text RAG', `Document: ${params.documentId}, AttachmentId: ${doc.id}`);
           const textResult = await textRAGService.indexDocument({
             text: doc.extractedText,
             attachmentId: doc.id,
             entityType: 'document' as EntityType,
             entityId: doc.libraryId,
-            model: ragConfig.text.model,
+            // model parameter removed - uses MLX default model from textRAGService
             chunkingOptions: {
               chunkSize: params.chunkSize || ragConfig.text.chunkSize,
               chunkOverlap: params.chunkOverlap || (ragConfig.text.chunkSize * ragConfig.text.chunkOverlap) / 100,
@@ -392,7 +398,7 @@ export class LibraryDocumentService {
               .update(libraryDocuments)
               .set({
                 isIndexedText: true,
-                textEmbeddingModel: ragConfig.text.model,
+                textEmbeddingModel: 'sentence-transformers/all-mpnet-base-v2',
                 textChunkCount: chunkCount,
               })
               .where(eq(libraryDocuments.id, doc.id));
@@ -502,8 +508,14 @@ export class LibraryDocumentService {
   async deleteIndex(documentId: string): Promise<void> {
     const db = getDatabase();
     try {
-      // Supprimer de LanceDB
-      await vectorStore.deleteByAttachmentId(documentId);
+      // Supprimer de LanceDB (ne pas bloquer si ça échoue)
+      try {
+        await vectorStore.deleteByAttachmentId(documentId);
+        console.log('[LibraryDocumentService] Vector store index deleted for:', documentId);
+      } catch (vectorError) {
+        // Log mais ne pas bloquer la suppression si l'index n'existe pas
+        console.warn('[LibraryDocumentService] Could not delete vector store index (may not exist):', vectorError);
+      }
 
       // Réinitialiser les flags d'indexation
       await db
@@ -518,10 +530,12 @@ export class LibraryDocumentService {
         })
         .where(eq(libraryDocuments.id, documentId));
 
-      console.log('[LibraryDocumentService] Index deleted for document:', documentId);
+      console.log('[LibraryDocumentService] Index metadata reset for document:', documentId);
     } catch (error) {
       console.error('[LibraryDocumentService] Delete index error:', error);
-      throw error;
+      // Ne pas relancer l'erreur pour permettre la suppression du document
+      // même si l'index ne peut pas être supprimé
+      console.warn('[LibraryDocumentService] Continuing with document deletion despite index error');
     }
   }
 

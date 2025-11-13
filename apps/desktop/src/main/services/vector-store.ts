@@ -9,6 +9,7 @@ import type {
   RAGStats,
   EntityType,
 } from '../types/rag';
+import { logger } from './log-service';
 
 /**
  * LanceDB Vector Store Service
@@ -110,17 +111,63 @@ export class VectorStoreService {
     }
 
     try {
+      logger.debug('rag', 'Indexing text chunks into LanceDB', `Inserting ${chunks.length} chunks`, {
+        chunkCount: chunks.length,
+        firstChunk: chunks[0] ? {
+          id: chunks[0].id,
+          attachmentId: chunks[0].attachmentId,
+          chunkIndex: chunks[0].chunkIndex,
+          textPreview: chunks[0].text.substring(0, 50)
+        } : null
+      });
+
       if (!this.textCollection) {
         // Première insertion - créer la collection
         this.textCollection = await this.db.createTable(this.TEXT_COLLECTION, chunks);
-        console.log('[VectorStore] Created text_rag_chunks collection with', chunks.length, 'chunks');
+        logger.info('rag', 'LanceDB text collection created', `Created text_rag_chunks collection with ${chunks.length} chunks`, {
+          collectionName: this.TEXT_COLLECTION,
+          chunkCount: chunks.length
+        });
       } else {
         // Ajouter à la collection existante
         await this.textCollection.add(chunks);
-        console.log('[VectorStore] Added', chunks.length, 'text chunks');
+        logger.info('rag', 'LanceDB chunks added', `Added ${chunks.length} text chunks to existing collection`, {
+          chunkCount: chunks.length
+        });
+      }
+
+      // LanceDB requires re-creating index after add() operations
+      // The table reference becomes stale after add(), need fresh reference
+      try {
+        // Don't re-open immediately - use the collection that just added data
+        // Test if data is immediately queryable
+        const verifyVector = new Array(768).fill(0.001);
+        const beforeReopen = await this.textCollection.search(verifyVector).limit(5).execute();
+        logger.debug('rag', 'Chunks queryable before reopen', `Found ${beforeReopen.length} chunks`, {
+          countBeforeReopen: beforeReopen.length
+        });
+
+        // Now re-open to get the latest version
+        this.textCollection = await this.db.openTable(this.TEXT_COLLECTION);
+
+        const afterReopen = await this.textCollection.search(verifyVector).limit(5).execute();
+        logger.info('rag', 'Collection refreshed and verified', `Data is queryable (${afterReopen.length} test results)`, {
+          countBeforeReopen: beforeReopen.length,
+          countAfterReopen: afterReopen.length,
+          isQueryable: afterReopen.length > 0
+        });
+      } catch (refreshError) {
+        logger.error('rag', 'Failed to refresh collection', '', {
+          error: refreshError instanceof Error ? refreshError.message : String(refreshError),
+          stack: refreshError instanceof Error ? refreshError.stack : undefined
+        });
       }
     } catch (error) {
-      console.error('[VectorStore] Error indexing text chunks:', error);
+      logger.error('rag', 'LanceDB indexing failed', 'Error indexing text chunks', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        chunkCount: chunks.length
+      });
       throw error;
     }
   }
@@ -150,6 +197,154 @@ export class VectorStoreService {
   }
 
   /**
+   * TEXT RAG: Récupérer tous les chunks par filtre (sans recherche vectorielle)
+   * Utilisé pour récupérer tous les chunks d'un document sans faire de recherche sémantique
+   */
+  async getAllChunksByFilter(
+    filters: RAGSearchFilters,
+    limit: number = 1000
+  ): Promise<TextRAGResult[]> {
+    if (!this.textCollection) {
+      logger.warning('rag', 'No text collection available', 'Text collection not initialized');
+      return [];
+    }
+
+    try {
+      logger.debug('rag', 'LanceDB getAllChunksByFilter starting', `Filters: ${JSON.stringify(filters)}`, {
+        limit,
+        filters
+      });
+
+      // Debug: Check total count in collection
+      try {
+        const countResult = await this.textCollection.countRows();
+        logger.debug('rag', 'LanceDB total row count', `Collection has ${countResult} total rows`, {
+          totalRows: countResult
+        });
+      } catch (countError) {
+        logger.warning('rag', 'Could not count rows', 'Using alternative method', {
+          error: countError instanceof Error ? countError.message : String(countError)
+        });
+      }
+
+      // Construire la clause WHERE
+      const whereClauses: string[] = [];
+
+      if (filters.entityType) {
+        whereClauses.push(`"entityType" = '${filters.entityType}'`);
+      }
+      if (filters.entityId) {
+        whereClauses.push(`"entityId" = '${filters.entityId}'`);
+      }
+      if (filters.attachmentIds && filters.attachmentIds.length > 0) {
+        const attachmentFilter = filters.attachmentIds
+          .map((id) => `'${id}'`)
+          .join(', ');
+        whereClauses.push(`"attachmentId" IN (${attachmentFilter})`);
+      }
+
+      if (whereClauses.length === 0) {
+        logger.warning('rag', 'No filters provided for getAllChunksByFilter', 'This could return all chunks');
+      }
+
+      const whereClause = whereClauses.join(' AND ');
+      logger.debug('rag', 'Applying LanceDB WHERE clause', whereClause, {
+        whereClause,
+        filters
+      });
+
+      // LanceDB 0.4.x: WHERE clause doesn't work reliably with search()
+      // Workaround: Fetch more results and filter in-memory
+      const dummyVector = new Array(768).fill(0.001);
+
+      // Get a larger set to ensure we catch all possible matches
+      const fetchLimit = Math.max(limit * 3, 3000);
+      const unfilteredQuery = this.textCollection
+        .search(dummyVector)
+        .limit(fetchLimit)
+        .nprobes(100);
+
+      logger.debug('rag', 'Executing LanceDB query (will filter in-memory)', `Fetching ${fetchLimit} rows`, {
+        fetchLimit,
+        willFilterBy: {
+          entityType: !!filters.entityType,
+          entityId: !!filters.entityId,
+          attachmentIds: filters.attachmentIds?.length || 0
+        }
+      });
+
+      const unfilteredResults = await unfilteredQuery.execute();
+
+      logger.debug('rag', 'Unfiltered query completed', `Got ${unfilteredResults.length} rows before filtering`, {
+        totalFetched: unfilteredResults.length,
+        sampleAttachmentIds: unfilteredResults.slice(0, 10).map((r: any) => r.attachmentId)
+      });
+
+      // Filter results in-memory (WHERE clause doesn't work)
+      let filtered = unfilteredResults;
+
+      if (filters.entityType) {
+        filtered = filtered.filter((row: any) => row.entityType === filters.entityType);
+        logger.debug('rag', 'Filtered by entityType', `${filtered.length} rows after entityType filter`);
+      }
+      if (filters.entityId) {
+        filtered = filtered.filter((row: any) => row.entityId === filters.entityId);
+        logger.debug('rag', 'Filtered by entityId', `${filtered.length} rows after entityId filter`);
+      }
+      if (filters.attachmentIds && filters.attachmentIds.length > 0) {
+        const attachmentIdSet = new Set(filters.attachmentIds);
+        filtered = filtered.filter((row: any) => attachmentIdSet.has(row.attachmentId));
+        logger.debug('rag', 'Filtered by attachmentIds', `${filtered.length} rows after attachmentId filter`, {
+          requestedIds: filters.attachmentIds,
+          matchedIds: filtered.map((r: any) => r.attachmentId)
+        });
+      }
+
+      // Apply requested limit
+      const results = filtered.slice(0, limit);
+
+      logger.debug('rag', 'LanceDB query completed', `Returned ${results.length} results`, {
+        resultCount: results.length,
+        sampleResult: results[0] ? {
+          id: results[0].id,
+          attachmentId: results[0].attachmentId,
+          hasText: !!results[0].text,
+          hasVector: !!results[0].vector
+        } : null
+      });
+
+      // Transformer en TextRAGResult
+      return results.map((row: any) => {
+        const metadata = typeof row.metadata === 'string'
+          ? JSON.parse(row.metadata)
+          : row.metadata;
+
+        return {
+          chunkId: row.id,
+          attachmentId: row.attachmentId,
+          text: row.text,
+          score: 1.0, // Pas de score de similarité puisque ce n'est pas une recherche
+          vector: row.vector,
+          metadata: {
+            originalName: metadata.originalName || '',
+            entityType: row.entityType as EntityType,
+            chunkIndex: row.chunkIndex,
+            page: metadata.page,
+            lineStart: metadata.lineStart,
+            lineEnd: metadata.lineEnd,
+          },
+        };
+      });
+    } catch (error) {
+      logger.error('rag', 'Error in getAllChunksByFilter', '', {
+        error: error instanceof Error ? error.message : String(error),
+        filters
+      });
+      throw error;
+    }
+  }
+
+  /**
    * TEXT RAG: Recherche vectorielle
    */
   async searchTextChunks(
@@ -158,11 +353,16 @@ export class VectorStoreService {
     filters?: RAGSearchFilters
   ): Promise<TextRAGResult[]> {
     if (!this.textCollection) {
-      console.warn('[VectorStore] No text collection available');
+      logger.warning('rag', 'No text collection available', 'Text collection not initialized');
       return [];
     }
 
     try {
+      logger.debug('rag', 'LanceDB text search starting', `Filters: ${JSON.stringify(filters)}`, {
+        topK,
+        filters
+      });
+
       // Recherche vectorielle avec LanceDB
       let query = this.textCollection
         .search(queryEmbedding)
@@ -170,22 +370,32 @@ export class VectorStoreService {
         .metricType('cosine'); // Cosine similarity
 
       // Appliquer les filtres
+      // Note: LanceDB est sensible à la casse, les noms de colonnes doivent être entre guillemets doubles
       if (filters) {
         if (filters.entityType) {
-          query = query.where(`entityType = '${filters.entityType}'`);
+          query = query.where(`"entityType" = '${filters.entityType}'`);
         }
         if (filters.entityId) {
-          query = query.where(`entityId = '${filters.entityId}'`);
+          query = query.where(`"entityId" = '${filters.entityId}'`);
         }
         if (filters.attachmentIds && filters.attachmentIds.length > 0) {
           const attachmentFilter = filters.attachmentIds
             .map((id) => `'${id}'`)
             .join(', ');
-          query = query.where(`attachmentId IN (${attachmentFilter})`);
+          const whereClause = `"attachmentId" IN (${attachmentFilter})`;
+          logger.debug('rag', 'Applying LanceDB WHERE clause', whereClause, {
+            attachmentIds: filters.attachmentIds,
+            whereClause
+          });
+          query = query.where(whereClause);
         }
       }
 
+      logger.debug('rag', 'Executing LanceDB query', 'Query built, executing search');
       const results = await query.execute();
+      logger.debug('rag', 'LanceDB query completed', `Returned ${results.length} results`, {
+        resultCount: results.length
+      });
 
       // Transformer en TextRAGResult
       return results.map((row: any) => {
@@ -240,18 +450,19 @@ export class VectorStoreService {
       let query = this.visionCollection.limit(1000); // Limit to avoid memory issues
 
       // Appliquer les filtres
+      // Note: LanceDB est sensible à la casse, les noms de colonnes doivent être entre guillemets doubles
       if (filters) {
         if (filters.entityType) {
-          query = query.where(`entityType = '${filters.entityType}'`);
+          query = query.where(`"entityType" = '${filters.entityType}'`);
         }
         if (filters.entityId) {
-          query = query.where(`entityId = '${filters.entityId}'`);
+          query = query.where(`"entityId" = '${filters.entityId}'`);
         }
         if (filters.attachmentIds && filters.attachmentIds.length > 0) {
           const attachmentFilter = filters.attachmentIds
             .map((id) => `'${id}'`)
             .join(', ');
-          query = query.where(`attachmentId IN (${attachmentFilter})`);
+          query = query.where(`"attachmentId" IN (${attachmentFilter})`);
         }
       }
 
@@ -381,18 +592,19 @@ export class VectorStoreService {
         .metricType('cosine');
 
       // Appliquer les filtres
+      // Note: LanceDB est sensible à la casse, les noms de colonnes doivent être entre guillemets doubles
       if (filters) {
         if (filters.entityType) {
-          query = query.where(`entityType = '${filters.entityType}'`);
+          query = query.where(`"entityType" = '${filters.entityType}'`);
         }
         if (filters.entityId) {
-          query = query.where(`entityId = '${filters.entityId}'`);
+          query = query.where(`"entityId" = '${filters.entityId}'`);
         }
         if (filters.attachmentIds && filters.attachmentIds.length > 0) {
           const attachmentFilter = filters.attachmentIds
             .map((id) => `'${id}'`)
             .join(', ');
-          query = query.where(`attachmentId IN (${attachmentFilter})`);
+          query = query.where(`"attachmentId" IN (${attachmentFilter})`);
         }
       }
 
@@ -433,21 +645,36 @@ export class VectorStoreService {
    * Supprimer tous les chunks/patches d'un attachment
    */
   async deleteByAttachmentId(attachmentId: string): Promise<void> {
-    try {
-      // Supprimer des text chunks
-      if (this.textCollection) {
+    let textDeleted = false;
+    let visionDeleted = false;
+
+    // Supprimer des text chunks
+    if (this.textCollection) {
+      try {
         await this.textCollection.delete(`attachmentId = '${attachmentId}'`);
         console.log('[VectorStore] Deleted text chunks for attachment:', attachmentId);
+        textDeleted = true;
+      } catch (error) {
+        console.warn('[VectorStore] Could not delete text chunks (may not exist):', error);
       }
+    }
 
-      // Supprimer des vision patches
-      if (this.visionCollection) {
+    // Supprimer des vision patches
+    if (this.visionCollection) {
+      try {
         await this.visionCollection.delete(`attachmentId = '${attachmentId}'`);
         console.log('[VectorStore] Deleted vision patches for attachment:', attachmentId);
+        visionDeleted = true;
+      } catch (error) {
+        console.warn('[VectorStore] Could not delete vision patches (may not exist):', error);
       }
-    } catch (error) {
-      console.error('[VectorStore] Error deleting by attachment ID:', error);
-      throw error;
+    }
+
+    // Log le résultat
+    if (textDeleted || visionDeleted) {
+      console.log('[VectorStore] Successfully deleted vectors for attachment:', attachmentId);
+    } else {
+      console.log('[VectorStore] No vectors found for attachment (may not have been indexed):', attachmentId);
     }
   }
 
@@ -469,6 +696,38 @@ export class VectorStoreService {
       }
     } catch (error) {
       console.error('[VectorStore] Error deleting by entity ID:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Recreate text collection with correct schema
+   * Useful when changing embedding dimensions (e.g., 384 -> 768)
+   */
+  async recreateTextCollection(): Promise<void> {
+    if (!this.db) {
+      throw new Error('VectorStore not initialized');
+    }
+
+    try {
+      logger.info('rag', 'Recreating text collection', 'Dropping old collection and creating new one');
+
+      // Drop existing table if it exists
+      try {
+        await this.db.dropTable(this.TEXT_COLLECTION);
+        logger.info('rag', 'Dropped old text collection', 'Preparing for new schema');
+      } catch (error) {
+        logger.debug('rag', 'No existing text collection to drop', 'Creating new collection');
+      }
+
+      // Reset the collection reference
+      this.textCollection = null;
+
+      logger.success('rag', 'Text collection recreated', 'Ready for new embeddings with correct dimensions');
+    } catch (error) {
+      logger.error('rag', 'Failed to recreate text collection', '', {
+        error: error instanceof Error ? error.message : String(error)
+      });
       throw error;
     }
   }

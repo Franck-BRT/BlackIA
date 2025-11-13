@@ -165,6 +165,7 @@ class LogService {
         ui: 0,
         attachments: 0,
         rag: 0,
+        backend: 0,
       },
       recentErrors: 0,
       recentWarnings: 0,

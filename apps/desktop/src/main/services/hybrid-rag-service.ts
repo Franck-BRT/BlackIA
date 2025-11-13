@@ -55,20 +55,23 @@ export class HybridRAGService {
 
       // Exécuter les recherches appropriées
       if (actualMode === 'text' || actualMode === 'hybrid') {
-        const textSearch = await textRAGService.search(params);
-        if (textSearch.success) {
-          textResults = textSearch.results;
-        } else {
-          console.warn('[HybridRAG] Text search failed:', textSearch.error);
+        try {
+          textResults = await textRAGService.search(params);
+        } catch (error) {
+          console.warn('[HybridRAG] Text search failed:', error);
         }
       }
 
       if (actualMode === 'vision' || actualMode === 'hybrid') {
-        const visionSearch = await visionRAGService.search(params);
-        if (visionSearch.success) {
-          visionResults = visionSearch.results;
-        } else {
-          console.warn('[HybridRAG] Vision search failed:', visionSearch.error);
+        try {
+          const visionSearch = await visionRAGService.search(params);
+          if (visionSearch.success) {
+            visionResults = visionSearch.results;
+          } else {
+            console.warn('[HybridRAG] Vision search failed:', visionSearch.error);
+          }
+        } catch (error) {
+          console.warn('[HybridRAG] Vision search failed:', error);
         }
       }
 

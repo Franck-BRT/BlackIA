@@ -23,6 +23,15 @@ files:
   - dist
   - package.json
   - node_modules
+  - from: src/python
+    to: python
+    filter:
+      - "**/*.py"
+      - "**/*.md"
+  - from: src/main/services/backends/mlx
+    to: dist/main/services/backends/mlx
+    filter:
+      - "**/*.py"
 
 asar: false
 

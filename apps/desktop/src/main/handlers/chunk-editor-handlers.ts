@@ -5,6 +5,7 @@
 
 import { ipcMain } from 'electron';
 import { chunkEditorService } from '../services/chunk-editor-service';
+import { logger } from '../services/log-service';
 
 /**
  * Register all chunk editor-related IPC handlers
@@ -13,10 +14,23 @@ export function registerChunkEditorHandlers() {
   // Get document chunks
   ipcMain.handle('chunk-editor:getDocumentChunks', async (_, documentId: string) => {
     try {
+      logger.debug('rag', 'IPC getDocumentChunks called', `DocumentId: ${documentId}`);
       const chunks = await chunkEditorService.getDocumentChunks(documentId);
+      logger.debug('rag', 'IPC getDocumentChunks result', `Returned ${chunks.length} chunks for document ${documentId}`, {
+        documentId,
+        chunkCount: chunks.length,
+        firstChunk: chunks.length > 0 ? {
+          id: chunks[0].id,
+          documentId: chunks[0].documentId,
+          textPreview: chunks[0].text.substring(0, 50)
+        } : null
+      });
       return { success: true, data: chunks };
     } catch (error) {
-      console.error('[IPC] chunk-editor:getDocumentChunks error:', error);
+      logger.error('rag', 'IPC getDocumentChunks error', `DocumentId: ${documentId}`, {
+        documentId,
+        error: error instanceof Error ? error.message : String(error)
+      });
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -199,5 +213,5 @@ export function registerChunkEditorHandlers() {
     }
   });
 
-  console.log('[IPC] Chunk editor handlers registered');
+  logger.info('rag', 'Chunk editor handlers registered', 'All IPC handlers for chunk editor are ready');
 }

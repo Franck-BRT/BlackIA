@@ -5,14 +5,21 @@ Python backend pour le système RAG (Retrieval Augmented Generation) de BlackIA.
 ## 🎯 Fonctionnalités
 
 - **Text RAG** : Embeddings textuels via Ollama (nomic-embed-text)
-- **Vision RAG** : Embeddings visuels via MLX-VLM (Qwen2-VL adapter)
-- **Late Interaction Matching** : Recherche multi-vecteurs style ColPali
+- **Vision RAG** : Embeddings visuels via **Colette/ColPali** (multi-plateforme) ou MLX-VLM (Apple Silicon)
+- **Late Interaction Matching** : Recherche multi-vecteurs style ColPali (MaxSim)
 - **Document Processing** : Conversion PDF → Images pour Vision RAG
 
 ## 📋 Prérequis
 
+### Option 1: Colette/ColPali (Recommandé - Multi-plateforme)
+- **Python 3.11+** (3.12 recommandé)
+- **GPU NVIDIA** (CUDA) OU **Apple Silicon** (MPS) OU **CPU**
+- **8GB RAM minimum** (16GB recommandé)
+- **poppler-utils** (pour pdf2image)
+
+### Option 2: MLX-VLM (Apple Silicon uniquement)
 - **Python 3.11+**
-- **Apple Silicon** (M1/M2/M3/M4) pour MLX
+- **Apple Silicon** (M1/M2/M3/M4) obligatoire
 - **macOS 13+** recommandé
 - **16GB RAM minimum** pour Vision RAG
 - **32GB RAM** recommandé pour Qwen2-VL-7B
