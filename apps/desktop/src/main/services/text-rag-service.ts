@@ -2,6 +2,7 @@ import axios from 'axios';
 import { randomUUID } from 'crypto';
 import http from 'http';
 import https from 'https';
+import { execSync } from 'child_process';
 import {
   chunkText,
   estimateTokenCount,
@@ -209,6 +210,44 @@ export class TextRAGService {
   }
 
   /**
+   * Générer un embedding via Ollama CLI (fallback method)
+   */
+  private generateEmbeddingViaCLI(text: string, model: string): number[] {
+    try {
+      logger.debug('rag', 'Generating embedding via CLI', `Model: ${model}, using ollama run`, {
+        model,
+        textLength: text.length
+      });
+
+      // Escape quotes in text for shell
+      const escapedText = text.replace(/"/g, '\\"').replace(/\$/g, '\\$').replace(/`/g, '\\`');
+      const command = `ollama run ${model} "${escapedText}"`;
+
+      const output = execSync(command, {
+        encoding: 'utf-8',
+        timeout: 120000, // 2 minutes timeout
+        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+      });
+
+      // Parse the JSON array output
+      const embedding = JSON.parse(output.trim());
+
+      logger.debug('rag', 'CLI embedding generated successfully', `Got ${embedding.length} dimensions`, {
+        dimensions: embedding.length,
+        model
+      });
+
+      return embedding;
+    } catch (error) {
+      logger.error('rag', 'CLI embedding generation failed', `Model: ${model}`, {
+        error: error instanceof Error ? error.message : String(error),
+        model
+      });
+      throw new Error(`Failed to generate embedding via CLI: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
    * Générer un embedding via Ollama
    */
   private async generateEmbedding(text: string, model: string): Promise<number[]> {
@@ -278,6 +317,21 @@ export class TextRAGService {
         }
         if (error.response?.status === 500) {
           const errorMsg = error.response?.data?.error || 'Internal server error';
+
+          // Check if it's the EOF error - use CLI fallback
+          if (errorMsg.includes('EOF') && errorMsg.includes('embedding')) {
+            logger.warning('rag', 'Ollama HTTP API failed with EOF error, trying CLI fallback', errorMsg);
+            try {
+              return this.generateEmbeddingViaCLI(text, model);
+            } catch (cliError) {
+              logger.error('rag', 'Both HTTP API and CLI fallback failed', 'All methods exhausted', {
+                httpError: errorMsg,
+                cliError: cliError instanceof Error ? cliError.message : String(cliError)
+              });
+              throw new Error(`Failed to generate embedding: HTTP API and CLI both failed`);
+            }
+          }
+
           logger.error('rag', 'Ollama server error 500', errorMsg, {
             status: 500,
             errorMessage: errorMsg,
