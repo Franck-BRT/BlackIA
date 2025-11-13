@@ -198,6 +198,18 @@ export class VectorStoreService {
         filters
       });
 
+      // Debug: Check total count in collection
+      try {
+        const countResult = await this.textCollection.countRows();
+        logger.debug('rag', 'LanceDB total row count', `Collection has ${countResult} total rows`, {
+          totalRows: countResult
+        });
+      } catch (countError) {
+        logger.warning('rag', 'Could not count rows', 'Using alternative method', {
+          error: countError instanceof Error ? countError.message : String(countError)
+        });
+      }
+
       // Construire la clause WHERE
       const whereClauses: string[] = [];
 
@@ -238,9 +250,28 @@ export class VectorStoreService {
         query = query.where(whereClause);
       }
 
-      logger.debug('rag', 'Executing LanceDB query', `Limit: ${limit}, nprobes: 100`, {
+      // Debug: Test query without WHERE clause first
+      logger.debug('rag', 'Testing query without WHERE clause first', 'Checking if any data exists');
+      try {
+        const testQuery = this.textCollection.search(dummyVector).limit(10).nprobes(100);
+        const testResults = await testQuery.execute();
+        logger.debug('rag', 'Query without WHERE returned results', `Found ${testResults.length} rows`, {
+          count: testResults.length,
+          sample: testResults[0] ? {
+            id: testResults[0].id,
+            attachmentId: testResults[0].attachmentId,
+          } : null
+        });
+      } catch (testError) {
+        logger.error('rag', 'Test query failed', '', {
+          error: testError instanceof Error ? testError.message : String(testError)
+        });
+      }
+
+      logger.debug('rag', 'Executing LanceDB query with WHERE', `Limit: ${limit}, nprobes: 100`, {
         limit,
-        hasWhereClause: !!whereClause
+        hasWhereClause: !!whereClause,
+        whereClause
       });
 
       const results = await query.execute();
