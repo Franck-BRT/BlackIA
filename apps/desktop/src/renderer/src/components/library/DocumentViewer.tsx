@@ -29,21 +29,25 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
 
   useEffect(() => {
     if (doc.id) {
-      console.log('[DocumentViewer] Mounted with document:', {
+      console.log('[DocumentViewer] Mounted with document:', JSON.stringify({
         id: doc.id,
         name: doc.originalName,
         hasExtractedText: !!doc.extractedText,
         textLength: doc.extractedText?.length || 0,
         isIndexedText: doc.isIndexedText,
-        textChunkCount: doc.textChunkCount
-      });
+        textChunkCount: doc.textChunkCount,
+        ragMode: doc.ragMode
+      }, null, 2));
 
       // Load chunks
       getDocumentChunks(doc.id).then((loadedChunks) => {
-        console.log('[DocumentViewer] Chunks loaded:', loadedChunks.length, loadedChunks);
+        console.log('[DocumentViewer] Chunks loaded:', loadedChunks.length);
+        if (loadedChunks.length > 0) {
+          console.log('[DocumentViewer] First chunk:', JSON.stringify(loadedChunks[0], null, 2));
+        }
       });
     }
-  }, [doc.id, getDocumentChunks]);
+  }, [doc.id, doc.isIndexedText, doc.textChunkCount, getDocumentChunks]);
 
   const handleReindex = async () => {
     console.log('[DocumentViewer] Reindex button clicked for document:', doc.id);

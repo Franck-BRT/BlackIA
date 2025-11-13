@@ -66,7 +66,7 @@ export function LibraryPage() {
     console.log('[LibraryPage] Starting reindex for document:', documentId);
     try {
       const result = await indexDocument({ documentId });
-      console.log('[LibraryPage] Index result:', result);
+      console.log('[LibraryPage] Index result:', JSON.stringify(result, null, 2));
       if (selectedLibrary) {
         await getDocuments(selectedLibrary.id);
         await refreshLibraries();
