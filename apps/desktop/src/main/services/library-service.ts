@@ -18,7 +18,7 @@ const DEFAULT_RAG_CONFIG = {
   defaultMode: 'auto',
   text: {
     enabled: true,
-    model: 'nomic-embed-text',
+    model: 'sentence-transformers/all-MiniLM-L6-v2', // MLX model
     chunkSize: 512,
     chunkOverlap: 10,
     separator: 'paragraph',
