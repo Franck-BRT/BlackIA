@@ -621,6 +621,38 @@ export class VectorStoreService {
   }
 
   /**
+   * Recreate text collection with correct schema
+   * Useful when changing embedding dimensions (e.g., 384 -> 768)
+   */
+  async recreateTextCollection(): Promise<void> {
+    if (!this.db) {
+      throw new Error('VectorStore not initialized');
+    }
+
+    try {
+      logger.info('rag', 'Recreating text collection', 'Dropping old collection and creating new one');
+
+      // Drop existing table if it exists
+      try {
+        await this.db.dropTable(this.TEXT_COLLECTION);
+        logger.info('rag', 'Dropped old text collection', 'Preparing for new schema');
+      } catch (error) {
+        logger.debug('rag', 'No existing text collection to drop', 'Creating new collection');
+      }
+
+      // Reset the collection reference
+      this.textCollection = null;
+
+      logger.success('rag', 'Text collection recreated', 'Ready for new embeddings with correct dimensions');
+    } catch (error) {
+      logger.error('rag', 'Failed to recreate text collection', '', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Compacter les collections (optimisation)
    */
   async compact(): Promise<void> {
