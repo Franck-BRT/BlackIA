@@ -368,11 +368,16 @@ export class LibraryDocumentService {
       let chunkCount = 0;
       let patchCount = 0;
 
+      // Supprimer l'ancien index avant de réindexer
+      console.log('[LibraryDocumentService] Deleting old index before reindexing document:', params.documentId);
+      await this.deleteIndex(params.documentId);
+
       // TEXT RAG
       if (mode === 'text' || mode === 'hybrid') {
         if (!doc.extractedText || doc.extractedText.length === 0) {
           console.warn('[LibraryDocumentService] No text to index for document:', params.documentId);
         } else {
+          console.log('[LibraryDocumentService] Indexing text with attachmentId:', doc.id);
           const textResult = await textRAGService.indexDocument({
             text: doc.extractedText,
             attachmentId: doc.id,
