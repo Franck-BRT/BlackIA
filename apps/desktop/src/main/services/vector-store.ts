@@ -253,45 +253,55 @@ export class VectorStoreService {
         filters
       });
 
-      // LanceDB 0.4.x: Pas de méthode query() ou limit() directe sur la collection
-      // On doit utiliser search() mais avec des paramètres pour récupérer tout sans filtrage par similarité
-      // Use a small non-zero vector to avoid issues with zero vector searches
+      // LanceDB 0.4.x: WHERE clause doesn't work reliably with search()
+      // Workaround: Fetch more results and filter in-memory
       const dummyVector = new Array(768).fill(0.001);
 
-      let query = this.textCollection
+      // Get a larger set to ensure we catch all possible matches
+      const fetchLimit = Math.max(limit * 3, 3000);
+      const unfilteredQuery = this.textCollection
         .search(dummyVector)
-        .limit(limit)
-        .nprobes(100); // Increase search scope to find all matching vectors
+        .limit(fetchLimit)
+        .nprobes(100);
 
-      if (whereClause) {
-        query = query.where(whereClause);
-      }
-
-      // Debug: Test query without WHERE clause first
-      logger.debug('rag', 'Testing query without WHERE clause first', 'Checking if any data exists');
-      try {
-        const testQuery = this.textCollection.search(dummyVector).limit(10).nprobes(100);
-        const testResults = await testQuery.execute();
-        logger.debug('rag', 'Query without WHERE returned results', `Found ${testResults.length} rows`, {
-          count: testResults.length,
-          sample: testResults[0] ? {
-            id: testResults[0].id,
-            attachmentId: testResults[0].attachmentId,
-          } : null
-        });
-      } catch (testError) {
-        logger.error('rag', 'Test query failed', '', {
-          error: testError instanceof Error ? testError.message : String(testError)
-        });
-      }
-
-      logger.debug('rag', 'Executing LanceDB query with WHERE', `Limit: ${limit}, nprobes: 100`, {
-        limit,
-        hasWhereClause: !!whereClause,
-        whereClause
+      logger.debug('rag', 'Executing LanceDB query (will filter in-memory)', `Fetching ${fetchLimit} rows`, {
+        fetchLimit,
+        willFilterBy: {
+          entityType: !!filters.entityType,
+          entityId: !!filters.entityId,
+          attachmentIds: filters.attachmentIds?.length || 0
+        }
       });
 
-      const results = await query.execute();
+      const unfilteredResults = await unfilteredQuery.execute();
+
+      logger.debug('rag', 'Unfiltered query completed', `Got ${unfilteredResults.length} rows before filtering`, {
+        totalFetched: unfilteredResults.length,
+        sampleAttachmentIds: unfilteredResults.slice(0, 10).map((r: any) => r.attachmentId)
+      });
+
+      // Filter results in-memory (WHERE clause doesn't work)
+      let filtered = unfilteredResults;
+
+      if (filters.entityType) {
+        filtered = filtered.filter((row: any) => row.entityType === filters.entityType);
+        logger.debug('rag', 'Filtered by entityType', `${filtered.length} rows after entityType filter`);
+      }
+      if (filters.entityId) {
+        filtered = filtered.filter((row: any) => row.entityId === filters.entityId);
+        logger.debug('rag', 'Filtered by entityId', `${filtered.length} rows after entityId filter`);
+      }
+      if (filters.attachmentIds && filters.attachmentIds.length > 0) {
+        const attachmentIdSet = new Set(filters.attachmentIds);
+        filtered = filtered.filter((row: any) => attachmentIdSet.has(row.attachmentId));
+        logger.debug('rag', 'Filtered by attachmentIds', `${filtered.length} rows after attachmentId filter`, {
+          requestedIds: filters.attachmentIds,
+          matchedIds: filtered.map((r: any) => r.attachmentId)
+        });
+      }
+
+      // Apply requested limit
+      const results = filtered.slice(0, limit);
 
       logger.debug('rag', 'LanceDB query completed', `Returned ${results.length} results`, {
         resultCount: results.length,
