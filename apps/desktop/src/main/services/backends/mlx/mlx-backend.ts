@@ -64,14 +64,19 @@ export class MLXBackend extends BaseAIBackend {
       return false;
     }
 
+    // Chemin du virtualenv BlackIA (si créé par le script d'installation)
+    const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+    const venvPython = homeDir ? `${homeDir}/.blackia-env/bin/python3` : '';
+
     // Essayer plusieurs chemins Python
     const pythonPaths = [
+      venvPython, // Virtualenv BlackIA en priorité
       this.pythonPath,
       'python3',
       '/usr/bin/python3',
       '/opt/homebrew/bin/python3',
       '/usr/local/bin/python3',
-    ];
+    ].filter(p => p); // Filtrer les chemins vides
 
     for (const pythonPath of pythonPaths) {
       try {
