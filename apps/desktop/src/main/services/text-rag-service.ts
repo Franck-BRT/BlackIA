@@ -44,7 +44,7 @@ export class TextRAGService {
     const startTime = Date.now();
 
     try {
-      console.log('[TextRAG] Indexing document:', {
+      logger.debug('rag', 'Starting text RAG indexing', `AttachmentId: ${params.attachmentId}`, {
         attachmentId: params.attachmentId,
         textLength: params.text.length,
         model: params.model || this.defaultModel,
@@ -58,7 +58,7 @@ export class TextRAGService {
       const chunks = chunkText(params.text, chunkSize, chunkOverlap, separator);
 
       if (chunks.length === 0) {
-        console.warn('[TextRAG] No chunks generated (text too short?)');
+        logger.warning('rag', 'No chunks generated', `Text too short for document ${params.attachmentId}`);
         return {
           success: true,
           chunkCount: 0,
@@ -66,7 +66,11 @@ export class TextRAGService {
         };
       }
 
-      console.log('[TextRAG] Generated', chunks.length, 'chunks');
+      logger.debug('rag', 'Chunks generated', `Generated ${chunks.length} chunks for document ${params.attachmentId}`, {
+        chunkCount: chunks.length,
+        chunkSize,
+        chunkOverlap
+      });
 
       // 2. Générer embeddings pour chaque chunk
       const model = params.model || this.defaultModel;
@@ -93,16 +97,25 @@ export class TextRAGService {
         chunkSchemas.push(schema);
       }
 
+      logger.debug('rag', 'Embeddings generated', `Generated embeddings for ${chunkSchemas.length} chunks`, {
+        chunkCount: chunkSchemas.length,
+        firstChunkId: chunkSchemas[0]?.id,
+        firstChunkAttachmentId: chunkSchemas[0]?.attachmentId
+      });
+
       // 3. Stocker dans LanceDB
+      logger.debug('rag', 'Inserting chunks into LanceDB', `Inserting ${chunkSchemas.length} chunks`);
       await vectorStore.indexTextChunks(chunkSchemas);
+      logger.debug('rag', 'Chunks inserted into LanceDB', `Successfully inserted ${chunkSchemas.length} chunks`);
 
       const duration = Date.now() - startTime;
       const totalTokens = chunks.reduce((sum, chunk) => sum + estimateTokenCount(chunk.text), 0);
 
-      console.log('[TextRAG] Indexed successfully:', {
+      logger.info('rag', 'Text RAG indexing completed', `Indexed ${chunks.length} chunks in ${duration}ms`, {
         chunkCount: chunks.length,
         totalTokens,
-        duration: `${duration}ms`,
+        duration,
+        attachmentId: params.attachmentId
       });
 
       return {
@@ -111,7 +124,11 @@ export class TextRAGService {
         totalTokens,
       };
     } catch (error) {
-      console.error('[TextRAG] Indexing error:', error);
+      logger.error('rag', 'Text RAG indexing failed', `AttachmentId: ${params.attachmentId}`, {
+        attachmentId: params.attachmentId,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       return {
         success: false,
         chunkCount: 0,

@@ -111,17 +111,36 @@ export class VectorStoreService {
     }
 
     try {
+      logger.debug('rag', 'Indexing text chunks into LanceDB', `Inserting ${chunks.length} chunks`, {
+        chunkCount: chunks.length,
+        firstChunk: chunks[0] ? {
+          id: chunks[0].id,
+          attachmentId: chunks[0].attachmentId,
+          chunkIndex: chunks[0].chunkIndex,
+          textPreview: chunks[0].text.substring(0, 50)
+        } : null
+      });
+
       if (!this.textCollection) {
         // Première insertion - créer la collection
         this.textCollection = await this.db.createTable(this.TEXT_COLLECTION, chunks);
-        console.log('[VectorStore] Created text_rag_chunks collection with', chunks.length, 'chunks');
+        logger.info('rag', 'LanceDB text collection created', `Created text_rag_chunks collection with ${chunks.length} chunks`, {
+          collectionName: this.TEXT_COLLECTION,
+          chunkCount: chunks.length
+        });
       } else {
         // Ajouter à la collection existante
         await this.textCollection.add(chunks);
-        console.log('[VectorStore] Added', chunks.length, 'text chunks');
+        logger.info('rag', 'LanceDB chunks added', `Added ${chunks.length} text chunks to existing collection`, {
+          chunkCount: chunks.length
+        });
       }
     } catch (error) {
-      console.error('[VectorStore] Error indexing text chunks:', error);
+      logger.error('rag', 'LanceDB indexing failed', 'Error indexing text chunks', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        chunkCount: chunks.length
+      });
       throw error;
     }
   }
