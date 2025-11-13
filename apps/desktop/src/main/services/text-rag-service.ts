@@ -431,9 +431,11 @@ export class TextRAGService {
     try {
       logger.debug('rag', 'Getting chunks for document', `AttachmentId: ${attachmentId}`);
 
-      // Recherche avec un vecteur dummy (on veut juste récupérer tous les chunks)
+      // Recherche avec un vecteur normalisé (on veut juste récupérer tous les chunks)
       // Note: LanceDB ne supporte pas de "get all by filter", on doit passer par search
-      const dummyVector = new Array(768).fill(0); // 768 dims pour nomic-embed-text
+      // Important: On ne peut pas utiliser un vecteur de zéros car la similarité cosinus
+      // divise par la magnitude, ce qui causerait une division par zéro
+      const dummyVector = new Array(768).fill(1.0 / Math.sqrt(768)); // Vecteur unitaire normalisé
 
       const results = await vectorStore.searchTextChunks(dummyVector, 1000, {
         attachmentIds: [attachmentId],
