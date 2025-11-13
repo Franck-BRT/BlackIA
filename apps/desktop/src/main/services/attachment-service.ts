@@ -332,7 +332,7 @@ export class AttachmentService {
         const { textRAGService } = await import('./text-rag-service');
 
         try {
-          // MLX backend utilise automatiquement le modèle par défaut (sentence-transformers/all-MiniLM-L6-v2)
+          // MLX backend utilise automatiquement le modèle par défaut (sentence-transformers/all-mpnet-base-v2)
           // Pas besoin de vérifier la disponibilité du modèle, MLX est initialisé à la demande
           const indexResult = await textRAGService.indexDocument({
             attachmentId: id,
@@ -359,7 +359,7 @@ export class AttachmentService {
               .update(attachments)
               .set({
                 isIndexedText: true,
-                textEmbeddingModel: 'sentence-transformers/all-MiniLM-L6-v2',
+                textEmbeddingModel: 'sentence-transformers/all-mpnet-base-v2',
                 textChunkCount: indexResult.chunkCount,
                 lastIndexedAt: new Date(),
                 updatedAt: new Date(),
@@ -368,7 +368,7 @@ export class AttachmentService {
 
             // Mettre à jour l'objet de retour
             newAttachment.isIndexedText = true;
-            newAttachment.textEmbeddingModel = 'sentence-transformers/all-MiniLM-L6-v2';
+            newAttachment.textEmbeddingModel = 'sentence-transformers/all-mpnet-base-v2';
             newAttachment.textChunkCount = indexResult.chunkCount;
             newAttachment.lastIndexedAt = new Date();
           } else {

@@ -318,7 +318,7 @@ export class BackendManager extends EventEmitter {
       mlx: {
         enabled: true,
         chatModel: 'mlx-community/Llama-3.2-3B-Instruct-4bit',
-        embedModel: 'sentence-transformers/all-MiniLM-L6-v2',
+        embedModel: 'sentence-transformers/all-mpnet-base-v2',
         visionModel: 'mlx-community/pixtral-12b-4bit',
       },
       ollama: {

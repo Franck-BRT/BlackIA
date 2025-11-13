@@ -6,7 +6,7 @@ import { logger } from './services/log-service';
  * Configuration MLX stockée
  */
 let mlxConfig = {
-  model: 'sentence-transformers/all-MiniLM-L6-v2',
+  model: 'sentence-transformers/all-mpnet-base-v2',
   pythonPath: 'python3',
   enabled: true
 };

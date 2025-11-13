@@ -47,7 +47,7 @@ export class MLXBackend extends BaseAIBackend {
   }> = new Map();
   private requestId = 0;
   private isReady = false;
-  private defaultModel = 'sentence-transformers/all-MiniLM-L6-v2';
+  private defaultModel = 'sentence-transformers/all-mpnet-base-v2';
 
   constructor(pythonPath?: string) {
     super();
@@ -248,15 +248,15 @@ export class MLXBackend extends BaseAIBackend {
     // Modèles recommandés pour sentence-transformers
     return [
       {
-        name: 'sentence-transformers/all-MiniLM-L6-v2',
-        size: '80MB',
-        downloaded: true, // Sera téléchargé automatiquement au premier usage
+        name: 'sentence-transformers/all-mpnet-base-v2',
+        size: '420MB',
+        downloaded: true, // Default model (768-dim, matches LanceDB schema)
         type: 'embed',
       },
       {
-        name: 'sentence-transformers/all-mpnet-base-v2',
-        size: '420MB',
-        downloaded: false,
+        name: 'sentence-transformers/all-MiniLM-L6-v2',
+        size: '80MB',
+        downloaded: false, // Smaller but 384-dim (incompatible with current LanceDB)
         type: 'embed',
       },
       {

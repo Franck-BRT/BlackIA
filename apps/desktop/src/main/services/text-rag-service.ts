@@ -23,7 +23,7 @@ import { MLXBackend } from './backends/mlx/mlx-backend';
  * - Gestion automatique du cache de modèles
  *
  * Configuration:
- * - Modèle configurable (défaut: all-MiniLM-L6-v2)
+ * - Modèle configurable (défaut: all-mpnet-base-v2, 768-dim)
  * - Python path auto-détecté
  * - Chunking personnalisable
  */
@@ -39,7 +39,8 @@ export class TextRAGService {
       pythonPath?: string;
     } = {}
   ) {
-    this.defaultModel = mlxConfig.model || 'sentence-transformers/all-MiniLM-L6-v2';
+    // Use all-mpnet-base-v2 (768-dim) to match LanceDB schema (was configured for nomic-embed-text)
+    this.defaultModel = mlxConfig.model || 'sentence-transformers/all-mpnet-base-v2';
     this.pythonPath = mlxConfig.pythonPath || 'python3';
 
     logger.info('rag', 'TextRAGService initialized', `Model: ${this.defaultModel}`, {

@@ -18,7 +18,7 @@ const DEFAULT_RAG_CONFIG = {
   defaultMode: 'auto',
   text: {
     enabled: true,
-    model: 'sentence-transformers/all-MiniLM-L6-v2', // MLX model
+    model: 'sentence-transformers/all-mpnet-base-v2', // MLX model (768-dim to match LanceDB)
     chunkSize: 512,
     chunkOverlap: 10,
     separator: 'paragraph',

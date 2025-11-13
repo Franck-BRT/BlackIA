@@ -398,7 +398,7 @@ export class LibraryDocumentService {
               .update(libraryDocuments)
               .set({
                 isIndexedText: true,
-                textEmbeddingModel: 'sentence-transformers/all-MiniLM-L6-v2',
+                textEmbeddingModel: 'sentence-transformers/all-mpnet-base-v2',
                 textChunkCount: chunkCount,
               })
               .where(eq(libraryDocuments.id, doc.id));

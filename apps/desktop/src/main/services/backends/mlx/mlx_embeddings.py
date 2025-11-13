@@ -79,7 +79,7 @@ class MLXEmbeddingServer:
 
         if command == "embed":
             text = request.get("text")
-            model = request.get("model", "sentence-transformers/all-MiniLM-L6-v2")
+            model = request.get("model", "sentence-transformers/all-mpnet-base-v2")
             return self.generate_embedding(text, model)
 
         elif command == "ping":
