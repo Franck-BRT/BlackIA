@@ -176,18 +176,19 @@ export class VectorStoreService {
         .metricType('cosine'); // Cosine similarity
 
       // Appliquer les filtres
+      // Note: LanceDB est sensible à la casse, les noms de colonnes doivent être entre guillemets doubles
       if (filters) {
         if (filters.entityType) {
-          query = query.where(`entityType = '${filters.entityType}'`);
+          query = query.where(`"entityType" = '${filters.entityType}'`);
         }
         if (filters.entityId) {
-          query = query.where(`entityId = '${filters.entityId}'`);
+          query = query.where(`"entityId" = '${filters.entityId}'`);
         }
         if (filters.attachmentIds && filters.attachmentIds.length > 0) {
           const attachmentFilter = filters.attachmentIds
             .map((id) => `'${id}'`)
             .join(', ');
-          const whereClause = `attachmentId IN (${attachmentFilter})`;
+          const whereClause = `"attachmentId" IN (${attachmentFilter})`;
           logger.debug('rag', 'Applying LanceDB WHERE clause', whereClause, {
             attachmentIds: filters.attachmentIds,
             whereClause
@@ -255,18 +256,19 @@ export class VectorStoreService {
       let query = this.visionCollection.limit(1000); // Limit to avoid memory issues
 
       // Appliquer les filtres
+      // Note: LanceDB est sensible à la casse, les noms de colonnes doivent être entre guillemets doubles
       if (filters) {
         if (filters.entityType) {
-          query = query.where(`entityType = '${filters.entityType}'`);
+          query = query.where(`"entityType" = '${filters.entityType}'`);
         }
         if (filters.entityId) {
-          query = query.where(`entityId = '${filters.entityId}'`);
+          query = query.where(`"entityId" = '${filters.entityId}'`);
         }
         if (filters.attachmentIds && filters.attachmentIds.length > 0) {
           const attachmentFilter = filters.attachmentIds
             .map((id) => `'${id}'`)
             .join(', ');
-          query = query.where(`attachmentId IN (${attachmentFilter})`);
+          query = query.where(`"attachmentId" IN (${attachmentFilter})`);
         }
       }
 
@@ -396,18 +398,19 @@ export class VectorStoreService {
         .metricType('cosine');
 
       // Appliquer les filtres
+      // Note: LanceDB est sensible à la casse, les noms de colonnes doivent être entre guillemets doubles
       if (filters) {
         if (filters.entityType) {
-          query = query.where(`entityType = '${filters.entityType}'`);
+          query = query.where(`"entityType" = '${filters.entityType}'`);
         }
         if (filters.entityId) {
-          query = query.where(`entityId = '${filters.entityId}'`);
+          query = query.where(`"entityId" = '${filters.entityId}'`);
         }
         if (filters.attachmentIds && filters.attachmentIds.length > 0) {
           const attachmentFilter = filters.attachmentIds
             .map((id) => `'${id}'`)
             .join(', ');
-          query = query.where(`attachmentId IN (${attachmentFilter})`);
+          query = query.where(`"attachmentId" IN (${attachmentFilter})`);
         }
       }
 
