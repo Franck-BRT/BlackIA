@@ -108,5 +108,5 @@ export interface VisionResponse {
 export type BackendEvent =
   | { type: 'status-changed'; backend: BackendType; status: BackendStatus }
   | { type: 'model-download-progress'; model: string; progress: number }
-  | { type: 'backend-switched'; from: BackendType; to: BackendType; reason: string }
+  | { type: 'backend-switched'; from?: BackendType; to: BackendType; reason: string }
   | { type: 'error'; backend: BackendType; error: Error };

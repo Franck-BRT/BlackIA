@@ -50,10 +50,10 @@ export interface AIBackend {
   getStatus(): Promise<BackendStatus>;
 
   /**
-   * CHAT: Générer une réponse de chat
+   * CHAT: Générer une réponse de chat (streaming)
    * @throws Error si le backend ne supporte pas cette capacité
    */
-  chat(request: ChatRequest): Promise<AsyncIterable<string>>;
+  chat(request: ChatRequest): AsyncIterable<string>;
 
   /**
    * CHAT: Générer une réponse complète (non-streaming)
@@ -111,7 +111,7 @@ export abstract class BaseAIBackend implements AIBackend {
     return this.capabilities.includes(capability);
   }
 
-  async chat(request: ChatRequest): Promise<AsyncIterable<string>> {
+  async *chat(request: ChatRequest): AsyncIterable<string> {
     throw new Error(`Backend ${this.type} does not support chat capability`);
   }
 

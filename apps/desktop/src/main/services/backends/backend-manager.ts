@@ -177,7 +177,7 @@ export class BackendManager extends EventEmitter {
 
       this.emitEvent({
         type: 'backend-switched',
-        from: oldBackend?.type || 'none',
+        from: oldBackend?.type,
         to: type,
         reason: 'Manual switch',
       });
@@ -214,7 +214,7 @@ export class BackendManager extends EventEmitter {
   /**
    * CHAT API
    */
-  async chat(request: ChatRequest): Promise<AsyncIterable<string>> {
+  chat(request: ChatRequest): AsyncIterable<string> {
     this.assertInitialized();
     this.assertCapability('chat');
     return this.activeBackend!.chat(request);

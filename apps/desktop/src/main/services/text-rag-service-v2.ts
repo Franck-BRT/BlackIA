@@ -116,7 +116,7 @@ export class TextRAGServiceV2 {
             originalName: params.attachmentId,
             ...chunk.metadata,
           }),
-          createdAt: new Date().toISOString(),
+          createdAt: Date.now(),
         };
 
         chunkSchemas.push(schema);
@@ -178,10 +178,9 @@ export class TextRAGServiceV2 {
       });
 
       // 1. Générer l'embedding de la query via Backend Manager
-      const model = params.model || this.defaultModel;
       const embeddingResponse = await backendManager.generateEmbedding({
         text: params.query,
-        model,
+        model: this.defaultModel,
       });
 
       const queryEmbedding = Array.isArray(embeddingResponse.embeddings)
