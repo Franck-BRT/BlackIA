@@ -19,7 +19,8 @@ export async function initializeBackends(): Promise<void> {
     // Créer les instances de backends
     const backends = [
       // Phase 2: MLX en priorité (natif Apple Silicon)
-      new MLXBackend(),
+      // Utiliser l'environnement virtuel si disponible
+      new MLXBackend(process.env.HOME + '/.blackia-env/bin/python3'),
 
       // Phase 1: Ollama External en fallback
       new OllamaExternalBackend('http://localhost:11434', 120000),

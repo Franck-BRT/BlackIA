@@ -64,24 +64,37 @@ export class MLXBackend extends BaseAIBackend {
       return false;
     }
 
-    // Vérifier si Python 3 est disponible
-    try {
-      const { execSync } = require('child_process');
-      execSync(`${this.pythonPath} --version`, { stdio: 'ignore' });
-    } catch {
-      logger.debug('backend', 'MLX not available', 'Python3 not found');
-      return false;
+    // Essayer plusieurs chemins Python
+    const pythonPaths = [
+      this.pythonPath,
+      'python3',
+      '/usr/bin/python3',
+      '/opt/homebrew/bin/python3',
+      '/usr/local/bin/python3',
+    ];
+
+    for (const pythonPath of pythonPaths) {
+      try {
+        const { execSync } = require('child_process');
+
+        // Vérifier si Python existe
+        execSync(`${pythonPath} --version`, { stdio: 'ignore' });
+
+        // Vérifier si sentence-transformers est installé
+        execSync(`${pythonPath} -c "import sentence_transformers"`, { stdio: 'ignore' });
+
+        // Succès ! Utiliser ce Python
+        this.pythonPath = pythonPath;
+        logger.debug('backend', 'MLX available', `Using Python: ${pythonPath}`);
+        return true;
+      } catch {
+        // Ce chemin ne fonctionne pas, essayer le suivant
+        continue;
+      }
     }
 
-    // Vérifier si sentence-transformers est installé
-    try {
-      const { execSync } = require('child_process');
-      execSync(`${this.pythonPath} -c "import sentence_transformers"`, { stdio: 'ignore' });
-      return true;
-    } catch {
-      logger.warning('backend', 'MLX not available', 'sentence-transformers not installed. Install with: pip3 install sentence-transformers');
-      return false;
-    }
+    logger.warning('backend', 'MLX not available', 'sentence-transformers not installed. Install with: pip3 install sentence-transformers torch');
+    return false;
   }
 
   async initialize(): Promise<void> {
