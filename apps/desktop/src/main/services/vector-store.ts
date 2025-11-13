@@ -136,13 +136,30 @@ export class VectorStoreService {
         });
       }
 
-      // Re-open table to ensure fresh reference (fixes query timing issues)
+      // LanceDB requires re-creating index after add() operations
+      // The table reference becomes stale after add(), need fresh reference
       try {
+        // Don't re-open immediately - use the collection that just added data
+        // Test if data is immediately queryable
+        const verifyVector = new Array(768).fill(0.001);
+        const beforeReopen = await this.textCollection.search(verifyVector).limit(5).execute();
+        logger.debug('rag', 'Chunks queryable before reopen', `Found ${beforeReopen.length} chunks`, {
+          countBeforeReopen: beforeReopen.length
+        });
+
+        // Now re-open to get the latest version
         this.textCollection = await this.db.openTable(this.TEXT_COLLECTION);
-        logger.debug('rag', 'Refreshed text collection reference', 'Collection ready for queries');
+
+        const afterReopen = await this.textCollection.search(verifyVector).limit(5).execute();
+        logger.info('rag', 'Collection refreshed and verified', `Data is queryable (${afterReopen.length} test results)`, {
+          countBeforeReopen: beforeReopen.length,
+          countAfterReopen: afterReopen.length,
+          isQueryable: afterReopen.length > 0
+        });
       } catch (refreshError) {
-        logger.warning('rag', 'Could not refresh collection reference', 'Queries may be delayed', {
-          error: refreshError instanceof Error ? refreshError.message : String(refreshError)
+        logger.error('rag', 'Failed to refresh collection', '', {
+          error: refreshError instanceof Error ? refreshError.message : String(refreshError),
+          stack: refreshError instanceof Error ? refreshError.stack : undefined
         });
       }
     } catch (error) {
