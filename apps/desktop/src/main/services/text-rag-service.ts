@@ -261,7 +261,7 @@ export class TextRAGService {
       });
 
       // 1. Générer embedding de la query avec MLX
-      const queryEmbedding = await this.generateEmbedding(params.query, params.model);
+      const queryEmbedding = await this.generateEmbedding(params.query, this.defaultModel);
 
       // 2. Recherche vectorielle dans LanceDB
       const results = await vectorStore.searchTextChunks(
@@ -376,6 +376,115 @@ export class TextRAGService {
     }
     this.isInitialized = false;
     logger.info('rag', 'TextRAGService shutdown', 'MLX backend closed');
+  }
+
+  // ============================================================================
+  // MÉTHODES DE COMPATIBILITÉ BACKWARD (pour les anciens handlers)
+  // ============================================================================
+
+  /**
+   * Alias pour indexDocument (compatibilité backward)
+   */
+  async reindexDocument(params: TextRAGIndexParams): Promise<{
+    success: boolean;
+    chunkCount: number;
+    totalTokens: number;
+    error?: string;
+  }> {
+    // Supprimer les anciens chunks avant de réindexer
+    try {
+      await this.deleteAttachmentChunks(params.attachmentId);
+    } catch (error) {
+      logger.warning('rag', 'Could not delete old chunks', `AttachmentId: ${params.attachmentId}`);
+    }
+
+    return this.indexDocument(params);
+  }
+
+  /**
+   * Alias pour deleteAttachmentChunks (compatibilité backward)
+   */
+  async deleteDocument(attachmentId: string): Promise<void> {
+    return this.deleteAttachmentChunks(attachmentId);
+  }
+
+  /**
+   * Alias pour searchChunks (compatibilité backward)
+   */
+  async search(params: RAGSearchParams): Promise<TextRAGResult[]> {
+    return this.searchChunks(params);
+  }
+
+  /**
+   * Estimer le nombre de chunks qui seront générés
+   */
+  estimateChunking(text: string, chunkSize: number = 512, chunkOverlap: number = 51): {
+    estimatedChunks: number;
+    totalTokens: number;
+  } {
+    const tokens = estimateTokenCount(text);
+    const effectiveChunkSize = chunkSize - chunkOverlap;
+    const estimatedChunks = Math.ceil(tokens / effectiveChunkSize);
+
+    return {
+      estimatedChunks: Math.max(1, estimatedChunks),
+      totalTokens: tokens
+    };
+  }
+
+  /**
+   * Vérifier la disponibilité de MLX (remplace checkOllamaAvailability)
+   */
+  async checkOllamaAvailability(): Promise<{
+    available: boolean;
+    backend: string;
+    message: string;
+  }> {
+    try {
+      const status = await this.getStatus();
+      return {
+        available: status.available,
+        backend: 'mlx',
+        message: status.available
+          ? `MLX backend ready with model ${status.model}`
+          : 'MLX backend not available. Install: pip3 install sentence-transformers torch'
+      };
+    } catch (error) {
+      return {
+        available: false,
+        backend: 'mlx',
+        message: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+
+  /**
+   * Vérifier si un modèle est disponible
+   */
+  async isModelAvailable(modelName: string): Promise<boolean> {
+    try {
+      const models = await this.getAvailableModels();
+      return models.includes(modelName) || models.some(m => m.includes(modelName));
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Définir l'URL Ollama (obsolète avec MLX, mais gardé pour compatibilité)
+   */
+  setOllamaUrl(url: string): void {
+    logger.warning('rag', 'setOllamaUrl called but MLX backend is in use', 'This setting is ignored with MLX');
+  }
+
+  /**
+   * Définir le modèle par défaut
+   */
+  setDefaultModel(model: string): void {
+    this.defaultModel = model;
+    logger.info('rag', 'Default model updated', `New model: ${model}`, {
+      model
+    });
   }
 }
 
