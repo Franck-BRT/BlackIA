@@ -225,9 +225,18 @@ export class TextRAGService {
           prompt: text,
         },
         {
-          timeout: 30000, // 30s timeout
+          timeout: 120000, // 2 minutes timeout (first load can be slow)
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
         }
       );
+
+      logger.debug('rag', 'Embedding generated successfully', `Got ${response.data.embedding?.length || 0} dimensions`, {
+        dimensions: response.data.embedding?.length,
+        model
+      });
 
       if (!response.data.embedding) {
         throw new Error('No embedding returned from Ollama');
@@ -237,30 +246,57 @@ export class TextRAGService {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.code === 'ECONNREFUSED') {
+          logger.error('rag', 'Cannot connect to Ollama', 'Connection refused', {
+            url: this.ollamaBaseUrl,
+            error: error.message
+          });
           throw new Error(
             'Cannot connect to Ollama. Make sure Ollama is running (http://localhost:11434)'
           );
         }
+        if (error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND') {
+          logger.error('rag', 'Ollama connection timeout', `Code: ${error.code}`, {
+            code: error.code,
+            message: error.message
+          });
+          throw new Error(`Ollama connection error: ${error.code}`);
+        }
         if (error.response?.status === 404) {
+          logger.error('rag', 'Ollama model not found', `Model: ${model}`, {
+            model,
+            status: 404
+          });
           throw new Error(
             `Model "${model}" not found. Run: ollama pull ${model}`
           );
         }
         if (error.response?.status === 500) {
           const errorMsg = error.response?.data?.error || 'Internal server error';
+          logger.error('rag', 'Ollama server error 500', errorMsg, {
+            status: 500,
+            errorMessage: errorMsg,
+            responseData: error.response?.data,
+            requestUrl: error.config?.url,
+            requestData: error.config?.data,
+          });
           throw new Error(
             `Ollama server error (500): ${errorMsg}. This usually means the model is not properly loaded or incompatible.`
           );
         }
         // Log détaillé pour autres erreurs HTTP
-        console.error('[TextRAG] Ollama HTTP error:', {
+        logger.error('rag', 'Ollama HTTP error', `Status: ${error.response?.status}`, {
           status: error.response?.status,
           statusText: error.response?.statusText,
           data: error.response?.data,
           url: error.config?.url,
+          method: error.config?.method,
+        });
+      } else {
+        logger.error('rag', 'Embedding generation error', 'Non-HTTP error', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
         });
       }
-      console.error('[TextRAG] Embedding generation error:', error);
       throw error;
     }
   }
