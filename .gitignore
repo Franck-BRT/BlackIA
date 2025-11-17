@@ -55,3 +55,8 @@ temp/
 *.db
 packages/ollama/dist
 packages/ollama/tsconfig.tsbuildinfo
+
+# Python virtual environment
+venv/
+*.pyc
+__pycache__/
