@@ -352,7 +352,11 @@ export type LogCategory =
   | 'ui'
   | 'attachments'
   | 'rag'
-  | 'backend';
+  | 'backend'
+  | 'mlx'
+  | 'mlx-llm'
+  | 'mlx-models'
+  | 'mlx-store';
 
 export interface Log {
   id: string;

@@ -315,26 +315,29 @@ export function registerMLXHandlers(): void {
       // Envoyer l'ID du stream au renderer
       event.sender.send('mlx:llm:streamStart', { streamId });
 
-      // Utiliser le chat avec streaming
-      await mlxLLMBackend.chat({
+      // Utiliser le chat avec streaming (AsyncIterable)
+      const chatRequest = {
         messages,
-        options,
+        model: 'current',  // Le backend utilise le modèle actuel
+        temperature: options?.temperature,
+        maxTokens: options?.max_tokens,
         stream: true,
-        onChunk: (chunk) => {
-          // Envoyer chaque chunk au renderer
-          event.sender.send('mlx:llm:streamChunk', {
-            streamId,
-            chunk: chunk.content,
-          });
-        },
-      });
+      };
+
+      for await (const chunk of mlxLLMBackend.chat(chatRequest)) {
+        // Envoyer chaque chunk au renderer
+        event.sender.send('mlx:llm:streamChunk', {
+          streamId,
+          chunk,
+        });
+      }
 
       // Signaler la fin du stream
       event.sender.send('mlx:llm:streamEnd', { streamId });
 
       return { success: true, streamId };
     } catch (error: any) {
-      logger.error('mlx-llm', 'Chat error', '', {
+      logger.error('backend', 'Chat error', '', {
         error: error.message,
       });
       return {
@@ -353,9 +356,12 @@ export function registerMLXHandlers(): void {
 
       const { prompt, options } = request;
 
-      const response = await mlxLLMBackend.generate({
-        prompt,
-        options,
+      // Convertir le prompt en message pour utiliser chatComplete
+      const response = await mlxLLMBackend.chatComplete({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'current',
+        temperature: options?.temperature,
+        maxTokens: options?.max_tokens,
         stream: false,
       });
 
@@ -365,7 +371,7 @@ export function registerMLXHandlers(): void {
         model: response.model,
       };
     } catch (error: any) {
-      logger.error('mlx-llm', 'Generation error', '', {
+      logger.error('backend', 'Generation error', '', {
         error: error.message,
       });
       return {

@@ -16,8 +16,6 @@ import type {
   BackendModelInfo,
   ChatRequest,
   ChatResponse,
-  GenerateRequest,
-  GenerateResponse,
 } from '../backend-types';
 
 interface MLXLLMRequest {
@@ -47,7 +45,7 @@ interface MLXLLMResponse {
 
 export class MLXLLMBackend extends BaseAIBackend {
   readonly type: BackendType = 'mlx';
-  readonly capabilities: BackendCapability[] = ['chat', 'completion', 'embeddings'];
+  readonly capabilities: BackendCapability[] = ['chat', 'embeddings'];
 
   private pythonProcess: ChildProcess | null = null;
   private pythonPath: string = 'python3';
@@ -226,7 +224,6 @@ export class MLXLLMBackend extends BaseAIBackend {
         capabilities: this.capabilities,
         models: await this.listModels(),
         version: 'MLX + mlx-lm',
-        currentModel: this.currentModel || undefined,
       };
     } catch (error) {
       return {
@@ -241,15 +238,15 @@ export class MLXLLMBackend extends BaseAIBackend {
   }
 
   /**
-   * CHAT Implementation
+   * CHAT Implementation (streaming)
    */
-  async chat(request: ChatRequest): Promise<ChatResponse> {
+  async *chat(request: ChatRequest): AsyncIterable<string> {
     this.assertCapability('chat');
 
     logger.debug(
       'backend',
-      'MLX LLM chat request',
-      `Messages: ${request.messages.length}, Stream: ${request.stream || false}`
+      'MLX LLM chat request (streaming)',
+      `Messages: ${request.messages.length}`
     );
 
     try {
@@ -261,49 +258,25 @@ export class MLXLLMBackend extends BaseAIBackend {
       const mlxRequest: MLXLLMRequest = {
         command: 'chat',
         messages: request.messages,
-        max_tokens: request.options?.max_tokens,
-        temperature: request.options?.temperature,
-        top_p: request.options?.top_p,
-        stream: request.stream || false,
+        max_tokens: request.maxTokens,
+        temperature: request.temperature,
+        top_p: 0.9,
+        stream: true,
       };
 
-      if (request.stream) {
-        // Chat en streaming
-        return new Promise((resolve, reject) => {
-          let fullContent = '';
+      // Utiliser un pattern pour yield chaque chunk
+      const chunks: string[] = [];
 
-          this.sendRequestWithStreaming(
-            mlxRequest,
-            (chunk) => {
-              fullContent += chunk;
-              // Appeler le callback de streaming si fourni
-              if (request.onChunk) {
-                request.onChunk({ content: chunk, done: false });
-              }
-            }
-          )
-            .then(() => {
-              resolve({
-                content: fullContent,
-                model: this.currentModel || 'unknown',
-                done: true,
-              });
-            })
-            .catch(reject);
-        });
-      } else {
-        // Chat non-streaming
-        const response = await this.sendRequest(mlxRequest);
-
-        if (!response.success) {
-          throw new Error(response.error || 'MLX LLM chat failed');
+      await this.sendRequestWithStreaming(
+        mlxRequest,
+        (chunk) => {
+          chunks.push(chunk);
         }
+      );
 
-        return {
-          content: response.content || '',
-          model: this.currentModel || 'unknown',
-          done: true,
-        };
+      // Yield tous les chunks collectés
+      for (const chunk of chunks) {
+        yield chunk;
       }
     } catch (error) {
       logger.error('backend', 'MLX LLM chat error', '', {
@@ -314,15 +287,15 @@ export class MLXLLMBackend extends BaseAIBackend {
   }
 
   /**
-   * COMPLETION Implementation
+   * CHAT Implementation (non-streaming)
    */
-  async generate(request: GenerateRequest): Promise<GenerateResponse> {
-    this.assertCapability('completion');
+  async chatComplete(request: ChatRequest): Promise<ChatResponse> {
+    this.assertCapability('chat');
 
     logger.debug(
       'backend',
-      'MLX LLM generate request',
-      `Prompt length: ${request.prompt.length}, Stream: ${request.stream || false}`
+      'MLX LLM chat request (complete)',
+      `Messages: ${request.messages.length}`
     );
 
     try {
@@ -332,54 +305,27 @@ export class MLXLLMBackend extends BaseAIBackend {
       }
 
       const mlxRequest: MLXLLMRequest = {
-        command: 'generate',
-        prompt: request.prompt,
-        max_tokens: request.options?.max_tokens,
-        temperature: request.options?.temperature,
-        top_p: request.options?.top_p,
-        stream: request.stream || false,
+        command: 'chat',
+        messages: request.messages,
+        max_tokens: request.maxTokens,
+        temperature: request.temperature,
+        top_p: 0.9,
+        stream: false,
       };
 
-      if (request.stream) {
-        // Génération en streaming
-        return new Promise((resolve, reject) => {
-          let fullContent = '';
+      const response = await this.sendRequest(mlxRequest);
 
-          this.sendRequestWithStreaming(
-            mlxRequest,
-            (chunk) => {
-              fullContent = chunk; // Le serveur envoie le texte complet à chaque fois
-              // Appeler le callback de streaming si fourni
-              if (request.onChunk) {
-                request.onChunk({ content: chunk, done: false });
-              }
-            }
-          )
-            .then(() => {
-              resolve({
-                content: fullContent,
-                model: this.currentModel || 'unknown',
-                done: true,
-              });
-            })
-            .catch(reject);
-        });
-      } else {
-        // Génération non-streaming
-        const response = await this.sendRequest(mlxRequest);
-
-        if (!response.success) {
-          throw new Error(response.error || 'MLX LLM generation failed');
-        }
-
-        return {
-          content: response.content || '',
-          model: this.currentModel || 'unknown',
-          done: true,
-        };
+      if (!response.success) {
+        throw new Error(response.error || 'MLX LLM chat failed');
       }
+
+      return {
+        content: response.content || '',
+        model: this.currentModel || 'unknown',
+        finishReason: 'stop',
+      };
     } catch (error) {
-      logger.error('backend', 'MLX LLM generation error', '', {
+      logger.error('backend', 'MLX LLM chat error', '', {
         error: error instanceof Error ? error.message : String(error),
       });
       throw error;
