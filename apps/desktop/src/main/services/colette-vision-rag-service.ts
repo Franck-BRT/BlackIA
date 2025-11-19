@@ -56,14 +56,17 @@ export class ColetteVisionRAGService {
     const isDev = !app.isPackaged;
     const appPath = app.getAppPath();
 
+    // Déclarer scriptsPath en dehors du if/else pour qu'elle soit accessible partout
+    let scriptsPath: string;
+
     if (isDev) {
       // Development: détecter le meilleur Python disponible
-      const scriptsPath = path.join(appPath, 'apps/desktop/src/python');
+      scriptsPath = path.join(appPath, 'apps/desktop/src/python');
       this.scriptPath = path.join(scriptsPath, 'vision_rag/colette_embedder.py');
       this.pythonPath = this.detectPythonPath(scriptsPath);
     } else {
       // Production: essayer plusieurs chemins et détecter Python système
-      const scriptsPath = path.join(process.resourcesPath, 'python');
+      scriptsPath = path.join(process.resourcesPath, 'python');
       this.scriptPath = path.join(scriptsPath, 'vision_rag/colette_embedder.py');
 
       // Essayer la détection même en production
