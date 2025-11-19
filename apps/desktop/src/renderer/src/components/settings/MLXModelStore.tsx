@@ -327,8 +327,8 @@ export function MLXModelStore() {
                   {/* Header */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold truncate">{model.modelName}</h4>
-                      <p className="text-sm text-muted-foreground truncate">{model.author}</p>
+                      <h4 className="font-semibold truncate">{model.modelName || 'Unknown Model'}</h4>
+                      <p className="text-sm text-muted-foreground truncate">{model.author || 'Unknown'}</p>
                     </div>
                     {downloaded && (
                       <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0" />
@@ -346,11 +346,11 @@ export function MLXModelStore() {
                   <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Download className="w-3 h-3" />
-                      <span>{formatNumber(model.downloads)}</span>
+                      <span>{formatNumber(model.downloads || 0)}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Heart className="w-3 h-3" />
-                      <span>{formatNumber(model.likes)}</span>
+                      <span>{formatNumber(model.likes || 0)}</span>
                     </div>
                     {model.size && (
                       <div className="flex items-center gap-1">

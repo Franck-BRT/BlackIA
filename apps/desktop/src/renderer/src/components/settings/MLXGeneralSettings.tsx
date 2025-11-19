@@ -293,11 +293,14 @@ export function MLXGeneralSettings() {
                     onChange={(e) => updateMLXModel(e.target.value)}
                     className="w-full px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                   >
-                    {models.map((model) => (
-                      <option key={model.name} value={model.name}>
-                        {model.name}
-                      </option>
-                    ))}
+                    {models.map((model) => {
+                      const modelName = model.name || 'unknown';
+                      return (
+                        <option key={modelName} value={modelName}>
+                          {modelName}
+                        </option>
+                      );
+                    })}
                   </select>
                   {config?.model && (
                     <p className="text-xs text-muted-foreground mt-2">
@@ -315,10 +318,11 @@ export function MLXGeneralSettings() {
                     {models.map((model) => {
                       const isActive = config?.model === model.name;
                       const isDownloaded = model.downloaded;
+                      const modelName = model.name || 'unknown';
 
                       return (
                         <div
-                          key={model.name}
+                          key={modelName}
                           className={`px-4 py-3 rounded-lg glass-card ${
                             isActive ? 'ring-2 ring-purple-500/50' : ''
                           }`}
@@ -327,7 +331,7 @@ export function MLXGeneralSettings() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className="font-medium text-sm truncate">
-                                  {model.name.split('/').pop()}
+                                  {modelName.split('/').pop() || modelName}
                                 </span>
                                 {isActive && (
                                   <span className="text-xs text-purple-400">(actif)</span>
@@ -337,14 +341,14 @@ export function MLXGeneralSettings() {
                                 )}
                               </div>
                               <p className="text-xs text-muted-foreground truncate">
-                                {model.name}
+                                {modelName}
                               </p>
                               <p className="text-xs text-muted-foreground mt-1">
-                                {getModelDescription(model.name)}
+                                {getModelDescription(modelName)}
                               </p>
                               <div className="flex items-center gap-3 mt-1">
                                 <span className="text-xs text-muted-foreground">
-                                  {model.size}
+                                  {model.size || 'N/A'}
                                 </span>
                                 {model.dimensions && (
                                   <span className="text-xs text-muted-foreground">

@@ -134,7 +134,7 @@ export function MLXModelManager() {
   };
 
   const getTotalSize = (): string => {
-    const total = models.reduce((acc, model) => acc + model.size, 0);
+    const total = models.reduce((acc, model) => acc + (model.size || 0), 0);
     return formatBytes(total);
   };
 
@@ -250,15 +250,15 @@ export function MLXModelManager() {
                   {/* Model Info */}
                   <div className="flex-1 min-w-0 space-y-3">
                     <div>
-                      <h4 className="font-semibold truncate">{model.name}</h4>
-                      <p className="text-sm text-muted-foreground truncate">{model.repoId}</p>
+                      <h4 className="font-semibold truncate">{model.name || 'Unknown Model'}</h4>
+                      <p className="text-sm text-muted-foreground truncate">{model.repoId || 'N/A'}</p>
                     </div>
 
                     {/* Metadata */}
                     <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <HardDrive className="w-3 h-3" />
-                        <span>{formatBytes(model.size)}</span>
+                        <span>{formatBytes(model.size || 0)}</span>
                       </div>
                       {model.quantization && (
                         <div className="flex items-center gap-1">
