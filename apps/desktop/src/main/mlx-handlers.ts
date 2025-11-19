@@ -62,6 +62,12 @@ export function registerMLXHandlers(): void {
         };
       }
 
+      // Vérifier si le service est initialisé, sinon l'initialiser
+      const isReady = await textRAGService.isReady();
+      if (!isReady) {
+        await textRAGService.initialize();
+      }
+
       // Si disponible, obtenir le statut complet
       const status = await textRAGService.getStatus();
       return {
