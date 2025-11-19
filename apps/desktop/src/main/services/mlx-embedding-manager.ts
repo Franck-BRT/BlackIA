@@ -28,6 +28,7 @@ interface EmbeddingModelInfo {
   path?: string;
   tags?: string[];
   modality?: 'text' | 'vision' | 'multimodal'; // Indique les modalités supportées
+  backend?: 'sentence-transformers' | 'mlx' | 'colette'; // Backend utilisé pour le modèle
 }
 
 /**
@@ -49,6 +50,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       description: 'Modèle par défaut - Excellent équilibre performance/taille - Compatible LanceDB',
       tags: ['recommandé', 'qualité', '768d', 'général'],
       modality: 'text',
+      backend: 'sentence-transformers',
     },
     {
       name: 'sentence-transformers/all-MiniLM-L6-v2',
@@ -59,6 +61,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       description: 'Modèle léger et rapide - 384 dimensions',
       tags: ['recommandé', 'léger', 'rapide', '384d', 'général'],
       modality: 'text',
+      backend: 'sentence-transformers',
     },
     {
       name: 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
@@ -69,6 +72,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       description: 'Support multilingue - Français, anglais, allemand, etc.',
       tags: ['multilingue', '384d', 'français'],
       modality: 'text',
+      backend: 'sentence-transformers',
     },
     {
       name: 'sentence-transformers/paraphrase-multilingual-mpnet-base-v2',
@@ -79,6 +83,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       description: 'Multilingue haute qualité - 50+ langues - 768 dimensions',
       tags: ['multilingue', 'qualité', '768d', 'français'],
       modality: 'text',
+      backend: 'sentence-transformers',
     },
     {
       name: 'sentence-transformers/all-distilroberta-v1',
@@ -89,6 +94,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       description: 'RoBERTa distillé - Bon compromis vitesse/qualité',
       tags: ['rapide', '768d', 'général'],
       modality: 'text',
+      backend: 'sentence-transformers',
     },
     {
       name: 'sentence-transformers/multi-qa-mpnet-base-dot-v1',
@@ -99,6 +105,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       description: 'Optimisé pour questions/réponses - Produit scalaire',
       tags: ['Q&A', '768d', 'qualité'],
       modality: 'text',
+      backend: 'sentence-transformers',
     },
     {
       name: 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1',
@@ -109,6 +116,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       description: 'Q&A léger et rapide - Similarité cosinus',
       tags: ['Q&A', 'léger', 'rapide', '384d'],
       modality: 'text',
+      backend: 'sentence-transformers',
     },
     {
       name: 'sentence-transformers/msmarco-distilbert-base-v4',
@@ -119,6 +127,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       description: 'Entraîné sur MS MARCO - Excellent pour recherche sémantique',
       tags: ['search', '768d', 'recommandé'],
       modality: 'text',
+      backend: 'sentence-transformers',
     },
     {
       name: 'sentence-transformers/gtr-t5-base',
@@ -129,6 +138,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       description: 'T5-based - Très bonne performance sur benchmarks',
       tags: ['qualité', '768d', 'général'],
       modality: 'text',
+      backend: 'sentence-transformers',
     },
     {
       name: 'sentence-transformers/all-roberta-large-v1',
@@ -139,52 +149,79 @@ export class MLXEmbeddingManager extends EventEmitter {
       description: 'Modèle large - Meilleure qualité mais plus lent',
       tags: ['large', 'qualité', '1024d', 'général'],
       modality: 'text',
+      backend: 'sentence-transformers',
     },
-    // Modèles Vision MLX (MLX-VLM pour Vision RAG)
+    // Modèles Vision Colette/ColPali (PyTorch - Multi-plateforme)
+    {
+      name: 'vidore/colpali',
+      size: '~3GB',
+      downloaded: false,
+      type: 'embed',
+      description: 'ColPali - Modèle Vision RAG par défaut (PyTorch, fonctionne sur toutes plateformes)',
+      tags: ['vision', 'Colette', 'recommandé', 'multi-plateforme'],
+      modality: 'vision',
+      backend: 'colette',
+    },
+    {
+      name: 'vidore/colpali-v1.2',
+      size: '~3GB',
+      downloaded: false,
+      type: 'embed',
+      description: 'ColPali v1.2 - Version améliorée du modèle Vision RAG',
+      tags: ['vision', 'Colette', 'qualité', 'multi-plateforme'],
+      modality: 'vision',
+      backend: 'colette',
+    },
+    // Modèles Vision MLX (MLX-VLM pour Vision RAG - Apple Silicon uniquement)
     {
       name: 'mlx-community/Qwen2-VL-2B-4bit',
       size: '~1.5GB',
       downloaded: false,
       type: 'embed',
-      description: 'Modèle par défaut Vision RAG - Vision Language Model 4-bit quantized pour génération d\'embeddings visuels',
-      tags: ['vision', 'MLX', 'recommandé', '4bit'],
+      description: 'Vision Language Model 4-bit quantized - Apple Silicon uniquement (MLX)',
+      tags: ['vision', 'MLX', 'Apple Silicon', '4bit'],
       modality: 'vision',
+      backend: 'mlx',
     },
     {
       name: 'mlx-community/Qwen2-VL-7B-4bit',
       size: '~4GB',
       downloaded: false,
       type: 'embed',
-      description: 'Vision Language Model 7B 4-bit - Meilleure qualité pour Vision RAG',
-      tags: ['vision', 'MLX', 'qualité', '4bit'],
+      description: 'Vision Language Model 7B 4-bit - Apple Silicon uniquement (MLX)',
+      tags: ['vision', 'MLX', 'Apple Silicon', 'qualité', '4bit'],
       modality: 'vision',
+      backend: 'mlx',
     },
     {
       name: 'mlx-community/Qwen2-VL-7B-bf16',
       size: '~15GB',
       downloaded: false,
       type: 'embed',
-      description: 'Vision Language Model 7B haute précision bfloat16',
-      tags: ['vision', 'MLX', 'qualité', 'bf16'],
+      description: 'Vision Language Model 7B haute précision bfloat16 - Apple Silicon uniquement (MLX)',
+      tags: ['vision', 'MLX', 'Apple Silicon', 'qualité', 'bf16'],
       modality: 'vision',
+      backend: 'mlx',
     },
     {
       name: 'mlx-community/pixtral-12b-4bit',
       size: '~7GB',
       downloaded: false,
       type: 'embed',
-      description: 'Pixtral 12B - Modèle vision multimodal haute performance 4-bit',
-      tags: ['vision', 'MLX', 'large', '4bit'],
+      description: 'Pixtral 12B - Modèle vision multimodal 4-bit - Apple Silicon uniquement (MLX)',
+      tags: ['vision', 'MLX', 'Apple Silicon', 'large', '4bit'],
       modality: 'multimodal',
+      backend: 'mlx',
     },
     {
       name: 'mlx-community/pixtral-12b-bf16',
       size: '~25GB',
       downloaded: false,
       type: 'embed',
-      description: 'Pixtral 12B - Modèle vision multimodal haute précision bfloat16',
-      tags: ['vision', 'MLX', 'large', 'bf16'],
+      description: 'Pixtral 12B - Modèle vision multimodal bfloat16 - Apple Silicon uniquement (MLX)',
+      tags: ['vision', 'MLX', 'Apple Silicon', 'large', 'bf16'],
       modality: 'multimodal',
+      backend: 'mlx',
     },
   ];
 

@@ -11,6 +11,7 @@ interface EmbeddingModel {
   name: string;
   downloaded: boolean;
   modality?: 'text' | 'vision' | 'multimodal';
+  backend?: 'sentence-transformers' | 'mlx' | 'colette';
   description?: string;
 }
 
@@ -122,6 +123,10 @@ export function IndexConfigModal({ isOpen, onClose, onConfirm, currentConfig }: 
   const downloadedModels = availableModels.filter(m => m.downloaded);
   const textCompatibleModels = downloadedModels.filter(m => isModelCompatible(m, 'text'));
   const visionCompatibleModels = downloadedModels.filter(m => isModelCompatible(m, 'vision'));
+
+  // Séparer les modèles vision par backend
+  const coletteModels = visionCompatibleModels.filter(m => m.backend === 'colette');
+  const mlxModels = visionCompatibleModels.filter(m => m.backend === 'mlx');
 
   if (!isOpen) return null;
 
@@ -322,16 +327,52 @@ export function IndexConfigModal({ isOpen, onClose, onConfirm, currentConfig }: 
                   className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-100 focus:outline-none focus:border-blue-500"
                 >
                   <option value="">Utiliser le modèle par défaut</option>
-                  {visionCompatibleModels.map((model) => (
-                    <option key={model.name} value={model.name}>
-                      {model.name.split('/').pop()} {model.modality === 'multimodal' && '(Multimodal)'}
-                    </option>
-                  ))}
+
+                  {/* Colette/ColPali models (PyTorch - Multi-platform) */}
+                  {coletteModels.length > 0 && (
+                    <optgroup label="Colette/ColPali (PyTorch - Multi-plateforme)">
+                      {coletteModels.map((model) => (
+                        <option key={model.name} value={model.name}>
+                          {model.name.split('/').pop()} {model.modality === 'multimodal' && '(Multimodal)'}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  {/* MLX models (Apple Silicon only) */}
+                  {mlxModels.length > 0 && (
+                    <optgroup label="MLX (Apple Silicon uniquement)">
+                      {mlxModels.map((model) => (
+                        <option key={model.name} value={model.name}>
+                          {model.name.split('/').pop()} {model.modality === 'multimodal' && '(Multimodal)'}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
+
+                {/* Info sur les backends */}
+                {visionCompatibleModels.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {coletteModels.length > 0 && (
+                      <p className="text-xs text-neutral-400 flex items-start gap-1">
+                        <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                        <span><strong>Colette/ColPali:</strong> Modèles PyTorch fonctionnant sur toutes plateformes (Mac, Windows, Linux)</span>
+                      </p>
+                    )}
+                    {mlxModels.length > 0 && (
+                      <p className="text-xs text-neutral-400 flex items-start gap-1">
+                        <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                        <span><strong>MLX:</strong> Modèles optimisés pour Apple Silicon (M1/M2/M3) - performances maximales sur Mac</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {visionCompatibleModels.length === 0 && !loadingModels && (
                   <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />
-                    Aucun modèle compatible avec le RAG visuel n'est téléchargé. Les modèles sentence-transformers actuels ne supportent que le texte.
+                    Aucun modèle compatible avec le RAG visuel n'est téléchargé. Téléchargez un modèle ColPali (vidore/colpali) ou MLX (mlx-community/Qwen2-VL-*).
                   </p>
                 )}
               </div>
