@@ -49,7 +49,8 @@ export function useResizable(options: UseResizableOptions = {}) {
     if (!isResizing) return;
 
     const deltaX = e.clientX - startXRef.current;
-    const newWidth = startWidthRef.current + deltaX;
+    // Inverser le delta pour que tirer vers la droite réduise le panneau
+    const newWidth = startWidthRef.current - deltaX;
 
     // Appliquer les limites min/max
     const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
