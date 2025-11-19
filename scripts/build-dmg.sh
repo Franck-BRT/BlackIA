@@ -218,11 +218,21 @@ fi
 
 success "Packages workspace prêts"
 
+# Setup Python virtual environment avant le build
+log "Setup de l'environnement Python virtuel..."
+cd "$DESKTOP_DIR"
+bash scripts/setup-python-venv.sh
+success "Python venv prêt"
+
 # Build du projet desktop
 log "Compilation du code TypeScript (main process)..."
 cd "$DESKTOP_DIR"
 pnpm exec tsc -p tsconfig.main.json
 success "Main process compilé"
+
+log "Copie des fichiers Python MLX..."
+node scripts/copy-python-files.js
+success "Fichiers Python copiés"
 
 log "Build du frontend (Vite + React)..."
 pnpm exec vite build
