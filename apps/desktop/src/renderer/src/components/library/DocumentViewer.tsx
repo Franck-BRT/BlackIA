@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import { X, List, RefreshCw, Check } from 'lucide-react';
 import { MarkdownEditor } from '../editor/MarkdownEditor';
 import { useChunkEditor } from '../../hooks/useChunkEditor';
+import { useResizable } from '../../hooks/useResizable';
 import { ChunkList } from './ChunkList';
 import { cn } from '@blackia/ui';
 import type { LibraryDocument } from '../../hooks/useLibraryDocuments';
@@ -30,6 +31,14 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   const [indexingMessage, setIndexingMessage] = useState('');
   const [availableModels, setAvailableModels] = useState<Array<{ name: string; downloaded: boolean }>>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
+
+  // Resizable panel pour les chunks
+  const { width: chunksPanelWidth, isResizing, handleMouseDown } = useResizable({
+    initialWidth: 400,
+    minWidth: 250,
+    maxWidth: 800,
+    storageKey: 'documentViewer-chunksPanelWidth',
+  });
 
   // Charger les modèles disponibles
   useEffect(() => {
@@ -277,10 +286,7 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
       {/* Content Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Main Editor - Uses MarkdownEditor component */}
-        <div className={cn(
-          'flex-1 overflow-hidden',
-          showChunksPanel && 'border-r border-neutral-800'
-        )}>
+        <div className="flex-1 overflow-hidden">
           <MarkdownEditor
             initialContent={doc.extractedText || '# Aucun contenu\n\nLe texte n\'a pas pu être extrait de ce document.'}
             onSave={(content) => {
@@ -289,9 +295,27 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
           />
         </div>
 
+        {/* Resizable Divider */}
+        {showChunksPanel && (
+          <div
+            onMouseDown={handleMouseDown}
+            className={cn(
+              "w-1 cursor-col-resize hover:bg-blue-500/50 transition-colors relative group",
+              isResizing && "bg-blue-500"
+            )}
+            title="Glisser pour redimensionner"
+          >
+            {/* Visual indicator */}
+            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-neutral-700 group-hover:bg-blue-500/50 transition-colors" />
+          </div>
+        )}
+
         {/* Chunks Panel */}
         {showChunksPanel && (
-          <div className="w-96 flex flex-col bg-neutral-900/50">
+          <div
+            className="flex flex-col bg-neutral-900/50"
+            style={{ width: `${chunksPanelWidth}px` }}
+          >
             <div className="p-4 border-b border-neutral-800">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-medium text-neutral-200">
