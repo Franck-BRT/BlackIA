@@ -378,6 +378,16 @@ export class LibraryDocumentService {
 
       // Obtenir la config RAG de la bibliothèque
       const ragConfig = JSON.parse(library.ragConfig);
+
+      console.log('[LibraryDocumentService] Mode selection logic:', {
+        'params.mode': params.mode,
+        'typeof params.mode': typeof params.mode,
+        'params.mode === undefined': params.mode === undefined,
+        'params.mode === null': params.mode === null,
+        '!params.mode': !params.mode,
+        'doc.ragMode': doc.ragMode,
+      });
+
       let mode = params.mode || doc.ragMode;
 
       console.log('[LibraryDocumentService] Mode before resolution:', mode);
