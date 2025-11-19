@@ -117,12 +117,12 @@ class ColetteEmbedder:
                 # Handle PDF
                 if path.suffix.lower() == '.pdf':
                     # Convert PDF pages to images with poppler_path if needed
-                    convert_kwargs = {"path": str(path)}
+                    convert_kwargs = {}
                     if poppler_path:
                         convert_kwargs["poppler_path"] = poppler_path
                         print(f"[Colette] Using poppler from: {poppler_path}", file=sys.stderr)
 
-                    pdf_images = convert_from_path(**convert_kwargs)
+                    pdf_images = convert_from_path(str(path), **convert_kwargs)
                     images.extend(pdf_images)
                     print(f"[Colette] Converted PDF to {len(pdf_images)} images", file=sys.stderr)
                 else:

@@ -110,7 +110,6 @@ class DocumentProcessor:
 
             # Convertir PDF → images
             convert_kwargs = {
-                "pdf_path": pdf_path,
                 "dpi": self.dpi,
                 "fmt": self.output_format.lower(),
             }
@@ -119,7 +118,7 @@ class DocumentProcessor:
                 if self.verbose:
                     print(f"[DocumentProcessor] Using poppler from: {poppler_path}", file=sys.stderr)
 
-            images = convert_from_path(**convert_kwargs)
+            images = convert_from_path(pdf_path, **convert_kwargs)
 
             if self.verbose:
                 print(f"[DocumentProcessor] Converted {len(images)} pages", file=sys.stderr)
