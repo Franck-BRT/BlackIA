@@ -140,6 +140,34 @@ export class MLXEmbeddingManager extends EventEmitter {
       tags: ['large', 'qualité', '1024d', 'général'],
       modality: 'text',
     },
+    // Modèles Vision MLX (MLX-VLM pour Vision RAG)
+    {
+      name: 'mlx-community/Qwen2-VL-2B-Instruct',
+      size: '~5GB',
+      downloaded: false,
+      type: 'embed',
+      description: 'Modèle par défaut Vision RAG - Vision Language Model pour génération d\'embeddings visuels',
+      tags: ['vision', 'MLX', 'recommandé'],
+      modality: 'vision',
+    },
+    {
+      name: 'mlx-community/Qwen2-VL-7B-Instruct',
+      size: '~15GB',
+      downloaded: false,
+      type: 'embed',
+      description: 'Vision Language Model plus performant - Meilleure qualité pour Vision RAG',
+      tags: ['vision', 'MLX', 'qualité'],
+      modality: 'vision',
+    },
+    {
+      name: 'mlx-community/pixtral-12b',
+      size: '~25GB',
+      downloaded: false,
+      type: 'embed',
+      description: 'Pixtral - Modèle vision multimodal haute performance',
+      tags: ['vision', 'MLX', 'large'],
+      modality: 'multimodal',
+    },
   ];
 
   // Liste personnalisée des modèles (peut être étendue par l'utilisateur)
