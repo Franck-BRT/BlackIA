@@ -260,37 +260,58 @@ def main():
     Usage: python mlx_vision_embedder.py <image_path> [model_name]
     """
     import argparse
+    import io
 
-    parser = argparse.ArgumentParser(description="MLX Vision Embedder for document retrieval")
-    parser.add_argument("image_paths", nargs="+", help="Path(s) to image files")
-    parser.add_argument("--model", default="mlx-community/Qwen2-VL-2B-Instruct", help="MLX-VLM model name")
-    parser.add_argument("--query", default="Describe this document page in detail.", help="Query prompt")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
-    parser.add_argument("--output", help="Output JSON file path")
+    # CRITICAL: Redirect stdout immediately to prevent any non-JSON output
+    # This fixes the python-shell JSON parsing error
+    _stdout_backup = sys.stdout
+    sys.stdout = io.StringIO()
 
-    args = parser.parse_args()
+    try:
+        parser = argparse.ArgumentParser(description="MLX Vision Embedder for document retrieval")
+        parser.add_argument("image_paths", nargs="+", help="Path(s) to image files")
+        parser.add_argument("--model", default="mlx-community/Qwen2-VL-2B-Instruct", help="MLX-VLM model name")
+        parser.add_argument("--query", default="Describe this document page in detail.", help="Query prompt")
+        parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+        parser.add_argument("--output", help="Output JSON file path")
 
-    # Créer l'embedder
-    embedder = MLXVisionEmbedder(
-        model_name=args.model,
-        verbose=args.verbose
-    )
+        args = parser.parse_args()
 
-    # Traiter les images
-    result = embedder.process_images(args.image_paths, args.query)
+        # Créer l'embedder
+        embedder = MLXVisionEmbedder(
+            model_name=args.model,
+            verbose=args.verbose
+        )
 
-    # Sortir le résultat en JSON
-    output = json.dumps(result, indent=2)
+        # Traiter les images
+        result = embedder.process_images(args.image_paths, args.query)
 
-    if args.output:
-        with open(args.output, 'w') as f:
-            f.write(output)
-        print(f"Results saved to {args.output}", file=sys.stderr)
-    else:
-        print(output)
+        # Restore stdout for JSON output ONLY
+        sys.stdout = _stdout_backup
 
-    # Exit code basé sur le succès
-    sys.exit(0 if result["success"] else 1)
+        # Sortir le résultat en JSON (THIS IS THE ONLY STDOUT OUTPUT)
+        output = json.dumps(result)
+
+        if args.output:
+            with open(args.output, 'w') as f:
+                f.write(output)
+            print(f"Results saved to {args.output}", file=sys.stderr)
+        else:
+            print(output)  # Only JSON goes to stdout
+
+        # Exit code basé sur le succès
+        sys.exit(0 if result["success"] else 1)
+
+    except Exception as e:
+        # Restore stdout in case of error
+        sys.stdout = _stdout_backup
+        error_result = {
+            "success": False,
+            "error": str(e),
+        }
+        # Output error as JSON
+        print(json.dumps(error_result))
+        sys.exit(1)
 
 
 if __name__ == "__main__":
