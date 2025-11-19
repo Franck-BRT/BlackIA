@@ -245,10 +245,33 @@ export class MLXEmbeddingManager extends EventEmitter {
   }
 
   /**
+   * Obtenir le répertoire des modèles MLX
+   */
+  private getMLXModelsDir(): string {
+    const homeDir = os.homedir();
+    return path.join(homeDir, 'Library', 'Application Support', 'BlackIA', 'models');
+  }
+
+  /**
    * Vérifier si un modèle est téléchargé
    */
   isModelDownloaded(repoId: string): boolean {
     try {
+      // Pour les modèles MLX (mlx-community/*), vérifier dans le répertoire MLX
+      if (repoId.startsWith('mlx-community/')) {
+        const mlxDir = this.getMLXModelsDir();
+        // Les modèles MLX sont stockés avec -- au lieu de /
+        const modelName = repoId.replace('/', '--');
+        const modelDir = path.join(mlxDir, modelName);
+
+        if (fs.existsSync(modelDir)) {
+          const contents = fs.readdirSync(modelDir);
+          return contents.length > 0;
+        }
+        return false;
+      }
+
+      // Pour les autres modèles (sentence-transformers), vérifier dans le cache HuggingFace
       const cacheDir = this.getHuggingFaceCacheDir();
       const modelDir = path.join(cacheDir, 'models--' + repoId.replace('/', '--'));
 
@@ -273,6 +296,20 @@ export class MLXEmbeddingManager extends EventEmitter {
    */
   getModelPath(repoId: string): string | null {
     try {
+      // Pour les modèles MLX (mlx-community/*), retourner le chemin dans le répertoire MLX
+      if (repoId.startsWith('mlx-community/')) {
+        const mlxDir = this.getMLXModelsDir();
+        // Les modèles MLX sont stockés avec -- au lieu de /
+        const modelName = repoId.replace('/', '--');
+        const modelDir = path.join(mlxDir, modelName);
+
+        if (this.isModelDownloaded(repoId)) {
+          return modelDir;
+        }
+        return null;
+      }
+
+      // Pour les autres modèles (sentence-transformers), retourner le chemin dans le cache HuggingFace
       const cacheDir = this.getHuggingFaceCacheDir();
       const modelDir = path.join(cacheDir, 'models--' + repoId.replace('/', '--'));
 
