@@ -164,8 +164,19 @@ export class MLXModelManager extends EventEmitter {
   ): Promise<MLXModel> {
     logger.info('mlx', 'Downloading model', repoId);
 
+    // Vérifier que le downloader est démarré
+    if (!this.downloaderProcess) {
+      logger.error('mlx', 'Downloader process not started', repoId);
+      throw new Error('Downloader process not started. Call initialize() first.');
+    }
+
     return new Promise((resolve, reject) => {
       const requestId = this.requestId++;
+
+      logger.info('mlx', 'Creating download request', repoId, {
+        requestId,
+        queueSize: this.requestQueue.size,
+      });
 
       // Écouter les événements de progression si callback fourni
       const progressListener = (progress: any) => {
@@ -198,6 +209,11 @@ export class MLXModelManager extends EventEmitter {
         resolve: (response) => {
           cleanup();
 
+          logger.info('mlx', 'Download request resolved', repoId, {
+            hasPath: !!response.local_path,
+            hasSize: !!response.size,
+          });
+
           // Créer l'objet MLXModel à partir de la réponse
           const model: MLXModel = {
             id: repoId.replace('/', '--'),
@@ -214,6 +230,9 @@ export class MLXModelManager extends EventEmitter {
         },
         reject: (error) => {
           cleanup();
+          logger.error('mlx', 'Download request rejected', repoId, {
+            error: error.message,
+          });
           reject(error);
         },
       });
@@ -228,13 +247,28 @@ export class MLXModelManager extends EventEmitter {
       };
 
       const requestLine = JSON.stringify(request) + '\n';
-      this.downloaderProcess?.stdin?.write(requestLine);
+
+      logger.info('mlx', 'Sending download command to Python', repoId, {
+        command: request.command,
+        hasStdin: !!this.downloaderProcess.stdin,
+      });
+
+      const written = this.downloaderProcess.stdin?.write(requestLine);
+
+      if (!written) {
+        cleanup();
+        reject(new Error('Failed to write to downloader stdin'));
+        return;
+      }
+
+      logger.debug('mlx', 'Download command sent successfully', repoId);
 
       // Timeout de 30 minutes pour le téléchargement
       setTimeout(() => {
         if (this.requestQueue.has(requestId)) {
           cleanup();
-          reject(new Error('Download timeout'));
+          logger.error('mlx', 'Download timeout', repoId);
+          reject(new Error('Download timeout (30 minutes)'));
         }
       }, 1800000);
     });
@@ -304,10 +338,15 @@ export class MLXModelManager extends EventEmitter {
    */
   private async startDownloader(): Promise<void> {
     if (this.downloaderProcess) {
+      logger.debug('mlx', 'Downloader process already running', '');
       return;
     }
 
-    logger.info('mlx', 'Starting downloader process', '');
+    logger.info('mlx', 'Starting downloader process', '', {
+      pythonPath: this.pythonPath,
+      scriptPath: this.scriptPath,
+      modelsDir: this.modelsDir,
+    });
 
     this.downloaderProcess = spawn(this.pythonPath, [this.scriptPath, this.modelsDir], {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -316,17 +355,24 @@ export class MLXModelManager extends EventEmitter {
     // Gérer les erreurs du processus
     this.downloaderProcess.on('error', (error) => {
       logger.error('mlx', 'Downloader process error', '', { error: error.message });
+      this.downloaderProcess = null;
     });
 
     this.downloaderProcess.on('exit', (code, signal) => {
       logger.warning('mlx', 'Downloader process exited', '', { code, signal });
       this.downloaderProcess = null;
+
+      // Rejeter toutes les requêtes en attente
+      for (const [id, callback] of this.requestQueue.entries()) {
+        callback.reject(new Error(`Downloader process exited: code=${code}, signal=${signal}`));
+      }
+      this.requestQueue.clear();
     });
 
     // Gérer stderr pour les logs
     this.downloaderProcess.stderr?.on('data', (data) => {
       const message = data.toString().trim();
-      logger.debug('mlx', 'Downloader stderr', message);
+      logger.info('mlx', 'Downloader stderr', message);
     });
 
     // Gérer stdout pour les réponses
@@ -340,15 +386,22 @@ export class MLXModelManager extends EventEmitter {
 
       for (const line of lines) {
         if (line.trim()) {
+          logger.debug('mlx', 'Downloader stdout line', line.trim().substring(0, 150));
           this.handleResponse(line.trim());
         }
       }
     });
 
     // Ping pour vérifier que le downloader est prêt
-    await this.sendRequest({ command: 'ping' });
-
-    logger.info('mlx', 'Downloader process ready', '');
+    try {
+      await this.sendRequest({ command: 'ping' });
+      logger.info('mlx', 'Downloader process ready', '');
+    } catch (error) {
+      logger.error('mlx', 'Downloader ping failed', '', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new Error('Failed to start downloader: ping failed');
+    }
   }
 
   /**
