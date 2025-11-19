@@ -208,9 +208,11 @@ export function MLXGeneralSettings() {
 
   const downloadModel = async (repoId: string) => {
     try {
+      console.log('[MLXGeneralSettings] Starting download for:', repoId);
       setDownloadingModels((prev) => ({ ...prev, [repoId]: 0 }));
 
       const result = await window.electronAPI.mlx.embeddings.download(repoId);
+      console.log('[MLXGeneralSettings] Download result:', result);
 
       if (result.success) {
         setTestResult({
@@ -222,12 +224,14 @@ export function MLXGeneralSettings() {
         // Recharger la liste des modèles
         await loadMLXStatus();
       } else {
+        console.error('[MLXGeneralSettings] Download failed:', result.error);
         setTestResult({
           success: false,
           message: result.error || 'Erreur lors du téléchargement'
         });
       }
     } catch (error: any) {
+      console.error('[MLXGeneralSettings] Download exception:', error);
       setTestResult({
         success: false,
         message: error.message || 'Erreur lors du téléchargement'

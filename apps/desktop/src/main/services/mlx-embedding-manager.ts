@@ -311,7 +311,19 @@ export class MLXEmbeddingManager extends EventEmitter {
     onProgress?: (progress: DownloadProgress) => void
   ): Promise<string> {
     return new Promise((resolve, reject) => {
-      logger.info('mlx-models', 'Starting embedding model download', repoId);
+      logger.info('mlx-models', 'Starting embedding model download', repoId, {
+        pythonPath: this.pythonPath,
+        scriptPath: this.scriptPath,
+      });
+
+      // Vérifier que le script existe
+      if (!fs.existsSync(this.scriptPath)) {
+        const error = `Python script not found: ${this.scriptPath}`;
+        logger.error('mlx-models', 'Script not found', repoId, { scriptPath: this.scriptPath });
+        reject(new Error(error));
+        return;
+      }
+
       this.currentDownloadRepoId = repoId;
 
       // Écouter les événements de progression
@@ -323,6 +335,11 @@ export class MLXEmbeddingManager extends EventEmitter {
         }
       };
       this.on('download:progress', progressListener);
+
+      logger.debug('mlx-models', 'Spawning Python process', repoId, {
+        command: this.pythonPath,
+        args: [this.scriptPath, 'download', repoId],
+      });
 
       const pythonProcess = spawn(this.pythonPath, [this.scriptPath, 'download', repoId], {
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -348,23 +365,31 @@ export class MLXEmbeddingManager extends EventEmitter {
 
       pythonProcess.stderr?.on('data', (data) => {
         errorOutput += data.toString();
-        logger.debug('mlx-models', 'Python stderr', data.toString().trim());
+        logger.warning('mlx-models', 'Python stderr', data.toString().trim());
       });
 
       pythonProcess.on('close', (code) => {
         this.off('download:progress', progressListener);
         this.currentDownloadRepoId = undefined;
 
+        logger.info('mlx-models', 'Python process closed', repoId, {
+          code,
+          stdout: output.substring(0, 500),
+          stderr: errorOutput.substring(0, 500),
+        });
+
         if (code === 0) {
           logger.info('mlx-models', 'Embedding model downloaded successfully', repoId);
           const modelPath = this.getModelPath(repoId);
           resolve(modelPath || repoId);
         } else {
+          const errorMsg = errorOutput || 'Unknown error';
           logger.error('mlx-models', 'Embedding model download failed', repoId, {
             code,
             stderr: errorOutput,
+            stdout: output,
           });
-          reject(new Error(`Download failed with code ${code}: ${errorOutput}`));
+          reject(new Error(`Download failed (code ${code}): ${errorMsg}`));
         }
       });
 
@@ -373,8 +398,10 @@ export class MLXEmbeddingManager extends EventEmitter {
         this.currentDownloadRepoId = undefined;
         logger.error('mlx-models', 'Python process error', repoId, {
           error: error.message,
+          pythonPath: this.pythonPath,
+          scriptPath: this.scriptPath,
         });
-        reject(error);
+        reject(new Error(`Failed to start Python: ${error.message}`));
       });
     });
   }
