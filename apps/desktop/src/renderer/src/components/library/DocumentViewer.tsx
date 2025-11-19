@@ -39,27 +39,32 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
         const result = await window.electronAPI.mlx.embeddings.list();
         console.log('[DocumentViewer] Models result:', result);
 
+        // L'API retourne soit { success, data } soit directement un tableau
+        let models = [];
         if (result.success && result.data) {
-          console.log('[DocumentViewer] Available models:', result.data);
-          const downloadedModels = result.data.filter((m: any) => m.downloaded);
-          console.log('[DocumentViewer] Downloaded models:', downloadedModels);
+          models = result.data;
+        } else if (Array.isArray(result)) {
+          models = result;
+        }
 
-          setAvailableModels(result.data);
-          // Initialiser avec le modèle actuel du document ou le premier modèle téléchargé
-          if (doc.textEmbeddingModel) {
-            console.log('[DocumentViewer] Using document model:', doc.textEmbeddingModel);
-            setSelectedModel(doc.textEmbeddingModel);
-          } else {
-            const firstDownloaded = result.data.find((m: any) => m.downloaded);
-            if (firstDownloaded) {
-              console.log('[DocumentViewer] Using first downloaded model:', firstDownloaded.name);
-              setSelectedModel(firstDownloaded.name);
-            } else {
-              console.log('[DocumentViewer] No downloaded models found');
-            }
-          }
+        console.log('[DocumentViewer] Available models:', models);
+        const downloadedModels = models.filter((m: any) => m.downloaded);
+        console.log('[DocumentViewer] Downloaded models:', downloadedModels);
+
+        setAvailableModels(models);
+
+        // Initialiser avec le modèle actuel du document ou le premier modèle téléchargé
+        if (doc.textEmbeddingModel) {
+          console.log('[DocumentViewer] Using document model:', doc.textEmbeddingModel);
+          setSelectedModel(doc.textEmbeddingModel);
         } else {
-          console.error('[DocumentViewer] Failed to get models:', result.error);
+          const firstDownloaded = models.find((m: any) => m.downloaded);
+          if (firstDownloaded) {
+            console.log('[DocumentViewer] Using first downloaded model:', firstDownloaded.name);
+            setSelectedModel(firstDownloaded.name);
+          } else {
+            console.log('[DocumentViewer] No downloaded models found');
+          }
         }
       } catch (error) {
         console.error('[DocumentViewer] Failed to load models:', error);
