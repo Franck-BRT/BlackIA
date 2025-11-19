@@ -78,7 +78,7 @@ if [ -f "$PYTHON_DIR/requirements.txt" ]; then
     pip install -r "$PYTHON_DIR/requirements.txt"
 else
     echo "Installing core dependencies..."
-    pip install colpali-engine torch torchvision pdf2image pillow sentence-transformers lancedb pyarrow numpy python-dotenv
+    pip install transformers>=4.47.0 accelerate>=0.34.0 colpali-engine torch torchvision pdf2image pillow sentence-transformers lancedb pyarrow numpy python-dotenv
 fi
 
 # Installer MLX si on est sur Apple Silicon
@@ -98,8 +98,11 @@ import torch
 import torchvision
 import pdf2image
 import PIL
+import transformers
+import accelerate
 print('✓ All core dependencies installed successfully')
 print(f'✓ PyTorch version: {torch.__version__}')
+print(f'✓ Transformers version: {transformers.__version__}')
 device_type = 'CUDA' if torch.cuda.is_available() else 'MPS' if torch.backends.mps.is_available() else 'CPU'
 print(f'✓ Device available: {device_type}')
 

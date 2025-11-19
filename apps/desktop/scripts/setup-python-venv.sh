@@ -62,8 +62,9 @@ else
     pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
     pip install pillow
     pip install pdf2image
+    pip install transformers>=4.47.0
+    pip install accelerate>=0.34.0
     pip install colpali-engine
-    pip install transformers
     pip install huggingface-hub
 
     # Additional utilities
@@ -85,8 +86,11 @@ import torch
 import PIL
 import pdf2image
 import colpali_engine
+import transformers
+import accelerate
 print('✅ All core dependencies verified')
 print(f'   PyTorch version: {torch.__version__}')
+print(f'   Transformers version: {transformers.__version__}')
 
 # Verify MLX on Apple Silicon
 import platform
