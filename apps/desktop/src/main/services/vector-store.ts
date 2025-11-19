@@ -325,6 +325,7 @@ export class VectorStoreService {
           text: row.text,
           score: 1.0, // Pas de score de similarité puisque ce n'est pas une recherche
           vector: row.vector,
+          createdAt: row.createdAt, // Ajouter createdAt pour la déduplication
           metadata: {
             originalName: metadata.originalName || '',
             entityType: row.entityType as EntityType,
