@@ -35,6 +35,16 @@ extraResources:
       - "**/*.py"
       - "**/*.md"
       - "!**/__pycache__/**"
+      - "!**/venv/**"  # Exclude venv here, will be added separately
+
+  # Python virtual environment (bundled dependencies)
+  - from: src/python/venv
+    to: python/venv
+    filter:
+      - "**/*"
+      - "!**/__pycache__/**"
+      - "!**/test/**"
+      - "!**/tests/**"
 
   # Scripts Python MLX (LLM, téléchargement, embeddings)
   - from: src/main/services/backends/mlx
