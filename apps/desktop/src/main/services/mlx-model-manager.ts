@@ -48,6 +48,7 @@ export class MLXModelManager extends EventEmitter {
     }
   > = new Map();
   private requestId = 0;
+  private currentDownloadRepoId?: string; // Track current download for progress events
 
   constructor(pythonPath?: string, modelsDir?: string) {
     super();
@@ -191,6 +192,9 @@ export class MLXModelManager extends EventEmitter {
         },
         reject,
       });
+
+      // Enregistrer le repoId pour les événements de progression
+      this.currentDownloadRepoId = repoId;
 
       // Envoyer la requête de téléchargement
       const request = {
@@ -360,10 +364,20 @@ export class MLXModelManager extends EventEmitter {
     try {
       const response = JSON.parse(line);
 
-      // Si c'est une progression, émettre un événement
+      // Si c'est une progression, émettre un événement avec repoId
       if (response.type === 'progress' || response.type === 'start') {
-        this.emit('download:progress', response);
+        // Ajouter le repoId si on peut le retrouver depuis repo_id
+        const progressData = {
+          ...response,
+          repoId: response.repo_id || this.currentDownloadRepoId,
+        };
+        this.emit('download:progress', progressData);
         return;
+      }
+
+      // Si c'est une complétion ou erreur, nettoyer currentDownloadRepoId
+      if (response.type === 'complete' || response.type === 'error') {
+        this.currentDownloadRepoId = undefined;
       }
 
       // Sinon, résoudre la première requête en attente

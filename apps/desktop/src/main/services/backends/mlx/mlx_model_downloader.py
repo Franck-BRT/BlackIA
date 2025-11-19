@@ -14,12 +14,48 @@ from pathlib import Path
 
 try:
     from huggingface_hub import snapshot_download, hf_hub_download
-    from huggingface_hub.utils import tqdm as hf_tqdm
+    from tqdm import tqdm
     HF_AVAILABLE = True
 except ImportError:
     HF_AVAILABLE = False
     sys.stderr.write("[MLX Downloader] Warning: huggingface_hub not installed\n")
     sys.stderr.flush()
+
+
+def make_tqdm_progress(repo_id):
+    """Factory pour créer une classe tqdm avec repo_id"""
+    class TqdmProgress(tqdm):
+        """Classe tqdm personnalisée pour envoyer la progression via stdout"""
+
+        def __init__(self, *args, **kwargs):
+            # Désactiver la sortie par défaut de tqdm
+            kwargs['disable'] = False
+            kwargs['file'] = sys.stderr  # Utiliser stderr pour tqdm
+            super().__init__(*args, **kwargs)
+            self.last_percentage = 0
+            self.repo_id = repo_id
+
+        def update(self, n=1):
+            """Override update pour envoyer la progression"""
+            super().update(n)
+
+            if self.total and self.total > 0:
+                percentage = (self.n / self.total) * 100
+
+                # Envoyer la progression seulement tous les 5% pour ne pas surcharger
+                if percentage - self.last_percentage >= 5 or percentage >= 99:
+                    self.last_percentage = percentage
+                    progress = {
+                        "type": "progress",
+                        "repo_id": self.repo_id,
+                        "downloaded": self.n,
+                        "total": self.total,
+                        "percentage": round(percentage, 2),
+                        "current_file": self.desc or ""
+                    }
+                    print(json.dumps(progress), flush=True)
+
+    return TqdmProgress
 
 
 class ProgressCallback:
@@ -53,8 +89,7 @@ class ProgressCallback:
             "downloaded_files": self.downloaded_files,
             "total_files": self.total_files
         }
-        print(json.dumps(progress))
-        sys.stdout.flush()
+        print(json.dumps(progress), flush=True)
 
 
 class MLXModelDownloader:
@@ -135,7 +170,8 @@ class MLXModelDownloader:
             print(json.dumps(start_msg))
             sys.stdout.flush()
 
-            # Télécharger avec snapshot_download
+            # Télécharger avec snapshot_download et progression
+            TqdmProgressClass = make_tqdm_progress(repo_id)
             downloaded_path = snapshot_download(
                 repo_id=repo_id,
                 local_dir=str(local_dir),
@@ -143,6 +179,7 @@ class MLXModelDownloader:
                 revision=revision,
                 allow_patterns=allow_patterns,
                 ignore_patterns=ignore_patterns,
+                tqdm_class=TqdmProgressClass,  # Utiliser notre classe tqdm personnalisée
             )
 
             sys.stderr.write(f"[MLX Downloader] Download complete: {downloaded_path}\n")
