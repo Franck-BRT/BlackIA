@@ -122,6 +122,22 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
                 </>
               )}
             </div>
+            {(doc.textEmbeddingModel || doc.visionEmbeddingModel) && (
+              <div className="flex items-center gap-2 text-xs text-neutral-500 mt-1">
+                <span>📊 Modèles:</span>
+                {doc.textEmbeddingModel && (
+                  <span className="text-green-400" title={doc.textEmbeddingModel}>
+                    Text: {doc.textEmbeddingModel}
+                  </span>
+                )}
+                {doc.textEmbeddingModel && doc.visionEmbeddingModel && <span>•</span>}
+                {doc.visionEmbeddingModel && (
+                  <span className="text-purple-400" title={doc.visionEmbeddingModel}>
+                    Vision: {doc.visionEmbeddingModel}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

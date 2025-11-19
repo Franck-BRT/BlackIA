@@ -332,6 +332,24 @@ export function LibraryPage() {
                             <p className="text-xs text-neutral-400">
                               {formatBytes(doc.size)} • {doc.mimeType}
                             </p>
+                            {(doc.textEmbeddingModel || doc.visionEmbeddingModel) && (
+                              <p className="text-xs text-neutral-500 mt-1 flex items-center gap-1">
+                                <span className="text-neutral-600">📊</span>
+                                {doc.textEmbeddingModel && (
+                                  <span className="truncate" title={doc.textEmbeddingModel}>
+                                    Text: {doc.textEmbeddingModel.split('/').pop()}
+                                  </span>
+                                )}
+                                {doc.textEmbeddingModel && doc.visionEmbeddingModel && (
+                                  <span>•</span>
+                                )}
+                                {doc.visionEmbeddingModel && (
+                                  <span className="truncate" title={doc.visionEmbeddingModel}>
+                                    Vision: {doc.visionEmbeddingModel.split('/').pop()}
+                                  </span>
+                                )}
+                              </p>
+                            )}
                           </div>
                         </div>
 
