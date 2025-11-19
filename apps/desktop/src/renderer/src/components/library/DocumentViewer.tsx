@@ -116,7 +116,10 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
     visionModel?: string;
     forceReindex?: boolean;
   }) => {
-    console.log('[DocumentViewer] Reindex button clicked for document:', doc.id, 'with config:', config);
+    console.log('[DocumentViewer] ========== REINDEX START ==========');
+    console.log('[DocumentViewer] Document ID:', doc.id);
+    console.log('[DocumentViewer] Config received:', JSON.stringify(config, null, 2));
+
     setIsIndexing(true);
     setIndexingMessage('Indexation en cours...');
 
@@ -124,16 +127,7 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
       // Déterminer quel modèle utiliser (priorité: config.textModel > selectedModel > défaut)
       const modelToUse = config?.textModel || selectedModel || undefined;
 
-      console.log('[DocumentViewer] Indexing with config:', {
-        mode: config?.mode,
-        textModel: modelToUse,
-        visionModel: config?.visionModel,
-        chunkSize: config?.chunkSize,
-        chunkOverlap: config?.chunkOverlap,
-      });
-
-      // Appeler directement l'API avec le modèle sélectionné et la configuration
-      const result = await window.electronAPI.libraryDocument.index({
+      const indexParams = {
         documentId: doc.id,
         model: modelToUse,
         visionModel: config?.visionModel,
@@ -141,7 +135,12 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
         chunkSize: config?.chunkSize,
         chunkOverlap: config?.chunkOverlap,
         forceReindex: config?.forceReindex,
-      });
+      };
+
+      console.log('[DocumentViewer] Sending to backend:', JSON.stringify(indexParams, null, 2));
+
+      // Appeler directement l'API avec le modèle sélectionné et la configuration
+      const result = await window.electronAPI.libraryDocument.index(indexParams);
 
       if (result.success) {
         setIndexingMessage('Rechargement des chunks...');

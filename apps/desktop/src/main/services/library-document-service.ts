@@ -353,11 +353,23 @@ export class LibraryDocumentService {
     const db = getDatabase();
     const startTime = Date.now();
 
+    console.log('[LibraryDocumentService] ========== INDEXATION START ==========');
+    console.log('[LibraryDocumentService] Params received:', JSON.stringify(params, null, 2));
+
     try {
       const doc = await this.getById(params.documentId);
       if (!doc) {
         throw new Error(`Document not found: ${params.documentId}`);
       }
+
+      console.log('[LibraryDocumentService] Document info:', {
+        id: doc.id,
+        name: doc.name,
+        mimeType: doc.mimeType,
+        hasText: !!doc.extractedText,
+        textLength: doc.extractedText?.length || 0,
+        currentRagMode: doc.ragMode,
+      });
 
       const library = await libraryService.getById(doc.libraryId);
       if (!library) {
@@ -367,6 +379,8 @@ export class LibraryDocumentService {
       // Obtenir la config RAG de la bibliothèque
       const ragConfig = JSON.parse(library.ragConfig);
       let mode = params.mode || doc.ragMode;
+
+      console.log('[LibraryDocumentService] Mode before resolution:', mode);
 
       // Résoudre le mode 'auto' en fonction du type de document
       if (mode === 'auto') {
