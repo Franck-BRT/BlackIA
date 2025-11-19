@@ -20,6 +20,7 @@ interface MLXModel {
   description?: string;
   dimensions?: number;
   path?: string;
+  tags?: string[];
 }
 
 interface MLXConfig {
@@ -56,6 +57,24 @@ export function MLXGeneralSettings() {
   const [downloadingModels, setDownloadingModels] = useState<Record<string, number>>({});
   const [showAddModel, setShowAddModel] = useState(false);
   const [newModelRepoId, setNewModelRepoId] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Tags prédéfinis avec couleurs
+  const availableTags = [
+    { name: 'recommandé', color: 'purple' },
+    { name: 'multilingue', color: 'blue' },
+    { name: 'français', color: 'indigo' },
+    { name: 'léger', color: 'green' },
+    { name: 'rapide', color: 'cyan' },
+    { name: 'qualité', color: 'yellow' },
+    { name: 'Q&A', color: 'pink' },
+    { name: 'search', color: 'orange' },
+    { name: 'large', color: 'red' },
+    { name: 'général', color: 'gray' },
+    { name: '768d', color: 'emerald' },
+    { name: '384d', color: 'teal' },
+    { name: '1024d', color: 'violet' },
+  ];
 
   // Charger le statut et la config au montage
   useEffect(() => {
@@ -324,6 +343,34 @@ export function MLXGeneralSettings() {
     return defaultModels.includes(repoId);
   };
 
+  const toggleTag = (tagName: string) => {
+    setSelectedTags((prev) => {
+      if (prev.includes(tagName)) {
+        return prev.filter((t) => t !== tagName);
+      } else {
+        return [...prev, tagName];
+      }
+    });
+  };
+
+  const clearFilters = () => {
+    setSelectedTags([]);
+  };
+
+  // Filtrer les modèles par tags sélectionnés
+  const filteredModels = models.filter((model) => {
+    if (selectedTags.length === 0) {
+      return true; // Pas de filtre, afficher tous les modèles
+    }
+    // Un modèle est affiché s'il a AU MOINS UN des tags sélectionnés
+    return model.tags && model.tags.some((tag) => selectedTags.includes(tag));
+  });
+
+  const getTagColor = (tagName: string): string => {
+    const tag = availableTags.find((t) => t.name === tagName);
+    return tag?.color || 'gray';
+  };
+
   return (
     <div className="space-y-6">
       {/* MLX Status */}
@@ -481,6 +528,65 @@ export function MLXGeneralSettings() {
             </div>
           )}
 
+          {/* Tag Filters */}
+          {models.length > 0 && (
+            <div className="p-4 glass-card rounded-lg space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Filtrer par tags :
+                </p>
+                {selectedTags.length > 0 && (
+                  <button
+                    onClick={clearFilters}
+                    className="text-xs px-2 py-1 rounded glass-card hover:glass-lg transition-all"
+                  >
+                    Réinitialiser ({selectedTags.length})
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {availableTags.map((tag) => {
+                  const isSelected = selectedTags.includes(tag.name);
+                  const colorClasses: Record<string, string> = {
+                    purple: 'bg-purple-500/20 text-purple-300 border-purple-500/50',
+                    blue: 'bg-blue-500/20 text-blue-300 border-blue-500/50',
+                    indigo: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/50',
+                    green: 'bg-green-500/20 text-green-300 border-green-500/50',
+                    cyan: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50',
+                    yellow: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50',
+                    pink: 'bg-pink-500/20 text-pink-300 border-pink-500/50',
+                    orange: 'bg-orange-500/20 text-orange-300 border-orange-500/50',
+                    red: 'bg-red-500/20 text-red-300 border-red-500/50',
+                    gray: 'bg-gray-500/20 text-gray-300 border-gray-500/50',
+                    emerald: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50',
+                    teal: 'bg-teal-500/20 text-teal-300 border-teal-500/50',
+                    violet: 'bg-violet-500/20 text-violet-300 border-violet-500/50',
+                  };
+                  const colorClass = colorClasses[tag.color] || colorClasses.gray;
+
+                  return (
+                    <button
+                      key={tag.name}
+                      onClick={() => toggleTag(tag.name)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                        isSelected
+                          ? `${colorClass} ring-2 ring-offset-2 ring-offset-transparent`
+                          : 'glass-card hover:glass-lg border-transparent text-muted-foreground'
+                      }`}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedTags.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {filteredModels.length} modèle{filteredModels.length > 1 ? 's' : ''} correspondant{filteredModels.length > 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-3">
             {models.length > 0 ? (
               <>
@@ -508,10 +614,10 @@ export function MLXGeneralSettings() {
                 {/* Models List */}
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">
-                    Modèles disponibles :
+                    Modèles disponibles : {filteredModels.length} / {models.length}
                   </p>
                   <div className="grid grid-cols-1 gap-2">
-                    {models.map((model) => {
+                    {filteredModels.map((model) => {
                       const isActive = config?.model === model.name;
                       const isDownloaded = model.downloaded;
                       const modelName = model.name || 'unknown';
@@ -558,6 +664,40 @@ export function MLXGeneralSettings() {
                                   </span>
                                 )}
                               </div>
+
+                              {/* Tags */}
+                              {model.tags && model.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {model.tags.map((tag) => {
+                                    const color = getTagColor(tag);
+                                    const colorClasses: Record<string, string> = {
+                                      purple: 'bg-purple-500/20 text-purple-300',
+                                      blue: 'bg-blue-500/20 text-blue-300',
+                                      indigo: 'bg-indigo-500/20 text-indigo-300',
+                                      green: 'bg-green-500/20 text-green-300',
+                                      cyan: 'bg-cyan-500/20 text-cyan-300',
+                                      yellow: 'bg-yellow-500/20 text-yellow-300',
+                                      pink: 'bg-pink-500/20 text-pink-300',
+                                      orange: 'bg-orange-500/20 text-orange-300',
+                                      red: 'bg-red-500/20 text-red-300',
+                                      gray: 'bg-gray-500/20 text-gray-300',
+                                      emerald: 'bg-emerald-500/20 text-emerald-300',
+                                      teal: 'bg-teal-500/20 text-teal-300',
+                                      violet: 'bg-violet-500/20 text-violet-300',
+                                    };
+                                    const colorClass = colorClasses[color] || colorClasses.gray;
+
+                                    return (
+                                      <span
+                                        key={tag}
+                                        className={`text-xs px-2 py-0.5 rounded ${colorClass}`}
+                                      >
+                                        {tag}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              )}
 
                               {/* Download Progress Bar */}
                               {isDownloading && (
