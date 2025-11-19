@@ -36,9 +36,18 @@ export function MLXModelManager() {
   const [testingModel, setTestingModel] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Charger les modèles locaux
+  // Initialiser et charger les modèles locaux
   useEffect(() => {
-    loadLocalModels();
+    const initializeAndLoad = async () => {
+      try {
+        await window.electronAPI.mlx.models.initialize();
+        console.log('[MLXModelManager] Model manager initialized');
+      } catch (error) {
+        console.error('[MLXModelManager] Failed to initialize model manager:', error);
+      }
+      loadLocalModels();
+    };
+    initializeAndLoad();
   }, []);
 
   const loadLocalModels = async () => {

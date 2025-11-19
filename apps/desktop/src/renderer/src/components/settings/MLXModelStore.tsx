@@ -51,6 +51,19 @@ export function MLXModelStore() {
   const [downloadingModels, setDownloadingModels] = useState<Record<string, DownloadProgress>>({});
   const [downloadedModels, setDownloadedModels] = useState<Set<string>>(new Set());
 
+  // Initialiser le gestionnaire de modèles au montage
+  useEffect(() => {
+    const initializeModelManager = async () => {
+      try {
+        await window.electronAPI.mlx.models.initialize();
+        console.log('[MLXModelStore] Model manager initialized');
+      } catch (error) {
+        console.error('[MLXModelStore] Failed to initialize model manager:', error);
+      }
+    };
+    initializeModelManager();
+  }, []);
+
   // Charger les modèles au montage et au changement d'onglet
   useEffect(() => {
     loadModels();
@@ -132,9 +145,11 @@ export function MLXModelStore() {
         },
       }));
 
+      console.log(`[MLXModelStore] Starting download of ${repoId}`);
       const result = await window.electronAPI.mlx.models.download(repoId);
 
       if (result.success) {
+        console.log(`[MLXModelStore] Download completed: ${repoId}`);
         // Retirer de la liste de téléchargement
         setDownloadingModels((prev) => {
           const newState = { ...prev };
@@ -147,9 +162,19 @@ export function MLXModelStore() {
 
         // Rafraîchir la liste
         await loadDownloadedModels();
+      } else {
+        console.error(`[MLXModelStore] Download failed: ${result.error || 'Unknown error'}`);
+        alert(`Échec du téléchargement: ${result.error || 'Erreur inconnue'}`);
+        // Retirer de la liste de téléchargement
+        setDownloadingModels((prev) => {
+          const newState = { ...prev };
+          delete newState[repoId];
+          return newState;
+        });
       }
-    } catch (error) {
-      console.error('Error downloading model:', error);
+    } catch (error: any) {
+      console.error('[MLXModelStore] Error downloading model:', error);
+      alert(`Erreur lors du téléchargement: ${error.message || 'Erreur inconnue'}`);
       // Retirer de la liste de téléchargement en cas d'erreur
       setDownloadingModels((prev) => {
         const newState = { ...prev };
