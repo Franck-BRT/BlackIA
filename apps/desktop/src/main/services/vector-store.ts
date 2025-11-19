@@ -651,22 +651,36 @@ export class VectorStoreService {
     // Supprimer des text chunks
     if (this.textCollection) {
       try {
-        await this.textCollection.delete(`attachmentId = '${attachmentId}'`);
+        await this.textCollection.delete(`"attachmentId" = '${attachmentId}'`);
         console.log('[VectorStore] Deleted text chunks for attachment:', attachmentId);
         textDeleted = true;
-      } catch (error) {
-        console.warn('[VectorStore] Could not delete text chunks (may not exist):', error);
+      } catch (error: any) {
+        // Ne propager que les vraies erreurs, pas les "not found"
+        const errorMsg = error?.message || String(error);
+        if (errorMsg.includes('No rows') || errorMsg.includes('not found') || errorMsg.includes('does not exist')) {
+          console.log('[VectorStore] No text chunks to delete for:', attachmentId);
+        } else {
+          console.error('[VectorStore] Failed to delete text chunks:', error);
+          throw error;
+        }
       }
     }
 
     // Supprimer des vision patches
     if (this.visionCollection) {
       try {
-        await this.visionCollection.delete(`attachmentId = '${attachmentId}'`);
+        await this.visionCollection.delete(`"attachmentId" = '${attachmentId}'`);
         console.log('[VectorStore] Deleted vision patches for attachment:', attachmentId);
         visionDeleted = true;
-      } catch (error) {
-        console.warn('[VectorStore] Could not delete vision patches (may not exist):', error);
+      } catch (error: any) {
+        // Ne propager que les vraies erreurs, pas les "not found"
+        const errorMsg = error?.message || String(error);
+        if (errorMsg.includes('No rows') || errorMsg.includes('not found') || errorMsg.includes('does not exist')) {
+          console.log('[VectorStore] No vision patches to delete for:', attachmentId);
+        } else {
+          console.error('[VectorStore] Failed to delete vision patches:', error);
+          throw error;
+        }
       }
     }
 
@@ -683,7 +697,7 @@ export class VectorStoreService {
    */
   async deleteByEntityId(entityType: EntityType, entityId: string): Promise<void> {
     try {
-      const filter = `entityType = '${entityType}' AND entityId = '${entityId}'`;
+      const filter = `"entityType" = '${entityType}' AND "entityId" = '${entityId}'`;
 
       if (this.textCollection) {
         await this.textCollection.delete(filter);
@@ -803,7 +817,7 @@ export class VectorStoreService {
     try {
       // Créer un filtre NOT IN avec les IDs valides
       const validIdsFilter = validAttachmentIds.map((id) => `'${id}'`).join(', ');
-      const orphanFilter = `attachmentId NOT IN (${validIdsFilter})`;
+      const orphanFilter = `"attachmentId" NOT IN (${validIdsFilter})`;
 
       if (this.textCollection) {
         const beforeCount = await this.textCollection.countRows();
