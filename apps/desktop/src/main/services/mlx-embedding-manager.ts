@@ -140,7 +140,7 @@ export class MLXEmbeddingManager extends EventEmitter {
     // Auto-detect conda Python with installed packages
     const condaPython = '/opt/miniconda3/bin/python3';
     try {
-      execSync(`${condaPython} -c "import sentence_transformers"`, { stdio: 'ignore' });
+      execSync(`${condaPython} -c "import huggingface_hub"`, { stdio: 'ignore' });
       this.pythonPath = condaPython;
       logger.info('mlx-models', 'Using conda Python for embeddings', condaPython);
     } catch {
