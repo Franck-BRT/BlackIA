@@ -138,8 +138,11 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
     visionModel?: string;
     forceReindex?: boolean;
   }) => {
-    console.log('[DocumentViewer] ========== REINDEX START ==========');
-    console.log('[DocumentViewer] Document ID:', doc.id);
+    // Generate unique session ID for this reindex operation
+    const sessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    console.log(`[DocumentViewer] ========== REINDEX START [${sessionId}] ==========`);
+    console.log(`[DocumentViewer] Document ID: ${doc.id}`);
     console.log('[DocumentViewer] Config received:', JSON.stringify(config, null, 2));
 
     setIsIndexing(true);
@@ -160,20 +163,20 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
         forceReindex: config?.forceReindex,
       };
 
-      console.log('[DocumentViewer] Sending to backend:', JSON.stringify(indexParams, null, 2));
+      console.log(`[DocumentViewer] [${sessionId}] Sending to backend:`, JSON.stringify(indexParams, null, 2));
 
       // Appeler directement l'API avec le modèle sélectionné et la configuration
       const result = await window.electronAPI.libraryDocument.index(indexParams);
 
-      console.log('[DocumentViewer] ========== INDEXATION RESULT ==========');
-      console.log('[DocumentViewer] Full result from backend:', JSON.stringify(result, null, 2));
+      console.log(`[DocumentViewer] ========== INDEXATION RESULT [${sessionId}] ==========`);
+      console.log(`[DocumentViewer] [${sessionId}] Full result from backend:`, JSON.stringify(result, null, 2));
 
       if (result.success) {
         setIndexingMessage('Rechargement des chunks...');
-        console.log('[DocumentViewer] Result.data:', JSON.stringify(result.data, null, 2));
-        console.log('[DocumentViewer] Reindex complete, reloading chunks...');
+        console.log(`[DocumentViewer] [${sessionId}] Result.data:`, JSON.stringify(result.data, null, 2));
+        console.log(`[DocumentViewer] [${sessionId}] Reindex complete, reloading chunks...`);
         const reloadedChunks = await getDocumentChunks(doc.id);
-        console.log('[DocumentViewer] Chunks after reindex:', reloadedChunks.length, reloadedChunks);
+        console.log(`[DocumentViewer] [${sessionId}] Chunks after reindex:`, reloadedChunks.length, reloadedChunks);
 
         // Message adapté selon le type d'indexation
         let successMessage = '✓ Indexation terminée';
@@ -203,7 +206,7 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
         throw new Error(result.error || 'Indexation échouée');
       }
     } catch (error) {
-      console.error('[DocumentViewer] Reindex error:', error);
+      console.error(`[DocumentViewer] [${sessionId}] Reindex error:`, error);
       setIndexingMessage('❌ Erreur lors de l\'indexation');
       setTimeout(() => {
         setIsIndexing(false);
