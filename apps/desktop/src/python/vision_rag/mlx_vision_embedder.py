@@ -8,6 +8,9 @@ import sys
 import json
 import io
 
+# BUILD VERSION IDENTIFIER - This will appear in logs even if imports fail
+print("[MLX_VISION_EMBEDDER_BUILD_2025-01-19-v3]", file=sys.stderr, flush=True)
+
 # CRITICAL FIX: Redirect stdout IMMEDIATELY to prevent ANY non-JSON output
 # This must happen BEFORE any imports that might write to stdout (like MLX)
 _ORIGINAL_STDOUT = sys.stdout
