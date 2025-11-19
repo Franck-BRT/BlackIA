@@ -29,7 +29,7 @@ export class VisionRAGService {
   private defaultModel: string;
   private pythonShellAvailable: boolean = false;
 
-  constructor(defaultModel: string = 'mlx-community/Qwen2-VL-2B-Instruct') {
+  constructor(defaultModel: string = 'mlx-community/Qwen2-VL-2B-4bit') {
     this.defaultModel = defaultModel;
 
     // Chemins vers Python
