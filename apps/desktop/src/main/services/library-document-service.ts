@@ -364,7 +364,7 @@ export class LibraryDocumentService {
 
       console.log('[LibraryDocumentService] Document info:', {
         id: doc.id,
-        name: doc.name,
+        name: doc.originalName,
         mimeType: doc.mimeType,
         hasText: !!doc.extractedText,
         textLength: doc.extractedText?.length || 0,
@@ -387,6 +387,12 @@ export class LibraryDocumentService {
         const canIndexVision = this.canIndexVision(doc.mimeType);
         const hasText = doc.extractedText && doc.extractedText.length > 0;
 
+        console.log('[LibraryDocumentService] Auto mode detection:', {
+          canIndexVision,
+          hasText,
+          mimeType: doc.mimeType,
+        });
+
         if (canIndexVision && hasText) {
           mode = 'hybrid';
           logger.info('rag', 'Auto mode resolved to hybrid', `Document: ${params.documentId}`);
@@ -398,6 +404,8 @@ export class LibraryDocumentService {
           logger.info('rag', 'Auto mode resolved to text', `Document: ${params.documentId}`);
         }
       }
+
+      console.log('[LibraryDocumentService] Mode after resolution:', mode);
 
       let chunkCount = 0;
       let patchCount = 0;
@@ -442,8 +450,20 @@ export class LibraryDocumentService {
       }
 
       // VISION RAG with Colette
+      console.log('[LibraryDocumentService] Checking if should do vision indexation:', {
+        mode,
+        shouldIndex: mode === 'vision' || mode === 'hybrid',
+      });
+
       if (mode === 'vision' || mode === 'hybrid') {
         const canIndexVision = this.canIndexVision(doc.mimeType);
+
+        console.log('[LibraryDocumentService] Vision RAG check:', {
+          canIndexVision,
+          mimeType: doc.mimeType,
+          filePath: doc.filePath,
+          visionModel: params.visionModel || ragConfig.vision.model || 'vidore/colpali',
+        });
 
         if (!canIndexVision) {
           console.warn('[LibraryDocumentService] Document type not supported for vision RAG:', doc.mimeType);
@@ -484,6 +504,15 @@ export class LibraryDocumentService {
 
       // Mettre à jour les métadonnées d'indexation
       const duration = Date.now() - startTime;
+
+      console.log('[LibraryDocumentService] Saving indexation results to DB:', {
+        documentId: doc.id,
+        ragMode: mode,
+        chunkCount,
+        patchCount,
+        duration: `${duration}ms`,
+      });
+
       await db
         .update(libraryDocuments)
         .set({
@@ -497,7 +526,8 @@ export class LibraryDocumentService {
       // Mettre à jour les stats de la bibliothèque
       await libraryService.updateStats(doc.libraryId);
 
-      console.log('[LibraryDocumentService] Document indexed:', {
+      console.log('[LibraryDocumentService] ========== INDEXATION COMPLETE ==========');
+      console.log('[LibraryDocumentService] Final result:', {
         documentId: params.documentId,
         mode,
         chunkCount,
