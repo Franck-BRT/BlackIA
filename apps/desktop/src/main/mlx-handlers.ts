@@ -3,6 +3,7 @@ import { textRAGService } from './services/text-rag-service';
 import { logger } from './services/log-service';
 import { getMLXModelManager } from './services/mlx-model-manager';
 import { getMLXStoreService } from './services/mlx-store-service';
+import { getEmbeddingManager } from './services/mlx-embedding-manager';
 import { MLXLLMBackend } from './services/backends/mlx/mlx-llm-backend';
 
 /**
@@ -601,6 +602,120 @@ export function registerMLXHandlers(): void {
 
       return { success: true };
     } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
+  // ============================================
+  // EMBEDDING MODELS MANAGEMENT
+  // ============================================
+
+  // Lister les modèles d'embedding
+  ipcMain.handle('mlx:embeddings:list', async () => {
+    try {
+      const embeddingManager = getEmbeddingManager();
+      const models = await embeddingManager.listModels();
+      return models;
+    } catch (error: any) {
+      logger.error('mlx-models', 'Error listing embedding models', '', {
+        error: error.message,
+      });
+      return [];
+    }
+  });
+
+  // Vérifier si un modèle d'embedding est téléchargé
+  ipcMain.handle('mlx:embeddings:isDownloaded', async (_, repoId: string) => {
+    try {
+      const embeddingManager = getEmbeddingManager();
+      return embeddingManager.isModelDownloaded(repoId);
+    } catch (error: any) {
+      logger.error('mlx-models', 'Error checking embedding model', repoId, {
+        error: error.message,
+      });
+      return false;
+    }
+  });
+
+  // Télécharger un modèle d'embedding
+  ipcMain.handle('mlx:embeddings:download', async (event, repoId: string) => {
+    try {
+      const embeddingManager = getEmbeddingManager();
+
+      logger.info('mlx-models', 'Starting embedding model download', repoId);
+
+      const path = await embeddingManager.downloadModel(repoId, (progress) => {
+        event.sender.send('mlx:embeddings:downloadProgress', progress);
+      });
+
+      return { success: true, path };
+    } catch (error: any) {
+      logger.error('mlx-models', 'Embedding model download failed', repoId, {
+        error: error.message,
+      });
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
+  // Supprimer un modèle d'embedding
+  ipcMain.handle('mlx:embeddings:delete', async (_, repoId: string) => {
+    try {
+      const embeddingManager = getEmbeddingManager();
+      await embeddingManager.deleteModel(repoId);
+
+      logger.info('mlx-models', 'Embedding model deleted', repoId);
+
+      return { success: true };
+    } catch (error: any) {
+      logger.error('mlx-models', 'Failed to delete embedding model', repoId, {
+        error: error.message,
+      });
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
+  // Ajouter un modèle personnalisé
+  ipcMain.handle('mlx:embeddings:addCustom', async (_, repoId: string) => {
+    try {
+      const embeddingManager = getEmbeddingManager();
+      await embeddingManager.addCustomModel(repoId);
+
+      logger.info('mlx-models', 'Added custom embedding model', repoId);
+
+      return { success: true };
+    } catch (error: any) {
+      logger.error('mlx-models', 'Failed to add custom embedding model', repoId, {
+        error: error.message,
+      });
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+
+  // Supprimer un modèle personnalisé de la liste
+  ipcMain.handle('mlx:embeddings:removeCustom', async (_, repoId: string) => {
+    try {
+      const embeddingManager = getEmbeddingManager();
+      await embeddingManager.removeCustomModel(repoId);
+
+      logger.info('mlx-models', 'Removed custom embedding model', repoId);
+
+      return { success: true };
+    } catch (error: any) {
+      logger.error('mlx-models', 'Failed to remove custom embedding model', repoId, {
+        error: error.message,
+      });
       return {
         success: false,
         error: error.message,

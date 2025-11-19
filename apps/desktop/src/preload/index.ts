@@ -246,6 +246,34 @@ const api = {
     test: () => ipcRenderer.invoke('mlx:test'),
     restart: () => ipcRenderer.invoke('mlx:restart'),
 
+    // ============= EMBEDDING MODELS MANAGEMENT =============
+    embeddings: {
+      // Liste et info
+      list: () => ipcRenderer.invoke('mlx:embeddings:list'),
+      isDownloaded: (repoId: string) => ipcRenderer.invoke('mlx:embeddings:isDownloaded', repoId),
+
+      // Téléchargement et suppression
+      download: (repoId: string) => ipcRenderer.invoke('mlx:embeddings:download', repoId),
+      delete: (repoId: string) => ipcRenderer.invoke('mlx:embeddings:delete', repoId),
+
+      // Gestion de modèles personnalisés
+      addCustom: (repoId: string) => ipcRenderer.invoke('mlx:embeddings:addCustom', repoId),
+      removeCustom: (repoId: string) => ipcRenderer.invoke('mlx:embeddings:removeCustom', repoId),
+
+      // Événements de progression
+      onDownloadProgress: (callback: (progress: {
+        repoId: string;
+        downloaded: number;
+        total: number;
+        percentage: number;
+      }) => void) => {
+        ipcRenderer.on('mlx:embeddings:downloadProgress', (_event, progress) => callback(progress));
+      },
+      removeDownloadProgressListener: () => {
+        ipcRenderer.removeAllListeners('mlx:embeddings:downloadProgress');
+      },
+    },
+
     // ============= LLM (Chat et Génération) =============
     llm: {
       // Initialisation

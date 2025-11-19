@@ -7,6 +7,9 @@ import {
   AlertTriangle,
   Check,
   Download,
+  Trash2,
+  Plus,
+  X,
 } from 'lucide-react';
 
 interface MLXModel {
@@ -16,6 +19,7 @@ interface MLXModel {
   type: 'embed';
   description?: string;
   dimensions?: number;
+  path?: string;
 }
 
 interface MLXConfig {
@@ -35,6 +39,13 @@ interface MLXStatus {
   config?: MLXConfig;
 }
 
+interface DownloadProgress {
+  repoId: string;
+  downloaded: number;
+  total: number;
+  percentage: number;
+}
+
 export function MLXGeneralSettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState<MLXStatus | null>(null);
@@ -42,10 +53,25 @@ export function MLXGeneralSettings() {
   const [models, setModels] = useState<MLXModel[]>([]);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<{success: boolean; message: string} | null>(null);
+  const [downloadingModels, setDownloadingModels] = useState<Record<string, number>>({});
+  const [showAddModel, setShowAddModel] = useState(false);
+  const [newModelRepoId, setNewModelRepoId] = useState('');
 
   // Charger le statut et la config au montage
   useEffect(() => {
     loadMLXStatus();
+
+    // S'abonner aux événements de progression de téléchargement
+    window.electronAPI.mlx.embeddings.onDownloadProgress((progress: DownloadProgress) => {
+      setDownloadingModels((prev) => ({
+        ...prev,
+        [progress.repoId]: progress.percentage,
+      }));
+    });
+
+    return () => {
+      window.electronAPI.mlx.embeddings.removeDownloadProgressListener();
+    };
   }, []);
 
   const loadMLXStatus = async () => {
@@ -74,8 +100,8 @@ export function MLXGeneralSettings() {
       const mlxConfig = await window.electronAPI.mlx.getConfig();
       setConfig(mlxConfig);
 
-      // Charger la liste des modèles d'embeddings
-      const mlxModels = await window.electronAPI.mlx.listModels();
+      // Charger la liste des modèles d'embeddings avec la nouvelle API
+      const mlxModels = await window.electronAPI.mlx.embeddings.list();
       setModels(mlxModels);
 
     } catch (error: any) {
@@ -161,13 +187,141 @@ export function MLXGeneralSettings() {
     }
   };
 
-  const getModelDescription = (modelName: string): string => {
-    const descriptions: Record<string, string> = {
-      'sentence-transformers/all-mpnet-base-v2': 'Haute qualité, 768 dimensions (recommandé)',
-      'sentence-transformers/all-MiniLM-L6-v2': 'Rapide et léger, 384 dimensions',
-      'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2': 'Multilingue, 384 dimensions'
-    };
-    return descriptions[modelName] || 'Modèle d\'embedding sentence-transformers';
+  const downloadModel = async (repoId: string) => {
+    try {
+      setDownloadingModels((prev) => ({ ...prev, [repoId]: 0 }));
+
+      const result = await window.electronAPI.mlx.embeddings.download(repoId);
+
+      if (result.success) {
+        setTestResult({
+          success: true,
+          message: `Modèle ${repoId} téléchargé avec succès`
+        });
+        setTimeout(() => setTestResult(null), 3000);
+
+        // Recharger la liste des modèles
+        await loadMLXStatus();
+      } else {
+        setTestResult({
+          success: false,
+          message: result.error || 'Erreur lors du téléchargement'
+        });
+      }
+    } catch (error: any) {
+      setTestResult({
+        success: false,
+        message: error.message || 'Erreur lors du téléchargement'
+      });
+    } finally {
+      setDownloadingModels((prev) => {
+        const updated = { ...prev };
+        delete updated[repoId];
+        return updated;
+      });
+    }
+  };
+
+  const deleteModel = async (repoId: string) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer le modèle ${repoId} ?`)) {
+      return;
+    }
+
+    try {
+      const result = await window.electronAPI.mlx.embeddings.delete(repoId);
+
+      if (result.success) {
+        setTestResult({
+          success: true,
+          message: `Modèle ${repoId} supprimé avec succès`
+        });
+        setTimeout(() => setTestResult(null), 3000);
+
+        // Recharger la liste des modèles
+        await loadMLXStatus();
+      } else {
+        setTestResult({
+          success: false,
+          message: result.error || 'Erreur lors de la suppression'
+        });
+      }
+    } catch (error: any) {
+      setTestResult({
+        success: false,
+        message: error.message || 'Erreur lors de la suppression'
+      });
+    }
+  };
+
+  const addCustomModel = async () => {
+    if (!newModelRepoId.trim()) {
+      return;
+    }
+
+    try {
+      const result = await window.electronAPI.mlx.embeddings.addCustom(newModelRepoId.trim());
+
+      if (result.success) {
+        setTestResult({
+          success: true,
+          message: `Modèle ${newModelRepoId} ajouté à la liste`
+        });
+        setTimeout(() => setTestResult(null), 3000);
+
+        // Recharger la liste des modèles
+        await loadMLXStatus();
+
+        // Réinitialiser le formulaire
+        setNewModelRepoId('');
+        setShowAddModel(false);
+      } else {
+        setTestResult({
+          success: false,
+          message: result.error || 'Erreur lors de l\'ajout'
+        });
+      }
+    } catch (error: any) {
+      setTestResult({
+        success: false,
+        message: error.message || 'Erreur lors de l\'ajout'
+      });
+    }
+  };
+
+  const removeCustomModel = async (repoId: string) => {
+    try {
+      const result = await window.electronAPI.mlx.embeddings.removeCustom(repoId);
+
+      if (result.success) {
+        setTestResult({
+          success: true,
+          message: `Modèle ${repoId} retiré de la liste`
+        });
+        setTimeout(() => setTestResult(null), 3000);
+
+        // Recharger la liste des modèles
+        await loadMLXStatus();
+      } else {
+        setTestResult({
+          success: false,
+          message: result.error || 'Erreur lors du retrait'
+        });
+      }
+    } catch (error: any) {
+      setTestResult({
+        success: false,
+        message: error.message || 'Erreur lors du retrait'
+      });
+    }
+  };
+
+  const isDefaultModel = (repoId: string): boolean => {
+    const defaultModels = [
+      'sentence-transformers/all-mpnet-base-v2',
+      'sentence-transformers/all-MiniLM-L6-v2',
+      'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
+    ];
+    return defaultModels.includes(repoId);
   };
 
   return (
@@ -274,16 +428,52 @@ export function MLXGeneralSettings() {
       {/* Embedding Model Selection */}
       {status?.available && (
         <div className="glass-card rounded-xl p-6 space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold mb-1">Modèle d'embedding</h3>
-            <p className="text-sm text-muted-foreground">
-              Modèle utilisé pour générer les embeddings du RAG
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold mb-1">Modèles d'embedding</h3>
+              <p className="text-sm text-muted-foreground">
+                Modèles sentence-transformers pour générer les embeddings
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAddModel(!showAddModel)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg glass-card hover:glass-lg transition-all"
+            >
+              {showAddModel ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              <span className="text-sm">Ajouter</span>
+            </button>
           </div>
+
+          {/* Add Custom Model Form */}
+          {showAddModel && (
+            <div className="p-4 glass-card rounded-lg space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Ajouter un modèle sentence-transformers depuis Hugging Face
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Ex: sentence-transformers/all-roberta-large-v1"
+                  value={newModelRepoId}
+                  onChange={(e) => setNewModelRepoId(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && addCustomModel()}
+                  className="flex-1 px-4 py-2 glass-card rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-sm"
+                />
+                <button
+                  onClick={addCustomModel}
+                  disabled={!newModelRepoId.trim()}
+                  className="px-4 py-2 rounded-lg glass-lg hover:glass transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-3">
             {models.length > 0 ? (
               <>
+                {/* Active Model Selector */}
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Modèle actif
@@ -293,7 +483,7 @@ export function MLXGeneralSettings() {
                     onChange={(e) => updateMLXModel(e.target.value)}
                     className="w-full px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                   >
-                    {models.map((model) => {
+                    {models.filter(m => m.downloaded).map((model) => {
                       const modelName = model.name || 'unknown';
                       return (
                         <option key={modelName} value={modelName}>
@@ -302,11 +492,6 @@ export function MLXGeneralSettings() {
                       );
                     })}
                   </select>
-                  {config?.model && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {getModelDescription(config.model)}
-                    </p>
-                  )}
                 </div>
 
                 {/* Models List */}
@@ -319,6 +504,8 @@ export function MLXGeneralSettings() {
                       const isActive = config?.model === model.name;
                       const isDownloaded = model.downloaded;
                       const modelName = model.name || 'unknown';
+                      const isDownloading = modelName in downloadingModels;
+                      const downloadProgress = downloadingModels[modelName] || 0;
 
                       return (
                         <div
@@ -327,28 +514,32 @@ export function MLXGeneralSettings() {
                             isActive ? 'ring-2 ring-purple-500/50' : ''
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 mb-1">
                                 <span className="font-medium text-sm truncate">
                                   {modelName.split('/').pop() || modelName}
                                 </span>
                                 {isActive && (
-                                  <span className="text-xs text-purple-400">(actif)</span>
+                                  <Check className="w-4 h-4 text-purple-400" />
                                 )}
-                                {!isDownloaded && (
-                                  <AlertTriangle className="w-4 h-4 text-yellow-400" title="Pas encore téléchargé" />
+                                {!isDefaultModel(modelName) && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300">
+                                    Personnalisé
+                                  </span>
                                 )}
                               </div>
                               <p className="text-xs text-muted-foreground truncate">
                                 {modelName}
                               </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {getModelDescription(modelName)}
-                              </p>
+                              {model.description && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {model.description}
+                                </p>
+                              )}
                               <div className="flex items-center gap-3 mt-1">
                                 <span className="text-xs text-muted-foreground">
-                                  {model.size || 'N/A'}
+                                  {model.size}
                                 </span>
                                 {model.dimensions && (
                                   <span className="text-xs text-muted-foreground">
@@ -356,13 +547,53 @@ export function MLXGeneralSettings() {
                                   </span>
                                 )}
                               </div>
+
+                              {/* Download Progress Bar */}
+                              {isDownloading && (
+                                <div className="mt-2">
+                                  <div className="h-2 bg-black/30 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all duration-300"
+                                      style={{ width: `${downloadProgress}%` }}
+                                    />
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Téléchargement en cours... {downloadProgress.toFixed(1)}%
+                                  </p>
+                                </div>
+                              )}
                             </div>
-                            {isActive && (
-                              <Check className="w-5 h-5 text-purple-400" />
-                            )}
-                            {!isDownloaded && (
-                              <Download className="w-5 h-5 text-yellow-400 opacity-50" />
-                            )}
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-2">
+                              {!isDownloaded && !isDownloading && (
+                                <button
+                                  onClick={() => downloadModel(modelName)}
+                                  className="p-2 rounded-lg glass-card hover:glass-lg transition-all"
+                                  title="Télécharger le modèle"
+                                >
+                                  <Download className="w-4 h-4 text-green-400" />
+                                </button>
+                              )}
+                              {isDownloaded && !isActive && (
+                                <button
+                                  onClick={() => deleteModel(modelName)}
+                                  className="p-2 rounded-lg glass-card hover:glass-lg transition-all"
+                                  title="Supprimer le modèle"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-400" />
+                                </button>
+                              )}
+                              {!isDefaultModel(modelName) && (
+                                <button
+                                  onClick={() => removeCustomModel(modelName)}
+                                  className="p-2 rounded-lg glass-card hover:glass-lg transition-all"
+                                  title="Retirer de la liste"
+                                >
+                                  <X className="w-4 h-4 text-orange-400" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -412,12 +643,12 @@ export function MLXGeneralSettings() {
             permettant une recherche sémantique rapide dans vos documents.
           </p>
           <p className="pt-2 border-t border-white/10">
-            <span className="font-semibold text-foreground">Performances :</span>
+            <span className="font-semibold text-foreground">Gestion des modèles :</span>
           </p>
           <ul className="list-disc list-inside space-y-1 pl-2">
-            <li>10-20x plus rapide qu'Ollama pour les embeddings</li>
-            <li>Optimisé pour Apple Silicon (GPU unifiée)</li>
-            <li>Faible consommation de mémoire</li>
+            <li>Téléchargez n'importe quel modèle sentence-transformers depuis Hugging Face</li>
+            <li>Supprimez les modèles téléchargés pour libérer de l'espace</li>
+            <li>Ajoutez des modèles personnalisés à votre liste</li>
           </ul>
           <p className="pt-2 border-t border-white/10">
             <span className="font-semibold text-foreground">Modèles recommandés :</span>
