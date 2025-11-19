@@ -24,12 +24,17 @@ files:
   - package.json
   - node_modules
 
+asar: false
+
+# Extra resources to include in the app bundle
+extraResources:
   # Python scripts pour Vision RAG
   - from: src/python
     to: python
     filter:
       - "**/*.py"
       - "**/*.md"
+      - "!**/__pycache__/**"
 
   # Scripts Python MLX (LLM, téléchargement, embeddings)
   - from: src/main/services/backends/mlx
@@ -37,8 +42,7 @@ files:
     filter:
       - "**/*.py"
       - "**/*.md"
-
-asar: false
+      - "!**/__pycache__/**"
 
 publish:
   provider: github
