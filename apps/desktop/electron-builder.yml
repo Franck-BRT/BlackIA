@@ -23,15 +23,20 @@ files:
   - dist
   - package.json
   - node_modules
+
+  # Python scripts pour Vision RAG
   - from: src/python
     to: python
     filter:
       - "**/*.py"
       - "**/*.md"
+
+  # Scripts Python MLX (LLM, téléchargement, embeddings)
   - from: src/main/services/backends/mlx
     to: dist/main/services/backends/mlx
     filter:
       - "**/*.py"
+      - "**/*.md"
 
 asar: false
 
