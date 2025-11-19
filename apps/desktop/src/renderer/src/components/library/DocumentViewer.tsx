@@ -35,18 +35,31 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   useEffect(() => {
     const loadModels = async () => {
       try {
+        console.log('[DocumentViewer] Loading embedding models...');
         const result = await window.electronAPI.mlx.embeddings.list();
+        console.log('[DocumentViewer] Models result:', result);
+
         if (result.success && result.data) {
+          console.log('[DocumentViewer] Available models:', result.data);
+          const downloadedModels = result.data.filter((m: any) => m.downloaded);
+          console.log('[DocumentViewer] Downloaded models:', downloadedModels);
+
           setAvailableModels(result.data);
           // Initialiser avec le modèle actuel du document ou le premier modèle téléchargé
           if (doc.textEmbeddingModel) {
+            console.log('[DocumentViewer] Using document model:', doc.textEmbeddingModel);
             setSelectedModel(doc.textEmbeddingModel);
           } else {
             const firstDownloaded = result.data.find((m: any) => m.downloaded);
             if (firstDownloaded) {
+              console.log('[DocumentViewer] Using first downloaded model:', firstDownloaded.name);
               setSelectedModel(firstDownloaded.name);
+            } else {
+              console.log('[DocumentViewer] No downloaded models found');
             }
           }
+        } else {
+          console.error('[DocumentViewer] Failed to get models:', result.error);
         }
       } catch (error) {
         console.error('[DocumentViewer] Failed to load models:', error);
