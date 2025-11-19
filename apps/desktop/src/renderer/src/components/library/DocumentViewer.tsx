@@ -152,7 +152,7 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex flex-col bg-neutral-950">
       {/* Header Bar */}
-      <div className="flex-none h-16 bg-neutral-900/95 backdrop-blur-sm border-b border-neutral-800 flex items-center justify-between px-6">
+      <div className="flex-none h-16 bg-neutral-900/95 backdrop-blur-sm border-b border-neutral-800 flex items-center justify-between pl-20 pr-6">
         <div className="flex items-center gap-4">
           <button
             onClick={onClose}
