@@ -27,6 +27,7 @@ import { recommendRAGMode } from '../types/rag';
 import type { EntityType, StoredRAGMode, TextRAGResult, RAGSearchParams } from '../types/rag';
 import { libraryService } from './library-service';
 import { logger } from './log-service';
+import { getEmbeddingManager } from './mlx-embedding-manager';
 
 /**
  * Document with parsed JSON fields
@@ -479,17 +480,39 @@ export class LibraryDocumentService {
 
       if (mode === 'vision' || mode === 'hybrid') {
         const canIndexVision = this.canIndexVision(doc.mimeType);
+        const visionModelName = params.visionModel || ragConfig.vision.model || 'vidore/colpali';
 
         console.log('[LibraryDocumentService] Vision RAG check:', {
           canIndexVision,
           mimeType: doc.mimeType,
           filePath: doc.filePath,
-          visionModel: params.visionModel || ragConfig.vision.model || 'vidore/colpali',
+          visionModel: visionModelName,
         });
 
         if (!canIndexVision) {
           console.warn('[LibraryDocumentService] Document type not supported for vision RAG:', doc.mimeType);
         } else {
+          // Check model backend to ensure compatibility
+          const modelBackend = await this.getModelBackend(visionModelName);
+
+          console.log('[LibraryDocumentService] Vision model backend check:', {
+            model: visionModelName,
+            backend: modelBackend,
+          });
+
+          // Validate backend compatibility
+          if (modelBackend === 'mlx') {
+            const errorMsg = `Le modèle MLX "${visionModelName}" n'est pas encore supporté pour Vision RAG. Utilisez un modèle ColPali (vidore/colpali ou vidore/colpali-v1.2) qui fonctionne sur toutes les plateformes.`;
+            console.error('[LibraryDocumentService]', errorMsg);
+            throw new Error(errorMsg);
+          }
+
+          if (modelBackend && modelBackend !== 'colette') {
+            const errorMsg = `Le modèle "${visionModelName}" (backend: ${modelBackend}) n'est pas compatible avec Vision RAG. Utilisez un modèle ColPali avec backend 'colette'.`;
+            console.error('[LibraryDocumentService]', errorMsg);
+            throw new Error(errorMsg);
+          }
+
           console.log('[LibraryDocumentService] Starting vision indexation with Colette...');
 
           const visionResult = await coletteVisionRAGService.indexDocument({
@@ -497,7 +520,7 @@ export class LibraryDocumentService {
             attachmentId: doc.id,
             entityType: 'document' as EntityType,
             entityId: doc.libraryId,
-            model: params.visionModel || ragConfig.vision.model || 'vidore/colpali',
+            model: visionModelName,
           });
 
           if (visionResult.success) {
@@ -703,6 +726,21 @@ export class LibraryDocumentService {
         return custom || '\n\n';
       default:
         return '\n\n';
+    }
+  }
+
+  /**
+   * Get the backend for a given model
+   */
+  private async getModelBackend(modelName: string): Promise<'sentence-transformers' | 'mlx' | 'colette' | undefined> {
+    try {
+      const embeddingManager = getEmbeddingManager();
+      const models = await embeddingManager.listModels();
+      const model = models.find(m => m.name === modelName);
+      return model?.backend;
+    } catch (error) {
+      console.error('[LibraryDocumentService] Error getting model backend:', error);
+      return undefined;
     }
   }
 
