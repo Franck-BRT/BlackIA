@@ -643,13 +643,7 @@ export function registerMLXHandlers(): void {
         const modelManager = getMLXModelManager();
 
         // S'assurer que le manager est initialisé
-        try {
-          await modelManager.initialize();
-        } catch (error) {
-          logger.warning('mlx-models', 'Model manager already initialized or init failed', '', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
+        await modelManager.initialize();
 
         const model = await modelManager.downloadModel(repoId, (progress) => {
           // Adapter le format de progression pour être cohérent avec embeddingManager

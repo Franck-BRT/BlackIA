@@ -81,9 +81,22 @@ export class MLXModelManager extends EventEmitter {
   }
 
   /**
+   * Vérifie si le manager est initialisé
+   */
+  isInitialized(): boolean {
+    return this.downloaderProcess !== null;
+  }
+
+  /**
    * Initialise le gestionnaire
    */
   async initialize(): Promise<void> {
+    // Si déjà initialisé, ne rien faire
+    if (this.isInitialized()) {
+      logger.debug('mlx', 'MLX Model Manager already initialized', '');
+      return;
+    }
+
     logger.info('mlx', 'Initializing MLX Model Manager', '');
 
     // Vérifier que Python et les dépendances sont disponibles
