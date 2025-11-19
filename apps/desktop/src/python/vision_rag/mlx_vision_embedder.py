@@ -67,8 +67,18 @@ class MLXVisionEmbedder:
             if self.verbose:
                 print(f"[MLXVision] Loading model: {self.model_name}...", file=sys.stderr)
 
-            # Charger le modèle et le processeur
-            self.model, self.processor = load(self.model_name)
+            # Rediriger stdout temporairement pour éviter que MLX-VLM pollue la sortie JSON
+            import os
+            import io
+            old_stdout = sys.stdout
+            sys.stdout = io.StringIO()
+
+            try:
+                # Charger le modèle et le processeur
+                self.model, self.processor = load(self.model_name)
+            finally:
+                # Restaurer stdout
+                sys.stdout = old_stdout
 
             if self.verbose:
                 print(f"[MLXVision] Model loaded successfully", file=sys.stderr)
