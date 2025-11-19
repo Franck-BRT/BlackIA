@@ -6,6 +6,13 @@ Inspiré de ColPali pour la recherche de documents
 
 import sys
 import json
+import io
+
+# CRITICAL FIX: Redirect stdout IMMEDIATELY to prevent ANY non-JSON output
+# This must happen BEFORE any imports that might write to stdout (like MLX)
+_ORIGINAL_STDOUT = sys.stdout
+sys.stdout = io.StringIO()
+
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
@@ -16,6 +23,8 @@ try:
     from mlx_vlm.utils import load_image
     from PIL import Image
 except ImportError as e:
+    # Restore stdout for error output
+    sys.stdout = _ORIGINAL_STDOUT
     print(json.dumps({
         "success": False,
         "error": f"MLX dependencies not installed: {e}. Run: cd src/python && ./setup.sh",
@@ -67,18 +76,9 @@ class MLXVisionEmbedder:
             if self.verbose:
                 print(f"[MLXVision] Loading model: {self.model_name}...", file=sys.stderr)
 
-            # Rediriger stdout temporairement pour éviter que MLX-VLM pollue la sortie JSON
-            import os
-            import io
-            old_stdout = sys.stdout
-            sys.stdout = io.StringIO()
-
-            try:
-                # Charger le modèle et le processeur
-                self.model, self.processor = load(self.model_name)
-            finally:
-                # Restaurer stdout
-                sys.stdout = old_stdout
+            # Charger le modèle et le processeur
+            # stdout is already redirected at module level, so any output goes nowhere
+            self.model, self.processor = load(self.model_name)
 
             if self.verbose:
                 print(f"[MLXVision] Model loaded successfully", file=sys.stderr)
@@ -260,14 +260,10 @@ def main():
     Usage: python mlx_vision_embedder.py <image_path> [model_name]
     """
     import argparse
-    import io
-
-    # CRITICAL: Redirect stdout immediately to prevent any non-JSON output
-    # This fixes the python-shell JSON parsing error
-    _stdout_backup = sys.stdout
-    sys.stdout = io.StringIO()
 
     try:
+        # stdout is already redirected at module level
+        # Parse arguments (any argparse output goes to the redirected stdout = discarded)
         parser = argparse.ArgumentParser(description="MLX Vision Embedder for document retrieval")
         parser.add_argument("image_paths", nargs="+", help="Path(s) to image files")
         parser.add_argument("--model", default="mlx-community/Qwen2-VL-2B-Instruct", help="MLX-VLM model name")
@@ -287,7 +283,7 @@ def main():
         result = embedder.process_images(args.image_paths, args.query)
 
         # Restore stdout for JSON output ONLY
-        sys.stdout = _stdout_backup
+        sys.stdout = _ORIGINAL_STDOUT
 
         # Sortir le résultat en JSON (THIS IS THE ONLY STDOUT OUTPUT)
         output = json.dumps(result)
@@ -304,7 +300,7 @@ def main():
 
     except Exception as e:
         # Restore stdout in case of error
-        sys.stdout = _stdout_backup
+        sys.stdout = _ORIGINAL_STDOUT
         error_result = {
             "success": False,
             "error": str(e),
