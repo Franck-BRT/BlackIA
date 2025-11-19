@@ -63,17 +63,17 @@ export function LibraryPage() {
   };
 
   const handleReindexDocument = async (documentId: string) => {
-    console.log('[LibraryPage] Starting reindex for document:', documentId);
+    console.log('[LibraryPage] Refreshing document list after reindex:', documentId);
     try {
-      const result = await indexDocument({ documentId });
-      console.log('[LibraryPage] Index result:', JSON.stringify(result, null, 2));
+      // Just refresh the document list to show updated stats
+      // Do NOT call indexDocument again - it was already called by DocumentViewer
       if (selectedLibrary) {
         await getDocuments(selectedLibrary.id);
         await refreshLibraries();
       }
-      console.log('[LibraryPage] Reindex complete');
+      console.log('[LibraryPage] Document list refreshed');
     } catch (error) {
-      console.error('[LibraryPage] Reindex error:', error);
+      console.error('[LibraryPage] Refresh error:', error);
     }
   };
 
