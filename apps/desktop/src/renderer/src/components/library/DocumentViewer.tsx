@@ -36,7 +36,7 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   const { width: chunksPanelWidth, isResizing, handleMouseDown } = useResizable({
     initialWidth: 400,
     minWidth: 250,
-    maxWidth: 800,
+    maxWidth: 1400,
     storageKey: 'documentViewer-chunksPanelWidth',
   });
 
