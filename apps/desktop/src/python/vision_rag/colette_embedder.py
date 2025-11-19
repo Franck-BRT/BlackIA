@@ -27,6 +27,11 @@ try:
     from colpali_engine.models import ColPali, ColPaliProcessor
     from pdf2image import convert_from_path
     import numpy as np
+    # Import poppler_utils - gérer import relatif et absolu
+    try:
+        from .poppler_utils import check_poppler_installed, get_installation_instructions
+    except ImportError:
+        from poppler_utils import check_poppler_installed, get_installation_instructions
 except ImportError as e:
     print(json.dumps({
         "success": False,
@@ -92,6 +97,14 @@ class ColetteEmbedder:
         Returns:
             List of PIL Images
         """
+        # Vérifier poppler pour la conversion PDF
+        poppler_installed, poppler_path = check_poppler_installed()
+
+        if not poppler_installed:
+            error_msg = get_installation_instructions()
+            print(f"[Colette] ERROR: {error_msg}", file=sys.stderr)
+            raise RuntimeError(f"poppler not installed. {error_msg}")
+
         images = []
         for path_str in image_paths:
             try:
@@ -103,8 +116,13 @@ class ColetteEmbedder:
 
                 # Handle PDF
                 if path.suffix.lower() == '.pdf':
-                    # Convert PDF pages to images
-                    pdf_images = convert_from_path(str(path))
+                    # Convert PDF pages to images with poppler_path if needed
+                    convert_kwargs = {"path": str(path)}
+                    if poppler_path:
+                        convert_kwargs["poppler_path"] = poppler_path
+                        print(f"[Colette] Using poppler from: {poppler_path}", file=sys.stderr)
+
+                    pdf_images = convert_from_path(**convert_kwargs)
                     images.extend(pdf_images)
                     print(f"[Colette] Converted PDF to {len(pdf_images)} images", file=sys.stderr)
                 else:

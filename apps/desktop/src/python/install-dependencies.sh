@@ -250,9 +250,22 @@ if command -v pdftoppm &> /dev/null; then
     echo "  ✓ poppler-utils installé ($version)"
 else
     echo "  ⚠️  poppler-utils NON installé"
-    echo "     Installation requise pour la conversion PDF:"
-    echo "       - Debian/Ubuntu: sudo apt-get install poppler-utils"
-    echo "       - macOS: brew install poppler"
+
+    # Try to install poppler automatically on macOS
+    if [[ "$OSTYPE" == "darwin"* ]] && command -v brew &> /dev/null; then
+        echo "  📦 Tentative d'installation automatique via Homebrew..."
+        if brew install poppler; then
+            echo "  ✓ poppler installé avec succès via Homebrew!"
+        else
+            echo "  ❌ Échec de l'installation automatique"
+            echo "     Essayez manuellement: brew install poppler"
+        fi
+    else
+        echo "     Installation requise pour la conversion PDF:"
+        echo "       - Debian/Ubuntu: sudo apt-get install poppler-utils"
+        echo "       - macOS: brew install poppler"
+        echo "       - Fedora/RHEL: sudo dnf install poppler-utils"
+    fi
 fi
 
 echo ""
