@@ -138,6 +138,7 @@ export class TextRAGService {
     success: boolean;
     chunkCount: number;
     totalTokens: number;
+    model: string;
     error?: string;
   }> {
     const startTime = Date.now();
@@ -163,10 +164,12 @@ export class TextRAGService {
 
       if (chunks.length === 0) {
         logger.warning('rag', 'No chunks generated', `Text too short for document ${params.attachmentId}`);
+        const model = params.model || this.defaultModel;
         return {
           success: true,
           chunkCount: 0,
           totalTokens: 0,
+          model,
         };
       }
 
@@ -229,6 +232,7 @@ export class TextRAGService {
         success: true,
         chunkCount: chunks.length,
         totalTokens,
+        model,
       };
     } catch (error) {
       logger.error('rag', 'Text RAG indexing failed', `AttachmentId: ${params.attachmentId}`, {
@@ -237,10 +241,12 @@ export class TextRAGService {
         stack: error instanceof Error ? error.stack : undefined
       });
 
+      const model = params.model || this.defaultModel;
       return {
         success: false,
         chunkCount: 0,
         totalTokens: 0,
+        model,
         error: error instanceof Error ? error.message : String(error),
       };
     }

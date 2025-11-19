@@ -141,19 +141,12 @@ export function registerMLXHandlers(): void {
           config: mlxConfig,
         });
 
-        // Redémarrer le service RAG si nécessaire
-        if (mlxConfig.enabled && newConfig.model) {
-          await textRAGService.shutdown();
-
-          const { TextRAGService } = await import('./services/text-rag-service');
-          const newService = new TextRAGService({
-            model: mlxConfig.model,
-            pythonPath: mlxConfig.pythonPath,
+        // Mettre à jour le modèle par défaut du service RAG si changé
+        if (newConfig.model) {
+          textRAGService.setDefaultModel(newConfig.model);
+          logger.info('backend', 'MLX RAG service model updated', '', {
+            model: newConfig.model,
           });
-
-          await newService.initialize();
-
-          logger.info('backend', 'MLX RAG service restarted with new config', '');
         }
 
         return { success: true, config: mlxConfig };

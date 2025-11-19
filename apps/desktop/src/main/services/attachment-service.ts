@@ -359,7 +359,7 @@ export class AttachmentService {
               .update(attachments)
               .set({
                 isIndexedText: true,
-                textEmbeddingModel: 'sentence-transformers/all-mpnet-base-v2',
+                textEmbeddingModel: indexResult.model,
                 textChunkCount: indexResult.chunkCount,
                 lastIndexedAt: new Date(),
                 updatedAt: new Date(),
@@ -368,7 +368,7 @@ export class AttachmentService {
 
             // Mettre à jour l'objet de retour
             newAttachment.isIndexedText = true;
-            newAttachment.textEmbeddingModel = 'sentence-transformers/all-mpnet-base-v2';
+            newAttachment.textEmbeddingModel = indexResult.model;
             newAttachment.textChunkCount = indexResult.chunkCount;
             newAttachment.lastIndexedAt = new Date();
           } else {
