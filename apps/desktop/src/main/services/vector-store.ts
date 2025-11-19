@@ -854,10 +854,16 @@ export class VectorStoreService {
     try {
       console.log('[VectorStore] Checking for duplicate chunks for:', attachmentId);
 
-      // Récupérer tous les chunks de ce document
-      const allChunks = await this.getAllChunksByFilter({
-        attachmentIds: [attachmentId]
-      });
+      // Récupérer tous les chunks bruts (schéma LanceDB) de ce document
+      const dummyVector = new Array(768).fill(0.001);
+      const allResults = await this.textCollection
+        .search(dummyVector)
+        .limit(10000)
+        .nprobes(100)
+        .execute();
+
+      // Filtrer par attachmentId
+      const allChunks = allResults.filter((row: any) => row.attachmentId === attachmentId);
 
       if (allChunks.length === 0) {
         console.log('[VectorStore] No chunks found for:', attachmentId);
@@ -865,7 +871,7 @@ export class VectorStoreService {
       }
 
       // Grouper par chunkIndex
-      const chunksByIndex = new Map<number, typeof allChunks>();
+      const chunksByIndex = new Map<number, any[]>();
       for (const chunk of allChunks) {
         const index = chunk.chunkIndex;
         if (!chunksByIndex.has(index)) {
@@ -884,7 +890,6 @@ export class VectorStoreService {
           chunks.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
           // Garder le premier (plus récent), supprimer les autres
-          const toKeep = chunks[0];
           const toDelete = chunks.slice(1);
 
           for (const chunk of toDelete) {
