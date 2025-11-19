@@ -96,7 +96,8 @@ export function registerMLXHandlers(): void {
         return [];
       }
 
-      const models = await textRAGService.getAvailableModels();
+      // Retourner les objets modèles complets au lieu de juste les noms
+      const models = await mlxBackend.listModels();
       return models;
     } catch (error: any) {
       logger.error('backend', 'Error listing MLX models', '', {
