@@ -227,23 +227,122 @@ const api = {
     },
   },
 
-  // MLX API (Apple Silicon embeddings)
+  // MLX API (Apple Silicon embeddings + LLM complets)
   mlx: {
+    // ============= EMBEDDINGS (pour RAG) =============
     // Vérification et statut
     isAvailable: () => ipcRenderer.invoke('mlx:isAvailable'),
     getStatus: () => ipcRenderer.invoke('mlx:getStatus'),
 
     // Configuration
     getConfig: () => ipcRenderer.invoke('mlx:getConfig'),
-    updateConfig: (config: { model?: string; pythonPath?: string; enabled?: boolean }) =>
+    updateConfig: (config: { model?: string; llmModel?: string; pythonPath?: string; enabled?: boolean }) =>
       ipcRenderer.invoke('mlx:updateConfig', config),
 
-    // Modèles
+    // Modèles d'embeddings
     listModels: () => ipcRenderer.invoke('mlx:listModels'),
 
     // Test et contrôle
     test: () => ipcRenderer.invoke('mlx:test'),
     restart: () => ipcRenderer.invoke('mlx:restart'),
+
+    // ============= LLM (Chat et Génération) =============
+    llm: {
+      // Initialisation
+      initialize: () => ipcRenderer.invoke('mlx:llm:initialize'),
+
+      // Gestion de modèles
+      loadModel: (modelPath: string) => ipcRenderer.invoke('mlx:llm:loadModel', modelPath),
+      unloadModel: () => ipcRenderer.invoke('mlx:llm:unloadModel'),
+
+      // Chat et génération
+      chat: (request: {
+        messages: Array<{ role: string; content: string }>;
+        options?: {
+          max_tokens?: number;
+          temperature?: number;
+          top_p?: number;
+        };
+      }) => ipcRenderer.invoke('mlx:llm:chat', request),
+
+      generate: (request: {
+        prompt: string;
+        options?: {
+          max_tokens?: number;
+          temperature?: number;
+          top_p?: number;
+        };
+      }) => ipcRenderer.invoke('mlx:llm:generate', request),
+
+      // Statut
+      getStatus: () => ipcRenderer.invoke('mlx:llm:getStatus'),
+
+      // Événements de streaming
+      onStreamStart: (callback: (data: { streamId: string }) => void) => {
+        ipcRenderer.on('mlx:llm:streamStart', (_event, data) => callback(data));
+      },
+      onStreamChunk: (callback: (data: { streamId: string; chunk: string }) => void) => {
+        ipcRenderer.on('mlx:llm:streamChunk', (_event, data) => callback(data));
+      },
+      onStreamEnd: (callback: (data: { streamId: string }) => void) => {
+        ipcRenderer.on('mlx:llm:streamEnd', (_event, data) => callback(data));
+      },
+      removeStreamListeners: () => {
+        ipcRenderer.removeAllListeners('mlx:llm:streamStart');
+        ipcRenderer.removeAllListeners('mlx:llm:streamChunk');
+        ipcRenderer.removeAllListeners('mlx:llm:streamEnd');
+      },
+    },
+
+    // ============= GESTION DE MODÈLES =============
+    models: {
+      // Initialisation
+      initialize: () => ipcRenderer.invoke('mlx:models:initialize'),
+
+      // Liste et info
+      listLocal: () => ipcRenderer.invoke('mlx:models:listLocal'),
+      isDownloaded: (repoId: string) => ipcRenderer.invoke('mlx:models:isDownloaded', repoId),
+
+      // Téléchargement et suppression
+      download: (repoId: string) => ipcRenderer.invoke('mlx:models:download', repoId),
+      delete: (modelPath: string) => ipcRenderer.invoke('mlx:models:delete', modelPath),
+
+      // Événements de progression
+      onDownloadProgress: (callback: (progress: {
+        repoId: string;
+        downloaded: number;
+        total: number;
+        percentage: number;
+        currentFile?: string;
+      }) => void) => {
+        ipcRenderer.on('mlx:models:downloadProgress', (_event, progress) => callback(progress));
+      },
+      removeDownloadProgressListener: () => {
+        ipcRenderer.removeAllListeners('mlx:models:downloadProgress');
+      },
+    },
+
+    // ============= STORE (Hugging Face) =============
+    store: {
+      // Liste et recherche
+      listAvailable: (filters?: {
+        search?: string;
+        author?: string;
+        tags?: string[];
+        sort?: 'downloads' | 'likes' | 'recent';
+        limit?: number;
+      }) => ipcRenderer.invoke('mlx:store:listAvailable', filters),
+
+      search: (query: string, limit?: number) =>
+        ipcRenderer.invoke('mlx:store:search', query, limit),
+
+      // Modèles recommandés et info
+      getRecommended: () => ipcRenderer.invoke('mlx:store:getRecommended'),
+      getModelInfo: (repoId: string) => ipcRenderer.invoke('mlx:store:getModelInfo', repoId),
+
+      // Cache
+      clearCache: () => ipcRenderer.invoke('mlx:store:clearCache'),
+    },
   },
 
   // Web Search API
