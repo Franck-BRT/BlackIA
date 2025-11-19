@@ -148,7 +148,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       logger.info('mlx-models', 'Using system Python for embeddings', 'python3');
     }
 
-    this.scriptPath = path.join(__dirname, '../services/backends/mlx/mlx_embedding_downloader.py');
+    this.scriptPath = path.join(__dirname, 'backends/mlx/mlx_embedding_downloader.py');
 
     // Charger les modèles personnalisés depuis le fichier de config
     this.loadCustomModels();
