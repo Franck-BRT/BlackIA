@@ -245,6 +245,8 @@ export interface MLXVisionEmbedderResponse {
   success: boolean;
   embeddings?: number[][][]; // [pages, patches, dims]
   pageCount?: number;
+  patchesPerPage?: number;
+  embeddingDim?: number;
   error?: string;
   processingTime?: number; // ms
 }
