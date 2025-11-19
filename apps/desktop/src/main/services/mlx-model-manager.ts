@@ -250,10 +250,10 @@ export class MLXModelManager extends EventEmitter {
 
       logger.info('mlx', 'Sending download command to Python', repoId, {
         command: request.command,
-        hasStdin: !!this.downloaderProcess.stdin,
+        hasStdin: !!this.downloaderProcess!.stdin,
       });
 
-      const written = this.downloaderProcess.stdin?.write(requestLine);
+      const written = this.downloaderProcess!.stdin?.write(requestLine);
 
       if (!written) {
         cleanup();
