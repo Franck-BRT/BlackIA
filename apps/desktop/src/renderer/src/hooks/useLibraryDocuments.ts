@@ -58,6 +58,8 @@ export interface IndexDocumentParams {
   chunkSize?: number;
   chunkOverlap?: number;
   forceReindex?: boolean;
+  model?: string; // Modèle d'embedding textuel à utiliser (optionnel)
+  visionModel?: string; // Modèle d'embedding vision à utiliser (optionnel)
 }
 
 export interface IndexResult {
