@@ -59,6 +59,7 @@ export interface IndexDocumentParams {
   chunkSize?: number;
   chunkOverlap?: number;
   forceReindex?: boolean;
+  model?: string; // Modèle d'embedding à utiliser (optionnel)
 }
 
 /**
@@ -384,7 +385,7 @@ export class LibraryDocumentService {
             attachmentId: doc.id,
             entityType: 'document' as EntityType,
             entityId: doc.libraryId,
-            // model parameter removed - uses MLX default model from textRAGService
+            model: params.model, // Utiliser le modèle spécifié ou le défaut du service
             chunkingOptions: {
               chunkSize: params.chunkSize || ragConfig.text.chunkSize,
               chunkOverlap: params.chunkOverlap || (ragConfig.text.chunkSize * ragConfig.text.chunkOverlap) / 100,

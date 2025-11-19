@@ -28,6 +28,32 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   const [validationNotes, setValidationNotes] = useState('');
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexingMessage, setIndexingMessage] = useState('');
+  const [availableModels, setAvailableModels] = useState<Array<{ name: string; downloaded: boolean }>>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('');
+
+  // Charger les modèles disponibles
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        const result = await window.electronAPI.mlx.embeddings.list();
+        if (result.success && result.data) {
+          setAvailableModels(result.data);
+          // Initialiser avec le modèle actuel du document ou le premier modèle téléchargé
+          if (doc.textEmbeddingModel) {
+            setSelectedModel(doc.textEmbeddingModel);
+          } else {
+            const firstDownloaded = result.data.find((m: any) => m.downloaded);
+            if (firstDownloaded) {
+              setSelectedModel(firstDownloaded.name);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[DocumentViewer] Failed to load models:', error);
+      }
+    };
+    loadModels();
+  }, [doc.textEmbeddingModel]);
 
   useEffect(() => {
     if (doc.id) {
@@ -52,35 +78,44 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   }, [doc.id, doc.isIndexedText, doc.textChunkCount, getDocumentChunks]);
 
   const handleReindex = async () => {
-    console.log('[DocumentViewer] Reindex button clicked for document:', doc.id);
-    if (onReindex) {
-      setIsIndexing(true);
-      setIndexingMessage('Indexation en cours...');
+    console.log('[DocumentViewer] Reindex button clicked for document:', doc.id, 'with model:', selectedModel);
+    setIsIndexing(true);
+    setIndexingMessage('Indexation en cours...');
 
-      try {
-        console.log('[DocumentViewer] Calling onReindex...');
-        await onReindex(doc.id);
+    try {
+      // Appeler directement l'API avec le modèle sélectionné
+      const result = await window.electronAPI.libraryDocument.index({
+        documentId: doc.id,
+        model: selectedModel || undefined,
+      });
 
+      if (result.success) {
         setIndexingMessage('Rechargement des chunks...');
         console.log('[DocumentViewer] Reindex complete, reloading chunks...');
         const reloadedChunks = await getDocumentChunks(doc.id);
         console.log('[DocumentViewer] Chunks after reindex:', reloadedChunks.length, reloadedChunks);
 
         setIndexingMessage(`✓ Indexation terminée - ${reloadedChunks.length} chunks générés`);
+
+        // Appeler onReindex si fourni pour rafraîchir la liste des documents
+        if (onReindex) {
+          await onReindex(doc.id);
+        }
+
         setTimeout(() => {
           setIsIndexing(false);
           setIndexingMessage('');
         }, 3000);
-      } catch (error) {
-        console.error('[DocumentViewer] Reindex error:', error);
-        setIndexingMessage('❌ Erreur lors de l\'indexation');
-        setTimeout(() => {
-          setIsIndexing(false);
-          setIndexingMessage('');
-        }, 3000);
+      } else {
+        throw new Error(result.error || 'Indexation échouée');
       }
-    } else {
-      console.warn('[DocumentViewer] onReindex callback not provided');
+    } catch (error) {
+      console.error('[DocumentViewer] Reindex error:', error);
+      setIndexingMessage('❌ Erreur lors de l\'indexation');
+      setTimeout(() => {
+        setIsIndexing(false);
+        setIndexingMessage('');
+      }, 3000);
     }
   };
 
@@ -155,18 +190,41 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
           </button>
 
           {onReindex && (
-            <button
-              onClick={handleReindex}
-              disabled={isIndexing}
-              className={cn(
-                "px-3 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm",
-                isIndexing ? "opacity-50 cursor-not-allowed" : "hover:bg-white/10"
-              )}
-              title="Réindexer le document"
-            >
-              <RefreshCw className={cn("w-4 h-4", isIndexing && "animate-spin")} />
-              <span>Réindexer</span>
-            </button>
+            <>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={isIndexing}
+                className={cn(
+                  "px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-sm text-neutral-100",
+                  "hover:border-neutral-600 focus:outline-none focus:border-blue-500 transition-colors",
+                  isIndexing && "opacity-50 cursor-not-allowed"
+                )}
+                title="Sélectionner le modèle d'embedding"
+              >
+                <option value="" disabled>Choisir un modèle...</option>
+                {availableModels
+                  .filter((m) => m.downloaded)
+                  .map((model) => (
+                    <option key={model.name} value={model.name}>
+                      {model.name.split('/').pop()}
+                    </option>
+                  ))}
+              </select>
+
+              <button
+                onClick={handleReindex}
+                disabled={isIndexing || !selectedModel}
+                className={cn(
+                  "px-3 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm",
+                  isIndexing || !selectedModel ? "opacity-50 cursor-not-allowed" : "hover:bg-white/10"
+                )}
+                title={selectedModel ? "Réindexer le document avec le modèle sélectionné" : "Sélectionnez un modèle d'abord"}
+              >
+                <RefreshCw className={cn("w-4 h-4", isIndexing && "animate-spin")} />
+                <span>Réindexer</span>
+              </button>
+            </>
           )}
 
           {indexingMessage && (
