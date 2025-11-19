@@ -6,11 +6,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, List, RefreshCw, Check } from 'lucide-react';
+import { X, List, RefreshCw, Check, Settings } from 'lucide-react';
 import { MarkdownEditor } from '../editor/MarkdownEditor';
 import { useChunkEditor } from '../../hooks/useChunkEditor';
 import { useResizable } from '../../hooks/useResizable';
 import { ChunkList } from './ChunkList';
+import { IndexConfigModal } from './IndexConfigModal';
 import { cn } from '@blackia/ui';
 import type { LibraryDocument } from '../../hooks/useLibraryDocuments';
 
@@ -31,6 +32,7 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   const [indexingMessage, setIndexingMessage] = useState('');
   const [availableModels, setAvailableModels] = useState<Array<{ name: string; downloaded: boolean }>>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
+  const [showIndexConfig, setShowIndexConfig] = useState(false);
 
   // Resizable panel pour les chunks
   const { width: chunksPanelWidth, isResizing, handleMouseDown } = useResizable({
@@ -104,16 +106,27 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
     }
   }, [doc.id, doc.isIndexedText, doc.textChunkCount, getDocumentChunks]);
 
-  const handleReindex = async () => {
-    console.log('[DocumentViewer] Reindex button clicked for document:', doc.id, 'with model:', selectedModel);
+  const handleReindex = async (config?: {
+    chunkSize?: number;
+    chunkOverlap?: number;
+    separator?: 'paragraph' | 'sentence' | 'line' | 'custom';
+    customSeparator?: string;
+    mode?: 'text' | 'vision' | 'hybrid' | 'auto';
+    forceReindex?: boolean;
+  }) => {
+    console.log('[DocumentViewer] Reindex button clicked for document:', doc.id, 'with model:', selectedModel, 'config:', config);
     setIsIndexing(true);
     setIndexingMessage('Indexation en cours...');
 
     try {
-      // Appeler directement l'API avec le modèle sélectionné
+      // Appeler directement l'API avec le modèle sélectionné et la configuration
       const result = await window.electronAPI.libraryDocument.index({
         documentId: doc.id,
         model: selectedModel || undefined,
+        mode: config?.mode,
+        chunkSize: config?.chunkSize,
+        chunkOverlap: config?.chunkOverlap,
+        forceReindex: config?.forceReindex,
       });
 
       if (result.success) {
@@ -240,7 +253,19 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
               </select>
 
               <button
-                onClick={handleReindex}
+                onClick={() => setShowIndexConfig(true)}
+                disabled={isIndexing || !selectedModel}
+                className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  isIndexing || !selectedModel ? "opacity-50 cursor-not-allowed" : "hover:bg-white/10"
+                )}
+                title="Configurer l'indexation"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => handleReindex()}
                 disabled={isIndexing || !selectedModel}
                 className={cn(
                   "px-3 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm",
@@ -390,6 +415,23 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
           </div>
         </div>
       )}
+
+      {/* Index Configuration Modal */}
+      <IndexConfigModal
+        isOpen={showIndexConfig}
+        onClose={() => setShowIndexConfig(false)}
+        onConfirm={(config) => {
+          setShowIndexConfig(false);
+          handleReindex(config);
+        }}
+        currentConfig={{
+          chunkSize: 512,
+          chunkOverlap: 10,
+          separator: 'paragraph',
+          mode: 'auto',
+          forceReindex: true,
+        }}
+      />
     </div>,
     portalRoot
   );
