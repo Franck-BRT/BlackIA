@@ -636,10 +636,36 @@ export function registerMLXHandlers(): void {
   // Télécharger un modèle d'embedding
   ipcMain.handle('mlx:embeddings:download', async (event, repoId: string) => {
     try {
-      const embeddingManager = getEmbeddingManager();
-
       logger.info('mlx-models', 'Starting embedding model download', repoId);
 
+      // Pour les modèles MLX vision (mlx-community/*), utiliser MLXModelManager
+      if (repoId.startsWith('mlx-community/')) {
+        const modelManager = getMLXModelManager();
+
+        // S'assurer que le manager est initialisé
+        try {
+          await modelManager.initialize();
+        } catch (error) {
+          logger.warning('mlx-models', 'Model manager already initialized or init failed', '', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        const model = await modelManager.downloadModel(repoId, (progress) => {
+          // Adapter le format de progression pour être cohérent avec embeddingManager
+          event.sender.send('mlx:embeddings:downloadProgress', {
+            repoId: progress.repoId,
+            downloaded: progress.downloaded,
+            total: progress.total,
+            percentage: progress.percentage,
+          });
+        });
+
+        return { success: true, path: model.path };
+      }
+
+      // Pour les autres modèles (sentence-transformers), utiliser EmbeddingManager
+      const embeddingManager = getEmbeddingManager();
       const path = await embeddingManager.downloadModel(repoId, (progress) => {
         event.sender.send('mlx:embeddings:downloadProgress', progress);
       });
@@ -659,8 +685,15 @@ export function registerMLXHandlers(): void {
   // Supprimer un modèle d'embedding
   ipcMain.handle('mlx:embeddings:delete', async (_, repoId: string) => {
     try {
-      const embeddingManager = getEmbeddingManager();
-      await embeddingManager.deleteModel(repoId);
+      // Pour les modèles MLX vision (mlx-community/*), utiliser MLXModelManager
+      if (repoId.startsWith('mlx-community/')) {
+        const modelManager = getMLXModelManager();
+        await modelManager.deleteModel(repoId);
+      } else {
+        // Pour les autres modèles (sentence-transformers), utiliser EmbeddingManager
+        const embeddingManager = getEmbeddingManager();
+        await embeddingManager.deleteModel(repoId);
+      }
 
       logger.info('mlx-models', 'Embedding model deleted', repoId);
 
