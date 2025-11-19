@@ -435,13 +435,24 @@ export function MLXGeneralSettings() {
                 Modèles sentence-transformers pour générer les embeddings
               </p>
             </div>
-            <button
-              onClick={() => setShowAddModel(!showAddModel)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg glass-card hover:glass-lg transition-all"
-            >
-              {showAddModel ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-              <span className="text-sm">Ajouter</span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => loadMLXStatus()}
+                disabled={isLoading}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg glass-card hover:glass-lg transition-all disabled:opacity-50"
+                title="Rafraîchir la liste"
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <span className="text-sm">Rafraîchir</span>
+              </button>
+              <button
+                onClick={() => setShowAddModel(!showAddModel)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg glass-card hover:glass-lg transition-all"
+              >
+                {showAddModel ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                <span className="text-sm">Ajouter</span>
+              </button>
+            </div>
           </div>
 
           {/* Add Custom Model Form */}
@@ -654,9 +665,11 @@ export function MLXGeneralSettings() {
             <span className="font-semibold text-foreground">Modèles recommandés :</span>
           </p>
           <ul className="list-disc list-inside space-y-1 pl-2">
-            <li><code className="text-xs bg-white/10 px-1 rounded">all-mpnet-base-v2</code> : Meilleure qualité (768 dims)</li>
-            <li><code className="text-xs bg-white/10 px-1 rounded">all-MiniLM-L6-v2</code> : Plus rapide (384 dims)</li>
-            <li><code className="text-xs bg-white/10 px-1 rounded">paraphrase-multilingual</code> : Support multilingue</li>
+            <li><code className="text-xs bg-white/10 px-1 rounded">all-mpnet-base-v2</code> : Meilleure qualité générale (768 dims)</li>
+            <li><code className="text-xs bg-white/10 px-1 rounded">all-MiniLM-L6-v2</code> : Plus rapide et léger (384 dims)</li>
+            <li><code className="text-xs bg-white/10 px-1 rounded">paraphrase-multilingual-mpnet</code> : Multilingue haute qualité (768 dims)</li>
+            <li><code className="text-xs bg-white/10 px-1 rounded">multi-qa-mpnet</code> : Optimisé pour questions/réponses (768 dims)</li>
+            <li><code className="text-xs bg-white/10 px-1 rounded">msmarco-distilbert</code> : Excellent pour recherche sémantique (768 dims)</li>
           </ul>
           <p className="pt-2 text-xs text-orange-400">
             ⚠️ Changer de modèle nécessite de réindexer vos documents existants
