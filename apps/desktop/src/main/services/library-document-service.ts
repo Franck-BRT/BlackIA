@@ -425,10 +425,20 @@ export class LibraryDocumentService {
       await this.deleteIndex(params.documentId);
 
       // TEXT RAG
+      console.log('[LibraryDocumentService] TEXT RAG condition check:', {
+        mode,
+        'mode === "text"': mode === 'text',
+        'mode === "hybrid"': mode === 'hybrid',
+        'condition result': mode === 'text' || mode === 'hybrid',
+      });
+
       if (mode === 'text' || mode === 'hybrid') {
+        console.log('[LibraryDocumentService] ⚠️ ENTERING TEXT RAG INDEXATION');
+
         if (!doc.extractedText || doc.extractedText.length === 0) {
           logger.warning('rag', 'No text to index', `Document: ${params.documentId}`);
         } else {
+          console.log('[LibraryDocumentService] Starting text indexation...');
           logger.debug('rag', 'Indexing text RAG', `Document: ${params.documentId}, AttachmentId: ${doc.id}`);
           const textResult = await textRAGService.indexDocument({
             text: doc.extractedText,
@@ -457,6 +467,8 @@ export class LibraryDocumentService {
             throw new Error(textResult.error || 'Text indexing failed');
           }
         }
+      } else {
+        console.log('[LibraryDocumentService] ✓ SKIPPING TEXT RAG (mode is not text or hybrid)');
       }
 
       // VISION RAG with Colette
