@@ -31,6 +31,7 @@ warnings.filterwarnings('ignore')
 try:
     from PIL import Image
     import torch
+    import transformers
     from colpali_engine.models import ColPali, ColPaliProcessor
     from pdf2image import convert_from_path
     import numpy as np
@@ -39,6 +40,9 @@ try:
         from .poppler_utils import check_poppler_installed, get_installation_instructions
     except ImportError:
         from poppler_utils import check_poppler_installed, get_installation_instructions
+
+    # Log version info to stderr for debugging (won't pollute JSON stdout)
+    print(f"[Colette] ✓ Dependencies loaded - transformers v{transformers.__version__}, torch v{torch.__version__}", file=sys.stderr)
 except ImportError as e:
     # Restore stdout for error output
     sys.stdout = _ORIGINAL_STDOUT

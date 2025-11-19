@@ -22,6 +22,10 @@ try:
     from mlx_vlm import load, generate
     from mlx_vlm.utils import load_image
     from PIL import Image
+    import transformers
+
+    # Log version info to stderr for debugging (won't pollute JSON stdout)
+    print(f"[MLX] ✓ Dependencies loaded - transformers v{transformers.__version__}, mlx v{mx.__version__}", file=sys.stderr)
 except ImportError as e:
     # Restore stdout for error output
     sys.stdout = _ORIGINAL_STDOUT
