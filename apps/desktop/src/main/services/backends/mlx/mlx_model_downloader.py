@@ -188,9 +188,18 @@ class MLXModelDownloader:
             # Calculer la taille du modèle
             model_size = self._get_directory_size(downloaded_path)
 
+            # Envoyer un message de complétion
+            complete_msg = {
+                "type": "complete",
+                "repo_id": repo_id,
+                "local_path": str(downloaded_path),
+                "size": model_size
+            }
+            print(json.dumps(complete_msg))
+            sys.stdout.flush()
+
             return {
                 "success": True,
-                "type": "complete",
                 "repo_id": repo_id,
                 "local_path": str(downloaded_path),
                 "size": model_size
