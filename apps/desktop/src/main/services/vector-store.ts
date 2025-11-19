@@ -842,6 +842,77 @@ export class VectorStoreService {
   }
 
   /**
+   * Supprimer les chunks en double (garde uniquement le plus récent par ID)
+   * Utile pour nettoyer les doublons créés avant la correction du bug de suppression
+   */
+  async removeDuplicateChunks(attachmentId: string): Promise<number> {
+    if (!this.textCollection) {
+      console.warn('[VectorStore] No text collection available');
+      return 0;
+    }
+
+    try {
+      console.log('[VectorStore] Checking for duplicate chunks for:', attachmentId);
+
+      // Récupérer tous les chunks de ce document
+      const allChunks = await this.getAllChunksByFilter({
+        attachmentIds: [attachmentId]
+      });
+
+      if (allChunks.length === 0) {
+        console.log('[VectorStore] No chunks found for:', attachmentId);
+        return 0;
+      }
+
+      // Grouper par chunkIndex
+      const chunksByIndex = new Map<number, typeof allChunks>();
+      for (const chunk of allChunks) {
+        const index = chunk.chunkIndex;
+        if (!chunksByIndex.has(index)) {
+          chunksByIndex.set(index, []);
+        }
+        chunksByIndex.get(index)!.push(chunk);
+      }
+
+      // Trouver et supprimer les doublons (garde le plus récent)
+      let duplicatesRemoved = 0;
+      for (const [index, chunks] of chunksByIndex.entries()) {
+        if (chunks.length > 1) {
+          console.log(`[VectorStore] Found ${chunks.length} duplicates for chunk index ${index}`);
+
+          // Trier par createdAt (le plus récent en premier)
+          chunks.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+          // Garder le premier (plus récent), supprimer les autres
+          const toKeep = chunks[0];
+          const toDelete = chunks.slice(1);
+
+          for (const chunk of toDelete) {
+            try {
+              await this.textCollection.delete(`"id" = '${chunk.id}' AND "createdAt" = ${chunk.createdAt}`);
+              duplicatesRemoved++;
+              console.log(`[VectorStore] Removed duplicate chunk: ${chunk.id} (created at ${chunk.createdAt})`);
+            } catch (error) {
+              console.error('[VectorStore] Failed to remove duplicate:', error);
+            }
+          }
+        }
+      }
+
+      if (duplicatesRemoved > 0) {
+        console.log(`[VectorStore] Removed ${duplicatesRemoved} duplicate chunks for:`, attachmentId);
+      } else {
+        console.log('[VectorStore] No duplicates found for:', attachmentId);
+      }
+
+      return duplicatesRemoved;
+    } catch (error) {
+      console.error('[VectorStore] Error removing duplicates:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Fermer la connexion
    */
   async close(): Promise<void> {

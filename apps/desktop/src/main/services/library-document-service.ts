@@ -553,6 +553,20 @@ export class LibraryDocumentService {
   }
 
   /**
+   * Supprimer les chunks en double pour un document
+   */
+  async removeDuplicateChunks(documentId: string): Promise<number> {
+    try {
+      const removed = await vectorStore.removeDuplicateChunks(documentId);
+      console.log('[LibraryDocumentService] Removed', removed, 'duplicate chunks for:', documentId);
+      return removed;
+    } catch (error) {
+      console.error('[LibraryDocumentService] Remove duplicates error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Rechercher dans une bibliothèque
    */
   async searchInLibrary(params: RAGSearchParams & { libraryId: string }): Promise<any[]> {

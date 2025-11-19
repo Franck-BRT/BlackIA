@@ -165,5 +165,19 @@ export function registerLibraryDocumentHandlers() {
     }
   });
 
+  // Remove duplicate chunks
+  ipcMain.handle('library-document:removeDuplicates', async (_, documentId: string) => {
+    try {
+      const removed = await libraryDocumentService.removeDuplicateChunks(documentId);
+      return { success: true, data: { removed } };
+    } catch (error) {
+      console.error('[IPC] library-document:removeDuplicates error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  });
+
   console.log('[IPC] Library document handlers registered');
 }
