@@ -80,6 +80,20 @@ export class ColetteVisionRAGService {
 
     console.log('[Colette] Python path:', this.pythonPath);
     console.log('[Colette] Script path:', this.scriptPath);
+
+    // Vérifier que le script existe
+    if (!existsSync(this.scriptPath)) {
+      const error = `[Colette] ERROR: Python script not found at ${this.scriptPath}`;
+      console.error(error);
+      console.error('[Colette] This likely means the app was not built correctly.');
+      console.error('[Colette] In production, Python files from src/python should be in:', scriptsPath);
+
+      if (!isDev) {
+        console.error('[Colette] Please rebuild the application with: npm run build:dmg:arm64');
+      }
+    } else {
+      console.log('[Colette] ✓ Python script found');
+    }
   }
 
   /**
