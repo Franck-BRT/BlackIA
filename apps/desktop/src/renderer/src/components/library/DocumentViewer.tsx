@@ -124,10 +124,19 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
       // Déterminer quel modèle utiliser (priorité: config.textModel > selectedModel > défaut)
       const modelToUse = config?.textModel || selectedModel || undefined;
 
+      console.log('[DocumentViewer] Indexing with config:', {
+        mode: config?.mode,
+        textModel: modelToUse,
+        visionModel: config?.visionModel,
+        chunkSize: config?.chunkSize,
+        chunkOverlap: config?.chunkOverlap,
+      });
+
       // Appeler directement l'API avec le modèle sélectionné et la configuration
       const result = await window.electronAPI.libraryDocument.index({
         documentId: doc.id,
         model: modelToUse,
+        visionModel: config?.visionModel,
         mode: config?.mode,
         chunkSize: config?.chunkSize,
         chunkOverlap: config?.chunkOverlap,

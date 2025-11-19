@@ -59,7 +59,8 @@ export interface IndexDocumentParams {
   chunkSize?: number;
   chunkOverlap?: number;
   forceReindex?: boolean;
-  model?: string; // Modèle d'embedding à utiliser (optionnel)
+  model?: string; // Modèle d'embedding textuel à utiliser (optionnel)
+  visionModel?: string; // Modèle d'embedding vision à utiliser (optionnel)
 }
 
 /**
@@ -365,7 +366,24 @@ export class LibraryDocumentService {
 
       // Obtenir la config RAG de la bibliothèque
       const ragConfig = JSON.parse(library.ragConfig);
-      const mode = params.mode || doc.ragMode;
+      let mode = params.mode || doc.ragMode;
+
+      // Résoudre le mode 'auto' en fonction du type de document
+      if (mode === 'auto') {
+        const canIndexVision = this.canIndexVision(doc.mimeType);
+        const hasText = doc.extractedText && doc.extractedText.length > 0;
+
+        if (canIndexVision && hasText) {
+          mode = 'hybrid';
+          logger.info('rag', 'Auto mode resolved to hybrid', `Document: ${params.documentId}`);
+        } else if (canIndexVision) {
+          mode = 'vision';
+          logger.info('rag', 'Auto mode resolved to vision', `Document: ${params.documentId}`);
+        } else {
+          mode = 'text';
+          logger.info('rag', 'Auto mode resolved to text', `Document: ${params.documentId}`);
+        }
+      }
 
       let chunkCount = 0;
       let patchCount = 0;
@@ -423,7 +441,7 @@ export class LibraryDocumentService {
             attachmentId: doc.id,
             entityType: 'document' as EntityType,
             entityId: doc.libraryId,
-            model: ragConfig.vision.model || 'vidore/colpali',
+            model: params.visionModel || ragConfig.vision.model || 'vidore/colpali',
           });
 
           if (visionResult.success) {
@@ -455,6 +473,7 @@ export class LibraryDocumentService {
       await db
         .update(libraryDocuments)
         .set({
+          ragMode: mode as 'text' | 'vision' | 'hybrid' | 'none', // Sauvegarder le mode résolu
           lastIndexedAt: new Date(),
           indexingDuration: duration,
           indexingError: undefined,
