@@ -72,6 +72,8 @@ export class MLXBackend extends BaseAIBackend {
     const pythonPaths = [
       venvPython, // Virtualenv BlackIA en priorité
       this.pythonPath,
+      '/opt/miniconda3/bin/python3', // Conda (user reported packages here)
+      '/opt/anaconda3/bin/python3',  // Anaconda alternative
       'python3',
       '/usr/bin/python3',
       '/opt/homebrew/bin/python3',
