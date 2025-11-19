@@ -355,13 +355,13 @@ export function LibraryPage() {
 
                       <div className="flex items-center gap-2 mt-3">
                         {doc.isIndexedText && (
-                          <span className="px-2 py-0.5 bg-green-900/30 text-green-400 text-xs rounded">
-                            Text RAG
+                          <span className="px-2 py-0.5 bg-green-900/30 text-green-400 text-xs rounded" title={`${doc.textChunkCount} chunks texte`}>
+                            Text RAG ({doc.textChunkCount})
                           </span>
                         )}
                         {doc.isIndexedVision && (
-                          <span className="px-2 py-0.5 bg-purple-900/30 text-purple-400 text-xs rounded">
-                            Vision RAG
+                          <span className="px-2 py-0.5 bg-purple-900/30 text-purple-400 text-xs rounded" title={`${doc.visionPatchCount?.toLocaleString()} patches vision`}>
+                            Vision RAG ({doc.visionPatchCount?.toLocaleString()})
                           </span>
                         )}
                         <span

@@ -175,7 +175,20 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
         const reloadedChunks = await getDocumentChunks(doc.id);
         console.log('[DocumentViewer] Chunks after reindex:', reloadedChunks.length, reloadedChunks);
 
-        setIndexingMessage(`✓ Indexation terminée - ${reloadedChunks.length} chunks générés`);
+        // Message adapté selon le type d'indexation
+        let successMessage = '✓ Indexation terminée';
+        if (result.data?.patchCount > 0 && result.data?.chunkCount > 0) {
+          // Mode hybride
+          successMessage += ` - ${result.data.chunkCount} chunks texte, ${result.data.patchCount.toLocaleString()} patches vision`;
+        } else if (result.data?.patchCount > 0) {
+          // Mode vision uniquement
+          successMessage += ` - ${result.data.patchCount.toLocaleString()} patches vision générés`;
+        } else if (reloadedChunks.length > 0 || result.data?.chunkCount > 0) {
+          // Mode texte uniquement
+          const count = result.data?.chunkCount || reloadedChunks.length;
+          successMessage += ` - ${count} chunks texte générés`;
+        }
+        setIndexingMessage(successMessage);
 
         // Appeler onReindex si fourni pour rafraîchir la liste des documents
         if (onReindex) {
@@ -233,7 +246,13 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
               {doc.isIndexedText && (
                 <>
                   <span>•</span>
-                  <span className="text-green-400">{doc.textChunkCount} chunks</span>
+                  <span className="text-green-400">{doc.textChunkCount} chunks texte</span>
+                </>
+              )}
+              {doc.isIndexedVision && (
+                <>
+                  <span>•</span>
+                  <span className="text-purple-400">{doc.visionPatchCount?.toLocaleString()} patches vision</span>
                 </>
               )}
             </div>
