@@ -6,10 +6,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, List, RefreshCw, Check } from 'lucide-react';
+import { X, List, RefreshCw, Check, Settings } from 'lucide-react';
 import { MarkdownEditor } from '../editor/MarkdownEditor';
 import { useChunkEditor } from '../../hooks/useChunkEditor';
+import { useResizable } from '../../hooks/useResizable';
 import { ChunkList } from './ChunkList';
+import { IndexConfigModal } from './IndexConfigModal';
 import { cn } from '@blackia/ui';
 import type { LibraryDocument } from '../../hooks/useLibraryDocuments';
 
@@ -28,6 +30,60 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   const [validationNotes, setValidationNotes] = useState('');
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexingMessage, setIndexingMessage] = useState('');
+  const [indexingProgress, setIndexingProgress] = useState(0);
+  const [availableModels, setAvailableModels] = useState<Array<{ name: string; downloaded: boolean }>>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('');
+  const [showIndexConfig, setShowIndexConfig] = useState(false);
+
+  // Resizable panel pour les chunks
+  const { width: chunksPanelWidth, isResizing, handleMouseDown } = useResizable({
+    initialWidth: 400,
+    minWidth: 250,
+    maxWidth: 1400,
+    storageKey: 'documentViewer-chunksPanelWidth',
+  });
+
+  // Charger les modèles disponibles
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        console.log('[DocumentViewer] Loading embedding models...');
+        const result = await window.electronAPI.mlx.embeddings.list();
+        console.log('[DocumentViewer] Models result:', result);
+
+        // L'API retourne soit { success, data } soit directement un tableau
+        let models = [];
+        if (result.success && result.data) {
+          models = result.data;
+        } else if (Array.isArray(result)) {
+          models = result;
+        }
+
+        console.log('[DocumentViewer] Available models:', models);
+        const downloadedModels = models.filter((m: any) => m.downloaded);
+        console.log('[DocumentViewer] Downloaded models:', downloadedModels);
+
+        setAvailableModels(models);
+
+        // Initialiser avec le modèle actuel du document ou le premier modèle téléchargé
+        if (doc.textEmbeddingModel) {
+          console.log('[DocumentViewer] Using document model:', doc.textEmbeddingModel);
+          setSelectedModel(doc.textEmbeddingModel);
+        } else {
+          const firstDownloaded = models.find((m: any) => m.downloaded);
+          if (firstDownloaded) {
+            console.log('[DocumentViewer] Using first downloaded model:', firstDownloaded.name);
+            setSelectedModel(firstDownloaded.name);
+          } else {
+            console.log('[DocumentViewer] No downloaded models found');
+          }
+        }
+      } catch (error) {
+        console.error('[DocumentViewer] Failed to load models:', error);
+      }
+    };
+    loadModels();
+  }, [doc.textEmbeddingModel]);
 
   useEffect(() => {
     if (doc.id) {
@@ -51,36 +107,95 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
     }
   }, [doc.id, doc.isIndexedText, doc.textChunkCount, getDocumentChunks]);
 
-  const handleReindex = async () => {
-    console.log('[DocumentViewer] Reindex button clicked for document:', doc.id);
-    if (onReindex) {
-      setIsIndexing(true);
-      setIndexingMessage('Indexation en cours...');
+  // Listen for indexing progress events
+  useEffect(() => {
+    const handleProgress = (progress: {
+      documentId: string;
+      stage: string;
+      percentage: number;
+      message?: string;
+    }) => {
+      if (progress.documentId === doc.id) {
+        setIndexingProgress(progress.percentage);
+        setIndexingMessage(progress.message || `${progress.stage} - ${progress.percentage}%`);
+      }
+    };
 
-      try {
-        console.log('[DocumentViewer] Calling onReindex...');
-        await onReindex(doc.id);
+    window.electronAPI.libraryDocument.onIndexProgress(handleProgress);
 
+    return () => {
+      window.electronAPI.libraryDocument.removeIndexProgressListener();
+    };
+  }, [doc.id]);
+
+  const handleReindex = async (config?: {
+    chunkSize?: number;
+    chunkOverlap?: number;
+    separator?: 'paragraph' | 'sentence' | 'line' | 'custom';
+    customSeparator?: string;
+    mode?: 'text' | 'vision' | 'hybrid' | 'auto';
+    textModel?: string;
+    visionModel?: string;
+    forceReindex?: boolean;
+  }) => {
+    console.log('[DocumentViewer] ========== REINDEX START ==========');
+    console.log('[DocumentViewer] Document ID:', doc.id);
+    console.log('[DocumentViewer] Config received:', JSON.stringify(config, null, 2));
+
+    setIsIndexing(true);
+    setIndexingProgress(0);
+    setIndexingMessage('Démarrage de l\'indexation...');
+
+    try {
+      // Déterminer quel modèle utiliser (priorité: config.textModel > selectedModel > défaut)
+      const modelToUse = config?.textModel || selectedModel || undefined;
+
+      const indexParams = {
+        documentId: doc.id,
+        model: modelToUse,
+        visionModel: config?.visionModel,
+        mode: config?.mode,
+        chunkSize: config?.chunkSize,
+        chunkOverlap: config?.chunkOverlap,
+        forceReindex: config?.forceReindex,
+      };
+
+      console.log('[DocumentViewer] Sending to backend:', JSON.stringify(indexParams, null, 2));
+
+      // Appeler directement l'API avec le modèle sélectionné et la configuration
+      const result = await window.electronAPI.libraryDocument.index(indexParams);
+
+      console.log('[DocumentViewer] ========== INDEXATION RESULT ==========');
+      console.log('[DocumentViewer] Full result from backend:', JSON.stringify(result, null, 2));
+
+      if (result.success) {
         setIndexingMessage('Rechargement des chunks...');
+        console.log('[DocumentViewer] Result.data:', JSON.stringify(result.data, null, 2));
         console.log('[DocumentViewer] Reindex complete, reloading chunks...');
         const reloadedChunks = await getDocumentChunks(doc.id);
         console.log('[DocumentViewer] Chunks after reindex:', reloadedChunks.length, reloadedChunks);
 
         setIndexingMessage(`✓ Indexation terminée - ${reloadedChunks.length} chunks générés`);
+
+        // Appeler onReindex si fourni pour rafraîchir la liste des documents
+        if (onReindex) {
+          await onReindex(doc.id);
+        }
+
         setTimeout(() => {
           setIsIndexing(false);
           setIndexingMessage('');
         }, 3000);
-      } catch (error) {
-        console.error('[DocumentViewer] Reindex error:', error);
-        setIndexingMessage('❌ Erreur lors de l\'indexation');
-        setTimeout(() => {
-          setIsIndexing(false);
-          setIndexingMessage('');
-        }, 3000);
+      } else {
+        throw new Error(result.error || 'Indexation échouée');
       }
-    } else {
-      console.warn('[DocumentViewer] onReindex callback not provided');
+    } catch (error) {
+      console.error('[DocumentViewer] Reindex error:', error);
+      setIndexingMessage('❌ Erreur lors de l\'indexation');
+      setTimeout(() => {
+        setIsIndexing(false);
+        setIndexingMessage('');
+      }, 3000);
     }
   };
 
@@ -99,7 +214,7 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex flex-col bg-neutral-950">
       {/* Header Bar */}
-      <div className="flex-none h-16 bg-neutral-900/95 backdrop-blur-sm border-b border-neutral-800 flex items-center justify-between px-6">
+      <div className="flex-none h-16 bg-neutral-900/95 backdrop-blur-sm border-b border-neutral-800 flex items-center justify-between pl-20 pr-6">
         <div className="flex items-center gap-4">
           <button
             onClick={onClose}
@@ -122,6 +237,22 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
                 </>
               )}
             </div>
+            {(doc.textEmbeddingModel || doc.visionEmbeddingModel) && (
+              <div className="flex items-center gap-2 text-xs text-neutral-500 mt-1">
+                <span>📊 Modèles:</span>
+                {doc.textEmbeddingModel && (
+                  <span className="text-green-400" title={doc.textEmbeddingModel}>
+                    Text: {doc.textEmbeddingModel}
+                  </span>
+                )}
+                {doc.textEmbeddingModel && doc.visionEmbeddingModel && <span>•</span>}
+                {doc.visionEmbeddingModel && (
+                  <span className="text-purple-400" title={doc.visionEmbeddingModel}>
+                    Vision: {doc.visionEmbeddingModel}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -139,28 +270,82 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
           </button>
 
           {onReindex && (
-            <button
-              onClick={handleReindex}
-              disabled={isIndexing}
-              className={cn(
-                "px-3 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm",
-                isIndexing ? "opacity-50 cursor-not-allowed" : "hover:bg-white/10"
-              )}
-              title="Réindexer le document"
-            >
-              <RefreshCw className={cn("w-4 h-4", isIndexing && "animate-spin")} />
-              <span>Réindexer</span>
-            </button>
+            <>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                disabled={isIndexing}
+                className={cn(
+                  "px-3 py-2 rounded-lg bg-neutral-800 border border-neutral-700 text-sm text-neutral-100",
+                  "hover:border-neutral-600 focus:outline-none focus:border-blue-500 transition-colors",
+                  isIndexing && "opacity-50 cursor-not-allowed"
+                )}
+                title="Sélectionner le modèle d'embedding"
+              >
+                <option value="" disabled>Choisir un modèle...</option>
+                {availableModels
+                  .filter((m) => m.downloaded)
+                  .map((model) => (
+                    <option key={model.name} value={model.name}>
+                      {model.name.split('/').pop()}
+                    </option>
+                  ))}
+              </select>
+
+              <button
+                onClick={() => setShowIndexConfig(true)}
+                disabled={isIndexing || !selectedModel}
+                className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  isIndexing || !selectedModel ? "opacity-50 cursor-not-allowed" : "hover:bg-white/10"
+                )}
+                title="Configurer l'indexation"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => handleReindex()}
+                disabled={isIndexing || !selectedModel}
+                className={cn(
+                  "px-3 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm",
+                  isIndexing || !selectedModel ? "opacity-50 cursor-not-allowed" : "hover:bg-white/10"
+                )}
+                title={selectedModel ? "Réindexer le document avec le modèle sélectionné" : "Sélectionnez un modèle d'abord"}
+              >
+                <RefreshCw className={cn("w-4 h-4", isIndexing && "animate-spin")} />
+                <span>Réindexer</span>
+              </button>
+            </>
           )}
 
           {indexingMessage && (
             <div className={cn(
-              "px-3 py-2 rounded-lg text-sm flex items-center gap-2",
-              indexingMessage.includes('✓') ? "bg-green-500/20 text-green-300" :
-              indexingMessage.includes('❌') ? "bg-red-500/20 text-red-300" :
-              "bg-blue-500/20 text-blue-300"
+              "px-3 py-2 rounded-lg text-sm",
+              indexingMessage.includes('✓') || indexingProgress === 100 ? "bg-green-500/20" :
+              indexingMessage.includes('❌') ? "bg-red-500/20" :
+              "bg-blue-500/20"
             )}>
-              {indexingMessage}
+              <div className="flex items-center gap-2 mb-1">
+                <span className={cn(
+                  indexingMessage.includes('✓') || indexingProgress === 100 ? "text-green-300" :
+                  indexingMessage.includes('❌') ? "text-red-300" :
+                  "text-blue-300"
+                )}>
+                  {indexingMessage}
+                </span>
+                {isIndexing && indexingProgress < 100 && (
+                  <span className="text-xs text-neutral-400">{indexingProgress}%</span>
+                )}
+              </div>
+              {isIndexing && indexingProgress < 100 && (
+                <div className="w-full bg-neutral-700 rounded-full h-1.5">
+                  <div
+                    className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: `${indexingProgress}%` }}
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -185,10 +370,7 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
       {/* Content Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Main Editor - Uses MarkdownEditor component */}
-        <div className={cn(
-          'flex-1 overflow-hidden',
-          showChunksPanel && 'border-r border-neutral-800'
-        )}>
+        <div className="flex-1 overflow-hidden">
           <MarkdownEditor
             initialContent={doc.extractedText || '# Aucun contenu\n\nLe texte n\'a pas pu être extrait de ce document.'}
             onSave={(content) => {
@@ -197,9 +379,27 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
           />
         </div>
 
+        {/* Resizable Divider */}
+        {showChunksPanel && (
+          <div
+            onMouseDown={handleMouseDown}
+            className={cn(
+              "w-1 cursor-col-resize hover:bg-blue-500/50 transition-colors relative group",
+              isResizing && "bg-blue-500"
+            )}
+            title="Glisser pour redimensionner"
+          >
+            {/* Visual indicator */}
+            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-neutral-700 group-hover:bg-blue-500/50 transition-colors" />
+          </div>
+        )}
+
         {/* Chunks Panel */}
         {showChunksPanel && (
-          <div className="w-96 flex flex-col bg-neutral-900/50">
+          <div
+            className="flex flex-col bg-neutral-900/50"
+            style={{ width: `${chunksPanelWidth}px` }}
+          >
             <div className="p-4 border-b border-neutral-800">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-medium text-neutral-200">
@@ -274,6 +474,25 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
           </div>
         </div>
       )}
+
+      {/* Index Configuration Modal */}
+      <IndexConfigModal
+        isOpen={showIndexConfig}
+        onClose={() => setShowIndexConfig(false)}
+        onConfirm={(config) => {
+          setShowIndexConfig(false);
+          handleReindex(config);
+        }}
+        currentConfig={{
+          chunkSize: 512,
+          chunkOverlap: 10,
+          separator: 'paragraph',
+          mode: 'auto',
+          textModel: selectedModel || doc.textEmbeddingModel,
+          visionModel: doc.visionEmbeddingModel,
+          forceReindex: true,
+        }}
+      />
     </div>,
     portalRoot
   );

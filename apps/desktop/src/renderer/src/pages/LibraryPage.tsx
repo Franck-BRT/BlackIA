@@ -63,17 +63,17 @@ export function LibraryPage() {
   };
 
   const handleReindexDocument = async (documentId: string) => {
-    console.log('[LibraryPage] Starting reindex for document:', documentId);
+    console.log('[LibraryPage] Refreshing document list after reindex:', documentId);
     try {
-      const result = await indexDocument({ documentId });
-      console.log('[LibraryPage] Index result:', JSON.stringify(result, null, 2));
+      // Just refresh the document list to show updated stats
+      // Do NOT call indexDocument again - it was already called by DocumentViewer
       if (selectedLibrary) {
         await getDocuments(selectedLibrary.id);
         await refreshLibraries();
       }
-      console.log('[LibraryPage] Reindex complete');
+      console.log('[LibraryPage] Document list refreshed');
     } catch (error) {
-      console.error('[LibraryPage] Reindex error:', error);
+      console.error('[LibraryPage] Refresh error:', error);
     }
   };
 
@@ -332,6 +332,24 @@ export function LibraryPage() {
                             <p className="text-xs text-neutral-400">
                               {formatBytes(doc.size)} • {doc.mimeType}
                             </p>
+                            {(doc.textEmbeddingModel || doc.visionEmbeddingModel) && (
+                              <p className="text-xs text-neutral-500 mt-1 flex items-center gap-1">
+                                <span className="text-neutral-600">📊</span>
+                                {doc.textEmbeddingModel && (
+                                  <span className="truncate" title={doc.textEmbeddingModel}>
+                                    Text: {doc.textEmbeddingModel.split('/').pop()}
+                                  </span>
+                                )}
+                                {doc.textEmbeddingModel && doc.visionEmbeddingModel && (
+                                  <span>•</span>
+                                )}
+                                {doc.visionEmbeddingModel && (
+                                  <span className="truncate" title={doc.visionEmbeddingModel}>
+                                    Vision: {doc.visionEmbeddingModel.split('/').pop()}
+                                  </span>
+                                )}
+                              </p>
+                            )}
                           </div>
                         </div>
 

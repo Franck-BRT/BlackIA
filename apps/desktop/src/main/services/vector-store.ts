@@ -325,6 +325,7 @@ export class VectorStoreService {
           text: row.text,
           score: 1.0, // Pas de score de similarité puisque ce n'est pas une recherche
           vector: row.vector,
+          createdAt: row.createdAt, // Ajouter createdAt pour la déduplication
           metadata: {
             originalName: metadata.originalName || '',
             entityType: row.entityType as EntityType,
@@ -651,22 +652,36 @@ export class VectorStoreService {
     // Supprimer des text chunks
     if (this.textCollection) {
       try {
-        await this.textCollection.delete(`attachmentId = '${attachmentId}'`);
+        await this.textCollection.delete(`"attachmentId" = '${attachmentId}'`);
         console.log('[VectorStore] Deleted text chunks for attachment:', attachmentId);
         textDeleted = true;
-      } catch (error) {
-        console.warn('[VectorStore] Could not delete text chunks (may not exist):', error);
+      } catch (error: any) {
+        // Ne propager que les vraies erreurs, pas les "not found"
+        const errorMsg = error?.message || String(error);
+        if (errorMsg.includes('No rows') || errorMsg.includes('not found') || errorMsg.includes('does not exist')) {
+          console.log('[VectorStore] No text chunks to delete for:', attachmentId);
+        } else {
+          console.error('[VectorStore] Failed to delete text chunks:', error);
+          throw error;
+        }
       }
     }
 
     // Supprimer des vision patches
     if (this.visionCollection) {
       try {
-        await this.visionCollection.delete(`attachmentId = '${attachmentId}'`);
+        await this.visionCollection.delete(`"attachmentId" = '${attachmentId}'`);
         console.log('[VectorStore] Deleted vision patches for attachment:', attachmentId);
         visionDeleted = true;
-      } catch (error) {
-        console.warn('[VectorStore] Could not delete vision patches (may not exist):', error);
+      } catch (error: any) {
+        // Ne propager que les vraies erreurs, pas les "not found"
+        const errorMsg = error?.message || String(error);
+        if (errorMsg.includes('No rows') || errorMsg.includes('not found') || errorMsg.includes('does not exist')) {
+          console.log('[VectorStore] No vision patches to delete for:', attachmentId);
+        } else {
+          console.error('[VectorStore] Failed to delete vision patches:', error);
+          throw error;
+        }
       }
     }
 
@@ -683,7 +698,7 @@ export class VectorStoreService {
    */
   async deleteByEntityId(entityType: EntityType, entityId: string): Promise<void> {
     try {
-      const filter = `entityType = '${entityType}' AND entityId = '${entityId}'`;
+      const filter = `"entityType" = '${entityType}' AND "entityId" = '${entityId}'`;
 
       if (this.textCollection) {
         await this.textCollection.delete(filter);
@@ -803,7 +818,7 @@ export class VectorStoreService {
     try {
       // Créer un filtre NOT IN avec les IDs valides
       const validIdsFilter = validAttachmentIds.map((id) => `'${id}'`).join(', ');
-      const orphanFilter = `attachmentId NOT IN (${validIdsFilter})`;
+      const orphanFilter = `"attachmentId" NOT IN (${validIdsFilter})`;
 
       if (this.textCollection) {
         const beforeCount = await this.textCollection.countRows();
@@ -823,6 +838,82 @@ export class VectorStoreService {
       return deletedCount;
     } catch (error) {
       console.error('[VectorStore] Error cleaning orphans:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Supprimer les chunks en double (garde uniquement le plus récent par ID)
+   * Utile pour nettoyer les doublons créés avant la correction du bug de suppression
+   */
+  async removeDuplicateChunks(attachmentId: string): Promise<number> {
+    if (!this.textCollection) {
+      console.warn('[VectorStore] No text collection available');
+      return 0;
+    }
+
+    try {
+      console.log('[VectorStore] Checking for duplicate chunks for:', attachmentId);
+
+      // Récupérer tous les chunks bruts (schéma LanceDB) de ce document
+      const dummyVector = new Array(768).fill(0.001);
+      const allResults = await this.textCollection
+        .search(dummyVector)
+        .limit(10000)
+        .nprobes(100)
+        .execute();
+
+      // Filtrer par attachmentId
+      const allChunks = allResults.filter((row: any) => row.attachmentId === attachmentId);
+
+      if (allChunks.length === 0) {
+        console.log('[VectorStore] No chunks found for:', attachmentId);
+        return 0;
+      }
+
+      // Grouper par chunkIndex
+      const chunksByIndex = new Map<number, any[]>();
+      for (const chunk of allChunks) {
+        const index = chunk.chunkIndex;
+        if (!chunksByIndex.has(index)) {
+          chunksByIndex.set(index, []);
+        }
+        chunksByIndex.get(index)!.push(chunk);
+      }
+
+      // Trouver et supprimer les doublons (garde le plus récent)
+      let duplicatesRemoved = 0;
+      for (const [index, chunks] of chunksByIndex.entries()) {
+        if (chunks.length > 1) {
+          console.log(`[VectorStore] Found ${chunks.length} duplicates for chunk index ${index}`);
+
+          // Trier par createdAt (le plus récent en premier)
+          chunks.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+          // Garder le premier (plus récent), supprimer les autres
+          const toDelete = chunks.slice(1);
+
+          for (const chunk of toDelete) {
+            try {
+              await this.textCollection.delete(`"id" = '${chunk.id}' AND "createdAt" = ${chunk.createdAt}`);
+              duplicatesRemoved++;
+              console.log(`[VectorStore] Removed duplicate chunk: ${chunk.id} (created at ${chunk.createdAt})`);
+            } catch (error) {
+              console.error('[VectorStore] Failed to remove duplicate:', error);
+            }
+          }
+        }
+      }
+
+      if (duplicatesRemoved > 0) {
+        console.log(`[VectorStore] Removed ${duplicatesRemoved} duplicate chunks for:`, attachmentId);
+      } else {
+        console.log('[VectorStore] No duplicates found for:', attachmentId);
+      }
+
+      return duplicatesRemoved;
+    } catch (error) {
+      console.error('[VectorStore] Error removing duplicates:', error);
       throw error;
     }
   }

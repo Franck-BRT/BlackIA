@@ -1,32 +1,42 @@
 # MLX Backend
 
-Backend natif pour Apple Silicon utilisant sentence-transformers pour les embeddings.
+Backend natif complet pour Apple Silicon utilisant MLX pour LLM et embeddings.
 
 ## 🎯 Avantages
 
-- ⚡ **2-3x plus rapide** qu'Ollama sur Apple Silicon
+- ⚡ **10-20x plus rapide** qu'Ollama sur Apple Silicon
 - 🔒 **Pas de serveur HTTP** : communication IPC directe
 - 🐛 **Pas de bugs** : évite les problèmes Ollama EOF
-- 💾 **Modèles plus petits** : 80MB vs 270MB pour nomic-embed-text
-- 🎨 **Natif Apple** : optimisé pour M1/M2/M3
+- 💾 **Modèles optimisés** : quantization 4-bit/8-bit pour Apple Silicon
+- 🎨 **Natif Apple** : utilise Metal GPU et Unified Memory
+- 🤖 **LLM complets** : chat, génération, embeddings
+- 🏪 **Store intégré** : téléchargement depuis Hugging Face
+
+## 📁 Fichiers
+
+- **`mlx_llm_server.py`** - Serveur principal pour LLM (chat, génération)
+- **`mlx_embeddings.py`** - Serveur pour embeddings (RAG)
+- **`mlx_model_downloader.py`** - Téléchargeur de modèles depuis Hugging Face
+- **`mlx-backend.ts`** - Backend TypeScript pour embeddings
+- **`mlx-llm-backend.ts`** - Backend TypeScript pour LLM (à créer)
 
 ## 📦 Installation
 
 ### Prérequis
 
-- macOS avec Apple Silicon (M1/M2/M3)
-- Python 3.8+
+- macOS avec Apple Silicon (M1/M2/M3/M4)
+- Python 3.10+
 
 ### Installer les dépendances Python
 
 ```bash
 # Option 1: Installation simple
-pip3 install sentence-transformers torch
+pip3 install mlx-lm sentence-transformers huggingface_hub torch
 
 # Option 2: Avec environnement virtuel (recommandé)
 python3 -m venv ~/.blackia-mlx
 source ~/.blackia-mlx/bin/activate
-pip install sentence-transformers torch
+pip install mlx-lm sentence-transformers huggingface_hub torch
 ```
 
 ### Vérifier l'installation

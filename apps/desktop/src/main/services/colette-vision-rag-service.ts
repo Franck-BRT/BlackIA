@@ -56,14 +56,17 @@ export class ColetteVisionRAGService {
     const isDev = !app.isPackaged;
     const appPath = app.getAppPath();
 
+    // Déclarer scriptsPath en dehors du if/else pour qu'elle soit accessible partout
+    let scriptsPath: string;
+
     if (isDev) {
       // Development: détecter le meilleur Python disponible
-      const scriptsPath = path.join(appPath, 'apps/desktop/src/python');
+      scriptsPath = path.join(appPath, 'apps/desktop/src/python');
       this.scriptPath = path.join(scriptsPath, 'vision_rag/colette_embedder.py');
       this.pythonPath = this.detectPythonPath(scriptsPath);
     } else {
       // Production: essayer plusieurs chemins et détecter Python système
-      const scriptsPath = path.join(process.resourcesPath, 'python');
+      scriptsPath = path.join(process.resourcesPath, 'python');
       this.scriptPath = path.join(scriptsPath, 'vision_rag/colette_embedder.py');
 
       // Essayer la détection même en production
@@ -80,6 +83,20 @@ export class ColetteVisionRAGService {
 
     console.log('[Colette] Python path:', this.pythonPath);
     console.log('[Colette] Script path:', this.scriptPath);
+
+    // Vérifier que le script existe
+    if (!existsSync(this.scriptPath)) {
+      const error = `[Colette] ERROR: Python script not found at ${this.scriptPath}`;
+      console.error(error);
+      console.error('[Colette] This likely means the app was not built correctly.');
+      console.error('[Colette] In production, Python files from src/python should be in:', scriptsPath);
+
+      if (!isDev) {
+        console.error('[Colette] Please rebuild the application with: npm run build:dmg:arm64');
+      }
+    } else {
+      console.log('[Colette] ✓ Python script found');
+    }
   }
 
   /**

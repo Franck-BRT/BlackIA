@@ -27,6 +27,7 @@ import { recommendRAGMode } from '../types/rag';
 import type { EntityType, StoredRAGMode, TextRAGResult, RAGSearchParams } from '../types/rag';
 import { libraryService } from './library-service';
 import { logger } from './log-service';
+import { getEmbeddingManager } from './mlx-embedding-manager';
 
 /**
  * Document with parsed JSON fields
@@ -51,6 +52,16 @@ export interface DocumentFilters {
 }
 
 /**
+ * Callback de progression d'indexation
+ */
+export type IndexProgressCallback = (progress: {
+  documentId: string;
+  stage: string;
+  percentage: number;
+  message?: string;
+}) => void;
+
+/**
  * Paramètres d'indexation
  */
 export interface IndexDocumentParams {
@@ -59,6 +70,9 @@ export interface IndexDocumentParams {
   chunkSize?: number;
   chunkOverlap?: number;
   forceReindex?: boolean;
+  model?: string; // Modèle d'embedding textuel à utiliser (optionnel)
+  visionModel?: string; // Modèle d'embedding vision à utiliser (optionnel)
+  onProgress?: IndexProgressCallback; // Callback pour les événements de progression
 }
 
 /**
@@ -351,11 +365,23 @@ export class LibraryDocumentService {
     const db = getDatabase();
     const startTime = Date.now();
 
+    console.log('[LibraryDocumentService] ========== INDEXATION START ==========');
+    console.log('[LibraryDocumentService] Params received:', JSON.stringify(params, null, 2));
+
     try {
       const doc = await this.getById(params.documentId);
       if (!doc) {
         throw new Error(`Document not found: ${params.documentId}`);
       }
+
+      console.log('[LibraryDocumentService] Document info:', {
+        id: doc.id,
+        name: doc.originalName,
+        mimeType: doc.mimeType,
+        hasText: !!doc.extractedText,
+        textLength: doc.extractedText?.length || 0,
+        currentRagMode: doc.ragMode,
+      });
 
       const library = await libraryService.getById(doc.libraryId);
       if (!library) {
@@ -364,27 +390,96 @@ export class LibraryDocumentService {
 
       // Obtenir la config RAG de la bibliothèque
       const ragConfig = JSON.parse(library.ragConfig);
-      const mode = params.mode || doc.ragMode;
+
+      console.log('[LibraryDocumentService] Mode selection logic:', {
+        'params.mode': params.mode,
+        'typeof params.mode': typeof params.mode,
+        'params.mode === undefined': params.mode === undefined,
+        'params.mode === null': params.mode === null,
+        '!params.mode': !params.mode,
+        'doc.ragMode': doc.ragMode,
+      });
+
+      let mode = params.mode || doc.ragMode;
+
+      console.log('[LibraryDocumentService] Mode before resolution:', mode);
+
+      // Résoudre le mode 'auto' en fonction du type de document
+      if (mode === 'auto') {
+        const canIndexVision = this.canIndexVision(doc.mimeType);
+        const hasText = doc.extractedText && doc.extractedText.length > 0;
+
+        console.log('[LibraryDocumentService] Auto mode detection:', {
+          canIndexVision,
+          hasText,
+          mimeType: doc.mimeType,
+        });
+
+        if (canIndexVision && hasText) {
+          mode = 'hybrid';
+          logger.info('rag', 'Auto mode resolved to hybrid', `Document: ${params.documentId}`);
+        } else if (canIndexVision) {
+          mode = 'vision';
+          logger.info('rag', 'Auto mode resolved to vision', `Document: ${params.documentId}`);
+        } else {
+          mode = 'text';
+          logger.info('rag', 'Auto mode resolved to text', `Document: ${params.documentId}`);
+        }
+      }
+
+      console.log('[LibraryDocumentService] Mode after resolution:', mode);
 
       let chunkCount = 0;
       let patchCount = 0;
+
+      // Notifier le début de l'indexation
+      params.onProgress?.({
+        documentId: params.documentId,
+        stage: 'preparation',
+        percentage: 0,
+        message: 'Préparation de l\'indexation...',
+      });
 
       // Supprimer l'ancien index avant de réindexer
       logger.debug('rag', 'Deleting old index before reindexing', `Document: ${params.documentId}`);
       await this.deleteIndex(params.documentId);
 
+      params.onProgress?.({
+        documentId: params.documentId,
+        stage: 'preparation',
+        percentage: 10,
+        message: 'Index précédent supprimé',
+      });
+
       // TEXT RAG
+      console.log('[LibraryDocumentService] TEXT RAG condition check:', {
+        mode,
+        'mode === "text"': mode === 'text',
+        'mode === "hybrid"': mode === 'hybrid',
+        'condition result': mode === 'text' || mode === 'hybrid',
+      });
+
       if (mode === 'text' || mode === 'hybrid') {
+        console.log('[LibraryDocumentService] ⚠️ ENTERING TEXT RAG INDEXATION');
+
+        params.onProgress?.({
+          documentId: params.documentId,
+          stage: 'text-indexing',
+          percentage: mode === 'hybrid' ? 15 : 20,
+          message: 'Indexation du texte...',
+        });
+
         if (!doc.extractedText || doc.extractedText.length === 0) {
           logger.warning('rag', 'No text to index', `Document: ${params.documentId}`);
         } else {
+          console.log('[LibraryDocumentService] Starting text indexation...');
           logger.debug('rag', 'Indexing text RAG', `Document: ${params.documentId}, AttachmentId: ${doc.id}`);
           const textResult = await textRAGService.indexDocument({
             text: doc.extractedText,
             attachmentId: doc.id,
             entityType: 'document' as EntityType,
             entityId: doc.libraryId,
-            // model parameter removed - uses MLX default model from textRAGService
+            model: params.model, // Utiliser le modèle spécifié ou le défaut du service
             chunkingOptions: {
               chunkSize: params.chunkSize || ragConfig.text.chunkSize,
               chunkOverlap: params.chunkOverlap || (ragConfig.text.chunkSize * ragConfig.text.chunkOverlap) / 100,
@@ -398,31 +493,88 @@ export class LibraryDocumentService {
               .update(libraryDocuments)
               .set({
                 isIndexedText: true,
-                textEmbeddingModel: 'sentence-transformers/all-mpnet-base-v2',
+                textEmbeddingModel: textResult.model,
                 textChunkCount: chunkCount,
               })
               .where(eq(libraryDocuments.id, doc.id));
+
+            params.onProgress?.({
+              documentId: params.documentId,
+              stage: 'text-indexing',
+              percentage: mode === 'hybrid' ? 40 : 80,
+              message: `Texte indexé (${chunkCount} chunks)`,
+            });
           } else {
             throw new Error(textResult.error || 'Text indexing failed');
           }
         }
+      } else {
+        console.log('[LibraryDocumentService] ✓ SKIPPING TEXT RAG (mode is not text or hybrid)');
       }
 
       // VISION RAG with Colette
+      console.log('[LibraryDocumentService] Checking if should do vision indexation:', {
+        mode,
+        shouldIndex: mode === 'vision' || mode === 'hybrid',
+      });
+
       if (mode === 'vision' || mode === 'hybrid') {
         const canIndexVision = this.canIndexVision(doc.mimeType);
+        const visionModelName = params.visionModel || ragConfig.vision.model || 'vidore/colpali';
+
+        console.log('[LibraryDocumentService] Vision RAG check:', {
+          canIndexVision,
+          mimeType: doc.mimeType,
+          filePath: doc.filePath,
+          visionModel: visionModelName,
+        });
 
         if (!canIndexVision) {
           console.warn('[LibraryDocumentService] Document type not supported for vision RAG:', doc.mimeType);
         } else {
+          params.onProgress?.({
+            documentId: params.documentId,
+            stage: 'vision-indexing',
+            percentage: mode === 'hybrid' ? 45 : 20,
+            message: 'Préparation du modèle vision...',
+          });
+
+          // Check model backend to ensure compatibility
+          const modelBackend = await this.getModelBackend(visionModelName);
+
+          console.log('[LibraryDocumentService] Vision model backend check:', {
+            model: visionModelName,
+            backend: modelBackend,
+          });
+
+          // Validate backend compatibility
+          if (modelBackend === 'mlx') {
+            const errorMsg = `Le modèle MLX "${visionModelName}" n'est pas encore supporté pour Vision RAG. Utilisez un modèle ColPali (vidore/colpali ou vidore/colpali-v1.2) qui fonctionne sur toutes les plateformes.`;
+            console.error('[LibraryDocumentService]', errorMsg);
+            throw new Error(errorMsg);
+          }
+
+          if (modelBackend && modelBackend !== 'colette') {
+            const errorMsg = `Le modèle "${visionModelName}" (backend: ${modelBackend}) n'est pas compatible avec Vision RAG. Utilisez un modèle ColPali avec backend 'colette'.`;
+            console.error('[LibraryDocumentService]', errorMsg);
+            throw new Error(errorMsg);
+          }
+
           console.log('[LibraryDocumentService] Starting vision indexation with Colette...');
+
+          params.onProgress?.({
+            documentId: params.documentId,
+            stage: 'vision-indexing',
+            percentage: mode === 'hybrid' ? 50 : 30,
+            message: 'Indexation visuelle en cours...',
+          });
 
           const visionResult = await coletteVisionRAGService.indexDocument({
             imagePaths: [doc.filePath], // Colette handles PDF to image conversion internally
             attachmentId: doc.id,
             entityType: 'document' as EntityType,
             entityId: doc.libraryId,
-            model: ragConfig.vision.model || 'vidore/colpali',
+            model: visionModelName,
           });
 
           if (visionResult.success) {
@@ -442,6 +594,13 @@ export class LibraryDocumentService {
               pageCount: visionResult.pageCount,
               model: visionResult.model,
             });
+
+            params.onProgress?.({
+              documentId: params.documentId,
+              stage: 'vision-indexing',
+              percentage: mode === 'hybrid' ? 90 : 80,
+              message: `Vision indexée (${patchCount} patches)`,
+            });
           } else {
             console.error('[LibraryDocumentService] Vision indexation failed:', visionResult.error);
             throw new Error(visionResult.error || 'Vision indexing failed');
@@ -450,10 +609,27 @@ export class LibraryDocumentService {
       }
 
       // Mettre à jour les métadonnées d'indexation
+      params.onProgress?.({
+        documentId: params.documentId,
+        stage: 'finalizing',
+        percentage: 95,
+        message: 'Finalisation...',
+      });
+
       const duration = Date.now() - startTime;
+
+      console.log('[LibraryDocumentService] Saving indexation results to DB:', {
+        documentId: doc.id,
+        ragMode: mode,
+        chunkCount,
+        patchCount,
+        duration: `${duration}ms`,
+      });
+
       await db
         .update(libraryDocuments)
         .set({
+          ragMode: mode as 'text' | 'vision' | 'hybrid' | 'none', // Sauvegarder le mode résolu
           lastIndexedAt: new Date(),
           indexingDuration: duration,
           indexingError: undefined,
@@ -463,12 +639,20 @@ export class LibraryDocumentService {
       // Mettre à jour les stats de la bibliothèque
       await libraryService.updateStats(doc.libraryId);
 
-      console.log('[LibraryDocumentService] Document indexed:', {
+      console.log('[LibraryDocumentService] ========== INDEXATION COMPLETE ==========');
+      console.log('[LibraryDocumentService] Final result:', {
         documentId: params.documentId,
         mode,
         chunkCount,
         patchCount,
         duration: `${duration}ms`,
+      });
+
+      params.onProgress?.({
+        documentId: params.documentId,
+        stage: 'complete',
+        percentage: 100,
+        message: `Indexation terminée (${chunkCount} chunks, ${patchCount} patches)`,
       });
 
       return {
@@ -553,6 +737,20 @@ export class LibraryDocumentService {
   }
 
   /**
+   * Supprimer les chunks en double pour un document
+   */
+  async removeDuplicateChunks(documentId: string): Promise<number> {
+    try {
+      const removed = await vectorStore.removeDuplicateChunks(documentId);
+      console.log('[LibraryDocumentService] Removed', removed, 'duplicate chunks for:', documentId);
+      return removed;
+    } catch (error) {
+      console.error('[LibraryDocumentService] Remove duplicates error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Rechercher dans une bibliothèque
    */
   async searchInLibrary(params: RAGSearchParams & { libraryId: string }): Promise<any[]> {
@@ -603,6 +801,21 @@ export class LibraryDocumentService {
         return custom || '\n\n';
       default:
         return '\n\n';
+    }
+  }
+
+  /**
+   * Get the backend for a given model
+   */
+  private async getModelBackend(modelName: string): Promise<'sentence-transformers' | 'mlx' | 'colette' | undefined> {
+    try {
+      const embeddingManager = getEmbeddingManager();
+      const models = await embeddingManager.listModels();
+      const model = models.find(m => m.name === modelName);
+      return model?.backend;
+    } catch (error) {
+      console.error('[LibraryDocumentService] Error getting model backend:', error);
+      return undefined;
     }
   }
 

@@ -110,9 +110,29 @@ export function registerLibraryDocumentHandlers() {
   });
 
   // Index document (RAG)
-  ipcMain.handle('library-document:index', async (_, params: IndexDocumentParams) => {
+  ipcMain.handle('library-document:index', async (event, params: IndexDocumentParams) => {
     try {
-      const result = await libraryDocumentService.indexDocument(params);
+      console.log('[IPC] ========== library-document:index CALLED ==========');
+      console.log('[IPC] Params received from renderer:', JSON.stringify(params, null, 2));
+
+      // Ajouter le callback de progression
+      const paramsWithProgress = {
+        ...params,
+        onProgress: (progress: {
+          documentId: string;
+          stage: string;
+          percentage: number;
+          message?: string;
+        }) => {
+          event.sender.send('library-document:indexProgress', progress);
+        },
+      };
+
+      const result = await libraryDocumentService.indexDocument(paramsWithProgress);
+
+      console.log('[IPC] Result from service:', JSON.stringify(result, null, 2));
+      console.log('[IPC] ========== library-document:index COMPLETE ==========');
+
       return { success: true, data: result };
     } catch (error) {
       console.error('[IPC] library-document:index error:', error);
@@ -158,6 +178,20 @@ export function registerLibraryDocumentHandlers() {
       return { success: true, data: results };
     } catch (error) {
       console.error('[IPC] library-document:search error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  });
+
+  // Remove duplicate chunks
+  ipcMain.handle('library-document:removeDuplicates', async (_, documentId: string) => {
+    try {
+      const removed = await libraryDocumentService.removeDuplicateChunks(documentId);
+      return { success: true, data: { removed } };
+    } catch (error) {
+      console.error('[IPC] library-document:removeDuplicates error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

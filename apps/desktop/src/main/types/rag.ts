@@ -97,6 +97,7 @@ export interface TextRAGResult {
   text: string;
   score: number; // cosine similarity 0-1
   vector: number[]; // embedding vector
+  createdAt?: number; // timestamp pour déduplication
   metadata: {
     originalName: string;
     entityType: EntityType;

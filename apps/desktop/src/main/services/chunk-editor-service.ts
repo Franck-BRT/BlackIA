@@ -78,6 +78,32 @@ export class ChunkEditorService {
       // 1. Récupérer les chunks de LanceDB via textRAGService
       const textChunks = await textRAGService.getDocumentChunks(documentId);
 
+      // Déduplication: Garder uniquement le chunk le plus récent pour chaque chunkIndex
+      const deduplicatedChunks = new Map<number, typeof textChunks[0]>();
+      for (const chunk of textChunks) {
+        const chunkIndex = chunk.metadata.chunkIndex;
+        const existing = deduplicatedChunks.get(chunkIndex);
+
+        // Si pas de chunk existant ou si le nouveau est plus récent (createdAt plus élevé)
+        if (!existing) {
+          deduplicatedChunks.set(chunkIndex, chunk);
+        } else if (chunk.createdAt && existing.createdAt) {
+          // Si les deux ont un createdAt, garder le plus récent
+          if (chunk.createdAt > existing.createdAt) {
+            deduplicatedChunks.set(chunkIndex, chunk);
+          }
+        }
+        // Si pas de createdAt, garder le premier trouvé (already in map)
+      }
+
+      const uniqueTextChunks = Array.from(deduplicatedChunks.values());
+
+      console.log('[ChunkEditorService] Chunks retrieved:', {
+        total: textChunks.length,
+        afterDedup: uniqueTextChunks.length,
+        duplicatesRemoved: textChunks.length - uniqueTextChunks.length
+      });
+
       // 2. Récupérer les chunks manuels de SQLite
       const manualChunksMap = new Map<string, ManualChunk>();
       const dbManualChunks = await db
@@ -90,7 +116,7 @@ export class ChunkEditorService {
       }
 
       // 3. Combiner les données
-      const fullChunks: FullChunk[] = textChunks.map((tc) => {
+      const fullChunks: FullChunk[] = uniqueTextChunks.map((tc) => {
         const manual = manualChunksMap.get(tc.chunkId);
 
         return {

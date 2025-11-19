@@ -548,3 +548,52 @@ export const manualChunksDocumentIndex = index('manual_chunks_document_idx').on(
 
 export type ManualChunk = typeof manualChunks.$inferSelect;
 export type NewManualChunk = typeof manualChunks.$inferInsert;
+
+/**
+ * Table MLXModels
+ * Modèles MLX téléchargés et gérés localement
+ */
+export const mlxModels = sqliteTable('mlx_models', {
+  id: text('id').primaryKey(), // UUID
+  repoId: text('repo_id').notNull().unique(), // e.g., "mlx-community/Llama-3.2-3B-Instruct-4bit"
+  name: text('name').notNull(), // Nom convivial
+  author: text('author').notNull(), // Auteur du modèle (e.g., "mlx-community")
+
+  // Stockage
+  localPath: text('local_path').notNull(), // Chemin absolu vers le modèle
+  size: integer('size').notNull(), // Taille en octets
+
+  // Métadonnées du modèle
+  modelType: text('model_type', {
+    enum: ['chat', 'completion', 'embed']
+  }).notNull().default('chat'),
+  quantization: text('quantization'), // e.g., "4-bit", "8-bit", null si non quantifié
+  baseModel: text('base_model'), // Modèle de base (e.g., "meta-llama/Llama-3.2-3B-Instruct")
+  contextLength: integer('context_length'), // Longueur de contexte (e.g., 4096, 8192)
+  parameters: text('parameters'), // Nombre de paramètres (e.g., "3B", "7B")
+
+  // Configuration
+  description: text('description'), // Description du modèle
+  tags: text('tags').notNull().default('[]'), // JSON array (e.g., ["instruct", "quantized"])
+
+  // Métadonnées d'utilisation
+  downloaded: integer('downloaded', { mode: 'boolean' }).notNull().default(true),
+  downloadedAt: integer('downloaded_at', { mode: 'timestamp' }).notNull(),
+  lastUsedAt: integer('last_used_at', { mode: 'timestamp' }),
+  usageCount: integer('usage_count').notNull().default(0),
+
+  // Favoris et statut
+  isFavorite: integer('is_favorite', { mode: 'boolean' }).notNull().default(false),
+  isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(false),
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Index pour recherche rapide
+export const mlxModelsRepoIdIndex = index('mlx_models_repo_id_idx').on(mlxModels.repoId);
+export const mlxModelsTypeIndex = index('mlx_models_type_idx').on(mlxModels.modelType);
+
+export type MLXModel = typeof mlxModels.$inferSelect;
+export type NewMLXModel = typeof mlxModels.$inferInsert;
