@@ -451,20 +451,19 @@ export function registerMLXHandlers(): void {
     try {
       const modelManager = getMLXModelManager();
 
-      // Écouter les événements de progression
-      modelManager.on('download:progress', (progress) => {
-        event.sender.send('mlx:models:downloadProgress', progress);
-      });
+      logger.info('backend', 'Starting model download', repoId);
 
+      // Télécharger avec callback de progression
       const model = await modelManager.downloadModel(repoId, (progress) => {
+        logger.debug('backend', 'Download progress callback', `${progress.percentage}% - ${repoId}`);
         event.sender.send('mlx:models:downloadProgress', progress);
       });
 
-      logger.info('mlx-models', 'Model downloaded successfully', repoId);
+      logger.info('backend', 'Model downloaded successfully', repoId);
 
       return { success: true, model };
     } catch (error: any) {
-      logger.error('mlx-models', 'Error downloading model', repoId, {
+      logger.error('backend', 'Error downloading model', repoId, {
         error: error.message,
       });
       return {

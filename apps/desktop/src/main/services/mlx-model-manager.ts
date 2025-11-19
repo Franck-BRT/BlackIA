@@ -138,59 +138,56 @@ export class MLXModelManager extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       const requestId = this.requestId++;
-      let modelPath = '';
-      let modelSize = 0;
 
-      // Écouter les événements de progression
-      const progressHandler = (line: string) => {
-        try {
-          const data = JSON.parse(line);
-
-          if (data.type === 'start') {
-            logger.info('mlx', 'Download started', data.repo_id);
-            modelPath = data.local_dir;
-          } else if (data.type === 'progress' && onProgress) {
+      // Écouter les événements de progression si callback fourni
+      const progressListener = (progress: any) => {
+        if (progress.repoId === repoId || progress.repo_id === repoId) {
+          logger.debug('mlx', 'Download progress', `${progress.percentage}%`);
+          if (onProgress) {
             onProgress({
               repoId,
-              downloaded: data.downloaded || 0,
-              total: data.total || 0,
-              percentage: data.percentage || 0,
-              currentFile: data.current_file,
+              downloaded: progress.downloaded || 0,
+              total: progress.total || 0,
+              percentage: progress.percentage || 0,
+              currentFile: progress.current_file,
             });
-          } else if (data.type === 'complete') {
-            logger.info('mlx', 'Download complete', data.repo_id);
-            modelPath = data.local_path;
-            modelSize = data.size || 0;
-
-            // Créer l'objet MLXModel
-            const model: MLXModel = {
-              id: repoId.replace('/', '--'),
-              name: repoId,
-              repoId,
-              path: modelPath,
-              size: modelSize,
-              downloadedAt: Date.now(),
-              downloaded: true,
-              type: 'chat',
-            };
-
-            this.requestQueue.delete(requestId);
-            resolve(model);
-          } else if (data.type === 'error') {
-            this.requestQueue.delete(requestId);
-            reject(new Error(data.error || 'Download failed'));
           }
-        } catch (error) {
-          // Ignorer les lignes qui ne sont pas du JSON
         }
       };
 
-      // Stocker le handler
+      // S'abonner aux événements de progression
+      this.on('download:progress', progressListener);
+
+      // Fonction de nettoyage
+      const cleanup = () => {
+        this.off('download:progress', progressListener);
+        this.requestQueue.delete(requestId);
+        this.currentDownloadRepoId = undefined;
+      };
+
+      // Stocker le handler avec cleanup
       this.requestQueue.set(requestId, {
         resolve: (response) => {
-          // Géré par progressHandler
+          cleanup();
+
+          // Créer l'objet MLXModel à partir de la réponse
+          const model: MLXModel = {
+            id: repoId.replace('/', '--'),
+            name: repoId,
+            repoId,
+            path: response.local_path || '',
+            size: response.size || 0,
+            downloadedAt: Date.now(),
+            downloaded: true,
+            type: 'chat',
+          };
+
+          resolve(model);
         },
-        reject,
+        reject: (error) => {
+          cleanup();
+          reject(error);
+        },
       });
 
       // Enregistrer le repoId pour les événements de progression
@@ -208,7 +205,7 @@ export class MLXModelManager extends EventEmitter {
       // Timeout de 30 minutes pour le téléchargement
       setTimeout(() => {
         if (this.requestQueue.has(requestId)) {
-          this.requestQueue.delete(requestId);
+          cleanup();
           reject(new Error('Download timeout'));
         }
       }, 1800000);
@@ -364,6 +361,8 @@ export class MLXModelManager extends EventEmitter {
     try {
       const response = JSON.parse(line);
 
+      logger.debug('mlx', 'Downloader response', JSON.stringify(response).substring(0, 200));
+
       // Si c'est une progression, émettre un événement avec repoId
       if (response.type === 'progress' || response.type === 'start') {
         // Ajouter le repoId si on peut le retrouver depuis repo_id
@@ -371,12 +370,14 @@ export class MLXModelManager extends EventEmitter {
           ...response,
           repoId: response.repo_id || this.currentDownloadRepoId,
         };
+        logger.debug('mlx', 'Emitting download:progress event', `${progressData.percentage || 0}%`);
         this.emit('download:progress', progressData);
         return;
       }
 
       // Si c'est une complétion ou erreur, nettoyer currentDownloadRepoId
       if (response.type === 'complete' || response.type === 'error') {
+        logger.info('mlx', `Download ${response.type}`, response.repo_id || '');
         this.currentDownloadRepoId = undefined;
       }
 
