@@ -142,8 +142,12 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
       // Appeler directement l'API avec le modèle sélectionné et la configuration
       const result = await window.electronAPI.libraryDocument.index(indexParams);
 
+      console.log('[DocumentViewer] ========== INDEXATION RESULT ==========');
+      console.log('[DocumentViewer] Full result from backend:', JSON.stringify(result, null, 2));
+
       if (result.success) {
         setIndexingMessage('Rechargement des chunks...');
+        console.log('[DocumentViewer] Result.data:', JSON.stringify(result.data, null, 2));
         console.log('[DocumentViewer] Reindex complete, reloading chunks...');
         const reloadedChunks = await getDocumentChunks(doc.id);
         console.log('[DocumentViewer] Chunks after reindex:', reloadedChunks.length, reloadedChunks);
