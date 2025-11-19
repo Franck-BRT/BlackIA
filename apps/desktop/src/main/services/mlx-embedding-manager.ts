@@ -27,6 +27,7 @@ interface EmbeddingModelInfo {
   description?: string;
   path?: string;
   tags?: string[];
+  modality?: 'text' | 'vision' | 'multimodal'; // Indique les modalités supportées
 }
 
 /**
@@ -47,6 +48,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       dimensions: 768,
       description: 'Modèle par défaut - Excellent équilibre performance/taille - Compatible LanceDB',
       tags: ['recommandé', 'qualité', '768d', 'général'],
+      modality: 'text',
     },
     {
       name: 'sentence-transformers/all-MiniLM-L6-v2',
@@ -56,6 +58,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       dimensions: 384,
       description: 'Modèle léger et rapide - 384 dimensions',
       tags: ['recommandé', 'léger', 'rapide', '384d', 'général'],
+      modality: 'text',
     },
     {
       name: 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
@@ -65,6 +68,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       dimensions: 384,
       description: 'Support multilingue - Français, anglais, allemand, etc.',
       tags: ['multilingue', '384d', 'français'],
+      modality: 'text',
     },
     {
       name: 'sentence-transformers/paraphrase-multilingual-mpnet-base-v2',
@@ -74,6 +78,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       dimensions: 768,
       description: 'Multilingue haute qualité - 50+ langues - 768 dimensions',
       tags: ['multilingue', 'qualité', '768d', 'français'],
+      modality: 'text',
     },
     {
       name: 'sentence-transformers/all-distilroberta-v1',
@@ -83,6 +88,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       dimensions: 768,
       description: 'RoBERTa distillé - Bon compromis vitesse/qualité',
       tags: ['rapide', '768d', 'général'],
+      modality: 'text',
     },
     {
       name: 'sentence-transformers/multi-qa-mpnet-base-dot-v1',
@@ -92,6 +98,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       dimensions: 768,
       description: 'Optimisé pour questions/réponses - Produit scalaire',
       tags: ['Q&A', '768d', 'qualité'],
+      modality: 'text',
     },
     {
       name: 'sentence-transformers/multi-qa-MiniLM-L6-cos-v1',
@@ -101,6 +108,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       dimensions: 384,
       description: 'Q&A léger et rapide - Similarité cosinus',
       tags: ['Q&A', 'léger', 'rapide', '384d'],
+      modality: 'text',
     },
     {
       name: 'sentence-transformers/msmarco-distilbert-base-v4',
@@ -110,6 +118,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       dimensions: 768,
       description: 'Entraîné sur MS MARCO - Excellent pour recherche sémantique',
       tags: ['search', '768d', 'recommandé'],
+      modality: 'text',
     },
     {
       name: 'sentence-transformers/gtr-t5-base',
@@ -119,6 +128,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       dimensions: 768,
       description: 'T5-based - Très bonne performance sur benchmarks',
       tags: ['qualité', '768d', 'général'],
+      modality: 'text',
     },
     {
       name: 'sentence-transformers/all-roberta-large-v1',
@@ -128,6 +138,7 @@ export class MLXEmbeddingManager extends EventEmitter {
       dimensions: 1024,
       description: 'Modèle large - Meilleure qualité mais plus lent',
       tags: ['large', 'qualité', '1024d', 'général'],
+      modality: 'text',
     },
   ];
 

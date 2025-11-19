@@ -4,8 +4,15 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { X, Settings, Info } from 'lucide-react';
+import { X, Settings, Info, AlertTriangle } from 'lucide-react';
 import { cn } from '@blackia/ui';
+
+interface EmbeddingModel {
+  name: string;
+  downloaded: boolean;
+  modality?: 'text' | 'vision' | 'multimodal';
+  description?: string;
+}
 
 interface IndexConfig {
   chunkSize: number;
@@ -13,6 +20,8 @@ interface IndexConfig {
   separator: 'paragraph' | 'sentence' | 'line' | 'custom';
   customSeparator?: string;
   mode: 'text' | 'vision' | 'hybrid' | 'auto';
+  textModel?: string;
+  visionModel?: string;
   forceReindex: boolean;
 }
 
@@ -44,10 +53,40 @@ export function IndexConfigModal({ isOpen, onClose, onConfirm, currentConfig }: 
     separator: currentConfig?.separator || 'paragraph',
     customSeparator: currentConfig?.customSeparator || '',
     mode: currentConfig?.mode || 'auto',
+    textModel: currentConfig?.textModel,
+    visionModel: currentConfig?.visionModel,
     forceReindex: currentConfig?.forceReindex ?? true,
   });
 
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [availableModels, setAvailableModels] = useState<EmbeddingModel[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+
+  // Charger les modèles disponibles quand le modal s'ouvre
+  useEffect(() => {
+    if (isOpen) {
+      loadAvailableModels();
+    }
+  }, [isOpen]);
+
+  const loadAvailableModels = async () => {
+    setLoadingModels(true);
+    try {
+      const result = await window.electronAPI.mlx.embeddings.list();
+      // Handle both response formats
+      let models: EmbeddingModel[] = [];
+      if (result.success && result.data) {
+        models = result.data;
+      } else if (Array.isArray(result)) {
+        models = result;
+      }
+      setAvailableModels(models);
+    } catch (error) {
+      console.error('[IndexConfigModal] Failed to load models:', error);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
 
   // Réinitialiser quand le modal s'ouvre
   useEffect(() => {
@@ -58,6 +97,8 @@ export function IndexConfigModal({ isOpen, onClose, onConfirm, currentConfig }: 
         separator: currentConfig.separator || 'paragraph',
         customSeparator: currentConfig.customSeparator || '',
         mode: currentConfig.mode || 'auto',
+        textModel: currentConfig.textModel,
+        visionModel: currentConfig.visionModel,
         forceReindex: currentConfig.forceReindex ?? true,
       });
     }
@@ -70,6 +111,17 @@ export function IndexConfigModal({ isOpen, onClose, onConfirm, currentConfig }: 
   };
 
   const overlapPercent = Math.round((config.chunkOverlap / config.chunkSize) * 100);
+
+  // Helper pour vérifier si un modèle est compatible avec un mode
+  const isModelCompatible = (model: EmbeddingModel, requiredModality: 'text' | 'vision') => {
+    if (!model.modality) return true; // Si pas de modalité spécifiée, on assume compatible
+    return model.modality === requiredModality || model.modality === 'multimodal';
+  };
+
+  // Filtrer les modèles selon leur compatibilité
+  const downloadedModels = availableModels.filter(m => m.downloaded);
+  const textCompatibleModels = downloadedModels.filter(m => isModelCompatible(m, 'text'));
+  const visionCompatibleModels = downloadedModels.filter(m => isModelCompatible(m, 'vision'));
 
   if (!isOpen) return null;
 
@@ -220,6 +272,78 @@ export function IndexConfigModal({ isOpen, onClose, onConfirm, currentConfig }: 
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* Sélection des modèles */}
+          <div className="space-y-4 border-t border-neutral-800 pt-4">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-medium text-neutral-200">Modèles d'embedding</h3>
+              {loadingModels && <span className="text-xs text-neutral-400">Chargement...</span>}
+            </div>
+
+            {/* Modèle pour RAG textuel */}
+            {(config.mode === 'text' || config.mode === 'hybrid' || config.mode === 'auto') && (
+              <div>
+                <label className="flex items-center gap-2 text-sm text-neutral-300 mb-2">
+                  Modèle pour RAG textuel
+                  <Info className="w-3 h-3 text-neutral-500" />
+                </label>
+                <select
+                  value={config.textModel || ''}
+                  onChange={(e) => setConfig({ ...config, textModel: e.target.value || undefined })}
+                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-100 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">Utiliser le modèle par défaut</option>
+                  {textCompatibleModels.map((model) => (
+                    <option key={model.name} value={model.name}>
+                      {model.name.split('/').pop()} {model.modality === 'text' && '(Text only)'}
+                    </option>
+                  ))}
+                </select>
+                {textCompatibleModels.length === 0 && !loadingModels && (
+                  <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    Aucun modèle compatible avec le RAG textuel n'est téléchargé
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Modèle pour RAG visuel */}
+            {(config.mode === 'vision' || config.mode === 'hybrid') && (
+              <div>
+                <label className="flex items-center gap-2 text-sm text-neutral-300 mb-2">
+                  Modèle pour RAG visuel
+                  <Info className="w-3 h-3 text-neutral-500" />
+                </label>
+                <select
+                  value={config.visionModel || ''}
+                  onChange={(e) => setConfig({ ...config, visionModel: e.target.value || undefined })}
+                  className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-100 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">Utiliser le modèle par défaut</option>
+                  {visionCompatibleModels.map((model) => (
+                    <option key={model.name} value={model.name}>
+                      {model.name.split('/').pop()} {model.modality === 'multimodal' && '(Multimodal)'}
+                    </option>
+                  ))}
+                </select>
+                {visionCompatibleModels.length === 0 && !loadingModels && (
+                  <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    Aucun modèle compatible avec le RAG visuel n'est téléchargé. Les modèles sentence-transformers actuels ne supportent que le texte.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Info sur les modèles multimodaux */}
+            {config.mode === 'hybrid' && (
+              <p className="text-xs text-neutral-400 flex items-start gap-1">
+                <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                <span>Le mode hybride combine les embeddings textuels et visuels. Pour le RAG visuel, des modèles multimodaux (comme CLIP) seront nécessaires.</span>
+              </p>
+            )}
           </div>
 
           {/* Options avancées */}

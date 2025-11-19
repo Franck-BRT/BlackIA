@@ -112,17 +112,22 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
     separator?: 'paragraph' | 'sentence' | 'line' | 'custom';
     customSeparator?: string;
     mode?: 'text' | 'vision' | 'hybrid' | 'auto';
+    textModel?: string;
+    visionModel?: string;
     forceReindex?: boolean;
   }) => {
-    console.log('[DocumentViewer] Reindex button clicked for document:', doc.id, 'with model:', selectedModel, 'config:', config);
+    console.log('[DocumentViewer] Reindex button clicked for document:', doc.id, 'with config:', config);
     setIsIndexing(true);
     setIndexingMessage('Indexation en cours...');
 
     try {
+      // Déterminer quel modèle utiliser (priorité: config.textModel > selectedModel > défaut)
+      const modelToUse = config?.textModel || selectedModel || undefined;
+
       // Appeler directement l'API avec le modèle sélectionné et la configuration
       const result = await window.electronAPI.libraryDocument.index({
         documentId: doc.id,
-        model: selectedModel || undefined,
+        model: modelToUse,
         mode: config?.mode,
         chunkSize: config?.chunkSize,
         chunkOverlap: config?.chunkOverlap,
@@ -429,6 +434,8 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
           chunkOverlap: 10,
           separator: 'paragraph',
           mode: 'auto',
+          textModel: selectedModel || doc.textEmbeddingModel,
+          visionModel: doc.visionEmbeddingModel,
           forceReindex: true,
         }}
       />
