@@ -52,6 +52,16 @@ export interface DocumentFilters {
 }
 
 /**
+ * Callback de progression d'indexation
+ */
+export type IndexProgressCallback = (progress: {
+  documentId: string;
+  stage: string;
+  percentage: number;
+  message?: string;
+}) => void;
+
+/**
  * Paramètres d'indexation
  */
 export interface IndexDocumentParams {
@@ -62,6 +72,7 @@ export interface IndexDocumentParams {
   forceReindex?: boolean;
   model?: string; // Modèle d'embedding textuel à utiliser (optionnel)
   visionModel?: string; // Modèle d'embedding vision à utiliser (optionnel)
+  onProgress?: IndexProgressCallback; // Callback pour les événements de progression
 }
 
 /**
@@ -421,9 +432,24 @@ export class LibraryDocumentService {
       let chunkCount = 0;
       let patchCount = 0;
 
+      // Notifier le début de l'indexation
+      params.onProgress?.({
+        documentId: params.documentId,
+        stage: 'preparation',
+        percentage: 0,
+        message: 'Préparation de l\'indexation...',
+      });
+
       // Supprimer l'ancien index avant de réindexer
       logger.debug('rag', 'Deleting old index before reindexing', `Document: ${params.documentId}`);
       await this.deleteIndex(params.documentId);
+
+      params.onProgress?.({
+        documentId: params.documentId,
+        stage: 'preparation',
+        percentage: 10,
+        message: 'Index précédent supprimé',
+      });
 
       // TEXT RAG
       console.log('[LibraryDocumentService] TEXT RAG condition check:', {
@@ -435,6 +461,13 @@ export class LibraryDocumentService {
 
       if (mode === 'text' || mode === 'hybrid') {
         console.log('[LibraryDocumentService] ⚠️ ENTERING TEXT RAG INDEXATION');
+
+        params.onProgress?.({
+          documentId: params.documentId,
+          stage: 'text-indexing',
+          percentage: mode === 'hybrid' ? 15 : 20,
+          message: 'Indexation du texte...',
+        });
 
         if (!doc.extractedText || doc.extractedText.length === 0) {
           logger.warning('rag', 'No text to index', `Document: ${params.documentId}`);
@@ -464,6 +497,13 @@ export class LibraryDocumentService {
                 textChunkCount: chunkCount,
               })
               .where(eq(libraryDocuments.id, doc.id));
+
+            params.onProgress?.({
+              documentId: params.documentId,
+              stage: 'text-indexing',
+              percentage: mode === 'hybrid' ? 40 : 80,
+              message: `Texte indexé (${chunkCount} chunks)`,
+            });
           } else {
             throw new Error(textResult.error || 'Text indexing failed');
           }
@@ -492,6 +532,13 @@ export class LibraryDocumentService {
         if (!canIndexVision) {
           console.warn('[LibraryDocumentService] Document type not supported for vision RAG:', doc.mimeType);
         } else {
+          params.onProgress?.({
+            documentId: params.documentId,
+            stage: 'vision-indexing',
+            percentage: mode === 'hybrid' ? 45 : 20,
+            message: 'Préparation du modèle vision...',
+          });
+
           // Check model backend to ensure compatibility
           const modelBackend = await this.getModelBackend(visionModelName);
 
@@ -514,6 +561,13 @@ export class LibraryDocumentService {
           }
 
           console.log('[LibraryDocumentService] Starting vision indexation with Colette...');
+
+          params.onProgress?.({
+            documentId: params.documentId,
+            stage: 'vision-indexing',
+            percentage: mode === 'hybrid' ? 50 : 30,
+            message: 'Indexation visuelle en cours...',
+          });
 
           const visionResult = await coletteVisionRAGService.indexDocument({
             imagePaths: [doc.filePath], // Colette handles PDF to image conversion internally
@@ -540,6 +594,13 @@ export class LibraryDocumentService {
               pageCount: visionResult.pageCount,
               model: visionResult.model,
             });
+
+            params.onProgress?.({
+              documentId: params.documentId,
+              stage: 'vision-indexing',
+              percentage: mode === 'hybrid' ? 90 : 80,
+              message: `Vision indexée (${patchCount} patches)`,
+            });
           } else {
             console.error('[LibraryDocumentService] Vision indexation failed:', visionResult.error);
             throw new Error(visionResult.error || 'Vision indexing failed');
@@ -548,6 +609,13 @@ export class LibraryDocumentService {
       }
 
       // Mettre à jour les métadonnées d'indexation
+      params.onProgress?.({
+        documentId: params.documentId,
+        stage: 'finalizing',
+        percentage: 95,
+        message: 'Finalisation...',
+      });
+
       const duration = Date.now() - startTime;
 
       console.log('[LibraryDocumentService] Saving indexation results to DB:', {
@@ -578,6 +646,13 @@ export class LibraryDocumentService {
         chunkCount,
         patchCount,
         duration: `${duration}ms`,
+      });
+
+      params.onProgress?.({
+        documentId: params.documentId,
+        stage: 'complete',
+        percentage: 100,
+        message: `Indexation terminée (${chunkCount} chunks, ${patchCount} patches)`,
       });
 
       return {

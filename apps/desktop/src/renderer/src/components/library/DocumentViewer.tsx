@@ -30,6 +30,7 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   const [validationNotes, setValidationNotes] = useState('');
   const [isIndexing, setIsIndexing] = useState(false);
   const [indexingMessage, setIndexingMessage] = useState('');
+  const [indexingProgress, setIndexingProgress] = useState(0);
   const [availableModels, setAvailableModels] = useState<Array<{ name: string; downloaded: boolean }>>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [showIndexConfig, setShowIndexConfig] = useState(false);
@@ -106,6 +107,27 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
     }
   }, [doc.id, doc.isIndexedText, doc.textChunkCount, getDocumentChunks]);
 
+  // Listen for indexing progress events
+  useEffect(() => {
+    const handleProgress = (progress: {
+      documentId: string;
+      stage: string;
+      percentage: number;
+      message?: string;
+    }) => {
+      if (progress.documentId === doc.id) {
+        setIndexingProgress(progress.percentage);
+        setIndexingMessage(progress.message || `${progress.stage} - ${progress.percentage}%`);
+      }
+    };
+
+    window.electronAPI.libraryDocument.onIndexProgress(handleProgress);
+
+    return () => {
+      window.electronAPI.libraryDocument.removeIndexProgressListener();
+    };
+  }, [doc.id]);
+
   const handleReindex = async (config?: {
     chunkSize?: number;
     chunkOverlap?: number;
@@ -121,7 +143,8 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
     console.log('[DocumentViewer] Config received:', JSON.stringify(config, null, 2));
 
     setIsIndexing(true);
-    setIndexingMessage('Indexation en cours...');
+    setIndexingProgress(0);
+    setIndexingMessage('Démarrage de l\'indexation...');
 
     try {
       // Déterminer quel modèle utiliser (priorité: config.textModel > selectedModel > défaut)
@@ -298,12 +321,31 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
 
           {indexingMessage && (
             <div className={cn(
-              "px-3 py-2 rounded-lg text-sm flex items-center gap-2",
-              indexingMessage.includes('✓') ? "bg-green-500/20 text-green-300" :
-              indexingMessage.includes('❌') ? "bg-red-500/20 text-red-300" :
-              "bg-blue-500/20 text-blue-300"
+              "px-3 py-2 rounded-lg text-sm",
+              indexingMessage.includes('✓') || indexingProgress === 100 ? "bg-green-500/20" :
+              indexingMessage.includes('❌') ? "bg-red-500/20" :
+              "bg-blue-500/20"
             )}>
-              {indexingMessage}
+              <div className="flex items-center gap-2 mb-1">
+                <span className={cn(
+                  indexingMessage.includes('✓') || indexingProgress === 100 ? "text-green-300" :
+                  indexingMessage.includes('❌') ? "text-red-300" :
+                  "text-blue-300"
+                )}>
+                  {indexingMessage}
+                </span>
+                {isIndexing && indexingProgress < 100 && (
+                  <span className="text-xs text-neutral-400">{indexingProgress}%</span>
+                )}
+              </div>
+              {isIndexing && indexingProgress < 100 && (
+                <div className="w-full bg-neutral-700 rounded-full h-1.5">
+                  <div
+                    className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                    style={{ width: `${indexingProgress}%` }}
+                  />
+                </div>
+              )}
             </div>
           )}
 

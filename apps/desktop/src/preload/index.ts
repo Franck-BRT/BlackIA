@@ -510,6 +510,19 @@ const api = {
     deleteIndex: (documentId: string) => ipcRenderer.invoke('library-document:deleteIndex', documentId),
     getChunks: (documentId: string) => ipcRenderer.invoke('library-document:getChunks', documentId),
     search: (params: any) => ipcRenderer.invoke('library-document:search', params),
+
+    // Événements de progression d'indexation
+    onIndexProgress: (callback: (progress: {
+      documentId: string;
+      stage: string;
+      percentage: number;
+      message?: string;
+    }) => void) => {
+      ipcRenderer.on('library-document:indexProgress', (_event, progress) => callback(progress));
+    },
+    removeIndexProgressListener: () => {
+      ipcRenderer.removeAllListeners('library-document:indexProgress');
+    },
   },
 
   // Chunk Editor API

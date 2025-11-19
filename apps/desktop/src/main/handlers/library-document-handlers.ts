@@ -110,12 +110,25 @@ export function registerLibraryDocumentHandlers() {
   });
 
   // Index document (RAG)
-  ipcMain.handle('library-document:index', async (_, params: IndexDocumentParams) => {
+  ipcMain.handle('library-document:index', async (event, params: IndexDocumentParams) => {
     try {
       console.log('[IPC] ========== library-document:index CALLED ==========');
       console.log('[IPC] Params received from renderer:', JSON.stringify(params, null, 2));
 
-      const result = await libraryDocumentService.indexDocument(params);
+      // Ajouter le callback de progression
+      const paramsWithProgress = {
+        ...params,
+        onProgress: (progress: {
+          documentId: string;
+          stage: string;
+          percentage: number;
+          message?: string;
+        }) => {
+          event.sender.send('library-document:indexProgress', progress);
+        },
+      };
+
+      const result = await libraryDocumentService.indexDocument(paramsWithProgress);
 
       console.log('[IPC] Result from service:', JSON.stringify(result, null, 2));
       console.log('[IPC] ========== library-document:index COMPLETE ==========');
