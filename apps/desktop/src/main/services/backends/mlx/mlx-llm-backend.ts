@@ -90,6 +90,8 @@ export class MLXLLMBackend extends BaseAIBackend {
     // Essayer plusieurs chemins Python
     const pythonPaths = [
       venvPython, // Virtualenv BlackIA en priorité
+      '/opt/miniconda3/bin/python3', // Conda Python
+      '/opt/anaconda3/bin/python3', // Anaconda Python
       this.pythonPath,
       'python3',
       '/usr/bin/python3',

@@ -55,6 +55,21 @@ export class MLXModelManager extends EventEmitter {
 
     if (pythonPath) {
       this.pythonPath = pythonPath;
+    } else {
+      // Essayer conda Python en priorité, puis système
+      const condaPython = '/opt/miniconda3/bin/python3';
+      const { execSync } = require('child_process');
+
+      try {
+        // Vérifier si conda Python existe et a huggingface_hub
+        execSync(`${condaPython} -c "import huggingface_hub"`, { stdio: 'ignore' });
+        this.pythonPath = condaPython;
+        logger.info('mlx', 'Using conda Python', condaPython);
+      } catch {
+        // Utiliser Python par défaut
+        this.pythonPath = 'python3';
+        logger.info('mlx', 'Using system Python', 'python3');
+      }
     }
 
     this.scriptPath = join(__dirname, 'backends/mlx/mlx_model_downloader.py');
