@@ -1,5 +1,5 @@
 import { textRAGService } from './text-rag-service';
-import { visionRAGService } from './vision-rag-service';
+import { coletteVisionRAGService } from './colette-vision-rag-service';
 import {
   reciprocalRankFusion,
   type RAGSearchParams,
@@ -64,7 +64,7 @@ export class HybridRAGService {
 
       if (actualMode === 'vision' || actualMode === 'hybrid') {
         try {
-          const visionSearch = await visionRAGService.search(params);
+          const visionSearch = await coletteVisionRAGService.search(params);
           if (visionSearch.success) {
             visionResults = visionSearch.results;
           } else {

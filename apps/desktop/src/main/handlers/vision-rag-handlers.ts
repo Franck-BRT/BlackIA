@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
-import { visionRAGService } from '../services/vision-rag-service';
+import { coletteVisionRAGService } from '../services/colette-vision-rag-service';
+import { visionRAGService } from '../services/vision-rag-service'; // Keep for utility methods
 import type { VisionRAGIndexParams, RAGSearchParams } from '../types/rag';
 
 /**
@@ -15,7 +16,7 @@ export function registerVisionRAGHandlers(): void {
     'vision-rag:index',
     async (_event, params: VisionRAGIndexParams) => {
       try {
-        const result = await visionRAGService.indexDocument(params);
+        const result = await coletteVisionRAGService.indexDocument(params);
         return result; // Already has success/error structure
       } catch (error) {
         console.error('[VisionRAG] Error in indexDocument:', error);
@@ -34,7 +35,7 @@ export function registerVisionRAGHandlers(): void {
    */
   ipcMain.handle('vision-rag:delete', async (_event, attachmentId: string) => {
     try {
-      await visionRAGService.deleteDocument(attachmentId);
+      await coletteVisionRAGService.deleteIndex(attachmentId);
       return { success: true, data: true };
     } catch (error) {
       console.error('[VisionRAG] Error in deleteDocument:', error);
@@ -49,7 +50,7 @@ export function registerVisionRAGHandlers(): void {
    */
   ipcMain.handle('vision-rag:search', async (_event, params: RAGSearchParams) => {
     try {
-      const result = await visionRAGService.search(params);
+      const result = await coletteVisionRAGService.search(params);
       return result; // Already has success/error structure
     } catch (error) {
       console.error('[VisionRAG] Error in search:', error);
