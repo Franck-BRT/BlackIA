@@ -488,6 +488,7 @@ const api = {
     getStats: () => ipcRenderer.invoke('vision-rag:getStats'),
     getDocumentPatches: (attachmentId: string) => ipcRenderer.invoke('vision-rag:getDocumentPatches', attachmentId),
     getDebugInfo: (attachmentId: string) => ipcRenderer.invoke('vision-rag:getDebugInfo', attachmentId),
+    recreateCollection: () => ipcRenderer.invoke('vision-rag:recreateCollection'),
   },
 
   // Hybrid RAG API
@@ -807,6 +808,7 @@ export interface ElectronAPI {
     getStats: () => Promise<any>;
     getDocumentPatches: (attachmentId: string) => Promise<any>;
     getDebugInfo: (attachmentId: string) => Promise<any>;
+    recreateCollection: () => Promise<any>;
   };
 
   hybridRAG: {

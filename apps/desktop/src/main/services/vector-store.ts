@@ -897,6 +897,37 @@ export class VectorStoreService {
   }
 
   /**
+   * Recreate vision collection with correct schema
+   * Useful when collection is corrupted or schema needs update
+   */
+  async recreateVisionCollection(): Promise<void> {
+    if (!this.db) {
+      throw new Error('VectorStore not initialized');
+    }
+
+    try {
+      console.log('[VectorStore] Recreating vision collection...');
+
+      // Drop existing table if it exists
+      try {
+        await this.db.dropTable(this.VISION_COLLECTION);
+        console.log('[VectorStore] Dropped old vision collection');
+      } catch (error) {
+        console.log('[VectorStore] No existing vision collection to drop');
+      }
+
+      // Reset the collection reference
+      this.visionCollection = null;
+
+      console.log('[VectorStore] Vision collection recreated successfully');
+      return;
+    } catch (error) {
+      console.error('[VectorStore] Failed to recreate vision collection:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Compacter les collections (optimisation)
    */
   async compact(): Promise<void> {

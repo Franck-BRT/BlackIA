@@ -138,6 +138,20 @@ export function registerVisionRAGHandlers(): void {
   });
 
   /**
+   * Réinitialiser la collection Vision RAG (supprime et recrée)
+   */
+  ipcMain.handle('vision-rag:recreateCollection', async () => {
+    try {
+      const { vectorStore } = await import('../services/vector-store');
+      await vectorStore.recreateVisionCollection();
+      return { success: true, message: 'Vision collection recreated successfully' };
+    } catch (error) {
+      console.error('[VisionRAG] Error in recreateCollection:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  /**
    * Récupérer les informations de debug pour un document Vision RAG
    */
   ipcMain.handle('vision-rag:getDebugInfo', async (_event, attachmentId: string) => {
