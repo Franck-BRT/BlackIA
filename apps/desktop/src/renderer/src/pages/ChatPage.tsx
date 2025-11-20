@@ -367,6 +367,22 @@ export function ChatPage() {
     console.log('[ChatPage] 🗑️ Dossier supprimé:', folderId);
   };
 
+  // Auto-save messages and metadata to current conversation
+  useEffect(() => {
+    if (currentConversationId && messages.length > 0) {
+      updateConversation(currentConversationId, {
+        messages,
+        messageMetadata,
+      }, true); // skipSort = true pour éviter de réorganiser la liste pendant l'édition
+
+      console.log('[ChatPage] 💾 Conversation auto-sauvegardée:', currentConversationId, {
+        messagesCount: messages.length,
+        metadataCount: Object.keys(messageMetadata).length,
+        ragMetadataIndexes: Object.keys(messageMetadata).filter(idx => messageMetadata[parseInt(idx)]?.ragMetadata),
+      });
+    }
+  }, [messages, messageMetadata, currentConversationId, updateConversation]);
+
   // === RACCOURCIS CLAVIER ===
 
   const keyboardShortcuts: KeyboardShortcut[] = useMemo(() => {
