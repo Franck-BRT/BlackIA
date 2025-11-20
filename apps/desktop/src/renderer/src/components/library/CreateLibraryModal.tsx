@@ -3,14 +3,23 @@
  * Modal for creating a new library
  */
 
-import React, { useState } from 'react';
-import { X, FolderOpen } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, FolderOpen, Info, AlertTriangle } from 'lucide-react';
+import { cn } from '@blackia/ui';
 import type { CreateLibraryInput } from '../../types/library';
 
 interface CreateLibraryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreate: (input: CreateLibraryInput) => Promise<void>;
+}
+
+interface EmbeddingModel {
+  name: string;
+  downloaded: boolean;
+  modality?: 'text' | 'vision' | 'multimodal';
+  backend?: 'sentence-transformers' | 'mlx' | 'colette';
+  description?: string;
 }
 
 const ICON_OPTIONS = ['📚', '📖', '📝', '📄', '📋', '🗂️', '📁', '💼', '🎓', '🔬', '⚗️', '🧪'];
@@ -25,6 +34,20 @@ const COLOR_OPTIONS = [
   { name: 'Jaune', value: 'yellow' },
 ];
 
+const SEPARATOR_OPTIONS = [
+  { value: 'paragraph', label: 'Paragraphe (\\n\\n)', description: 'Sépare sur les doubles sauts de ligne' },
+  { value: 'sentence', label: 'Phrase (.!?)', description: 'Sépare sur les fins de phrase' },
+  { value: 'line', label: 'Ligne (\\n)', description: 'Sépare sur les sauts de ligne simples' },
+  { value: 'custom', label: 'Personnalisé', description: 'Définir votre propre séparateur' },
+] as const;
+
+const MODE_OPTIONS = [
+  { value: 'auto', label: 'Auto', description: 'Détection automatique selon le type de document' },
+  { value: 'text', label: 'Text RAG', description: 'Indexation textuelle uniquement' },
+  { value: 'vision', label: 'Vision RAG', description: 'Indexation visuelle uniquement (PDFs)' },
+  { value: 'hybrid', label: 'Hybride', description: 'Combinaison text + vision' },
+] as const;
+
 export function CreateLibraryModal({ isOpen, onClose, onCreate }: CreateLibraryModalProps) {
   const [formData, setFormData] = useState<CreateLibraryInput>({
     name: '',
@@ -37,19 +60,20 @@ export function CreateLibraryModal({ isOpen, onClose, onCreate }: CreateLibraryM
       autoIndex: true,
       text: {
         enabled: true,
-        model: 'nomic-embed-text',
+        model: undefined,
         chunkSize: 512,
         chunkOverlap: 10,
         separator: 'paragraph',
+        customSeparator: '',
       },
       vision: {
-        enabled: false,
-        model: 'qwen2-vl-2b',
+        enabled: true,
+        model: undefined,
         patchSize: 256,
         patchOverlap: 20,
       },
       hybrid: {
-        enabled: false,
+        enabled: true,
         fusionStrategy: 'weighted',
         textWeight: 0.6,
         visionWeight: 0.4,
@@ -58,6 +82,34 @@ export function CreateLibraryModal({ isOpen, onClose, onCreate }: CreateLibraryM
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availableModels, setAvailableModels] = useState<EmbeddingModel[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Charger les modèles disponibles quand le modal s'ouvre
+  useEffect(() => {
+    if (isOpen) {
+      loadAvailableModels();
+    }
+  }, [isOpen]);
+
+  const loadAvailableModels = async () => {
+    setLoadingModels(true);
+    try {
+      const result = await window.electronAPI.mlx.embeddings.list();
+      let models: EmbeddingModel[] = [];
+      if (result.success && result.data) {
+        models = result.data;
+      } else if (Array.isArray(result)) {
+        models = result;
+      }
+      setAvailableModels(models);
+    } catch (error) {
+      console.error('[CreateLibraryModal] Failed to load models:', error);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
 
   const handleSelectFolder = async () => {
     try {
@@ -230,13 +282,13 @@ export function CreateLibraryModal({ isOpen, onClose, onCreate }: CreateLibraryM
           </div>
 
           {/* RAG Config */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-200 mb-3">
-              Configuration RAG
+          <div className="border-t border-neutral-800 pt-6">
+            <label className="block text-sm font-medium text-neutral-200 mb-4">
+              Configuration RAG par défaut
             </label>
 
             {/* Auto-index */}
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-6 p-3 bg-neutral-800/50 rounded-lg">
               <input
                 type="checkbox"
                 id="autoIndex"
@@ -255,86 +307,258 @@ export function CreateLibraryModal({ isOpen, onClose, onCreate }: CreateLibraryM
               </label>
             </div>
 
-            {/* Text RAG */}
-            <div className="p-4 bg-neutral-800 rounded-lg space-y-3">
-              <div className="flex items-center gap-3">
+            <div className="space-y-5">
+              {/* Chunk Size */}
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-neutral-200 mb-2">
+                  Taille des chunks
+                  <span className="text-xs text-neutral-400 font-normal">({formData.ragConfig.text.chunkSize} caractères)</span>
+                </label>
                 <input
-                  type="checkbox"
-                  id="textEnabled"
-                  checked={formData.ragConfig.text.enabled}
+                  type="range"
+                  min="128"
+                  max="2048"
+                  step="64"
+                  value={formData.ragConfig.text.chunkSize}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
                       ragConfig: {
                         ...formData.ragConfig,
-                        text: { ...formData.ragConfig.text, enabled: e.target.checked },
+                        text: { ...formData.ragConfig.text, chunkSize: parseInt(e.target.value) },
                       },
                     })
                   }
-                  className="w-4 h-4 rounded border-neutral-700 bg-neutral-800 text-blue-600 focus:ring-blue-500"
+                  className="w-full"
                   disabled={loading}
                 />
-                <label htmlFor="textEnabled" className="text-sm font-medium text-neutral-200">
-                  Text RAG
-                </label>
+                <div className="flex justify-between text-xs text-neutral-500 mt-1">
+                  <span>128</span>
+                  <span>512</span>
+                  <span>1024</span>
+                  <span>2048</span>
+                </div>
               </div>
 
-              {formData.ragConfig.text.enabled && (
-                <div className="ml-7 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-neutral-400 mb-1">
-                        Taille des chunks
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.ragConfig.text.chunkSize}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            ragConfig: {
-                              ...formData.ragConfig,
-                              text: {
-                                ...formData.ragConfig.text,
-                                chunkSize: parseInt(e.target.value),
-                              },
-                            },
-                          })
-                        }
-                        className="w-full px-3 py-1.5 bg-neutral-900 border border-neutral-700 rounded text-sm text-neutral-100 focus:outline-none focus:border-blue-500"
-                        min={128}
-                        max={4096}
-                        disabled={loading}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-neutral-400 mb-1">
-                        Recouvrement (%)
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.ragConfig.text.chunkOverlap}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            ragConfig: {
-                              ...formData.ragConfig,
-                              text: {
-                                ...formData.ragConfig.text,
-                                chunkOverlap: parseInt(e.target.value),
-                              },
-                            },
-                          })
-                        }
-                        className="w-full px-3 py-1.5 bg-neutral-900 border border-neutral-700 rounded text-sm text-neutral-100 focus:outline-none focus:border-blue-500"
-                        min={0}
-                        max={50}
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
+              {/* Chunk Overlap */}
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium text-neutral-200 mb-2">
+                  Recouvrement
+                  <span className="text-xs text-neutral-400 font-normal">
+                    ({formData.ragConfig.text.chunkOverlap} caractères / {Math.round((formData.ragConfig.text.chunkOverlap / formData.ragConfig.text.chunkSize) * 100)}%)
+                  </span>
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max={Math.floor(formData.ragConfig.text.chunkSize / 2)}
+                  step="10"
+                  value={formData.ragConfig.text.chunkOverlap}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      ragConfig: {
+                        ...formData.ragConfig,
+                        text: { ...formData.ragConfig.text, chunkOverlap: parseInt(e.target.value) },
+                      },
+                    })
+                  }
+                  className="w-full"
+                  disabled={loading}
+                />
+                <div className="flex justify-between text-xs text-neutral-500 mt-1">
+                  <span>0%</span>
+                  <span>10%</span>
+                  <span>25%</span>
+                  <span>50%</span>
                 </div>
-              )}
+              </div>
+
+              {/* Separator */}
+              <div>
+                <label className="text-sm font-medium text-neutral-200 mb-2 block">
+                  Séparateur de chunks
+                </label>
+                <div className="space-y-2">
+                  {SEPARATOR_OPTIONS.map((option) => (
+                    <label
+                      key={option.value}
+                      className={cn(
+                        'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+                        formData.ragConfig.text.separator === option.value
+                          ? 'border-blue-500 bg-blue-500/10'
+                          : 'border-neutral-700 hover:border-neutral-600'
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="separator"
+                        value={option.value}
+                        checked={formData.ragConfig.text.separator === option.value}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            ragConfig: {
+                              ...formData.ragConfig,
+                              text: { ...formData.ragConfig.text, separator: e.target.value as any },
+                            },
+                          })
+                        }
+                        className="mt-1"
+                        disabled={loading}
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm text-neutral-100">{option.label}</div>
+                        <div className="text-xs text-neutral-400">{option.description}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                {formData.ragConfig.text.separator === 'custom' && (
+                  <input
+                    type="text"
+                    placeholder="Ex: \\n---\\n"
+                    value={formData.ragConfig.text.customSeparator}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        ragConfig: {
+                          ...formData.ragConfig,
+                          text: { ...formData.ragConfig.text, customSeparator: e.target.value },
+                        },
+                      })
+                    }
+                    className="mt-2 w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-100 placeholder-neutral-500 focus:outline-none focus:border-blue-500"
+                    disabled={loading}
+                  />
+                )}
+              </div>
+
+              {/* Mode */}
+              <div>
+                <label className="text-sm font-medium text-neutral-200 mb-2 block">
+                  Mode d'indexation par défaut
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {MODE_OPTIONS.map((option) => (
+                    <label
+                      key={option.value}
+                      className={cn(
+                        'flex flex-col gap-1 p-3 rounded-lg border cursor-pointer transition-colors',
+                        formData.ragConfig.defaultMode === option.value
+                          ? 'border-blue-500 bg-blue-500/10'
+                          : 'border-neutral-700 hover:border-neutral-600'
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="mode"
+                          value={option.value}
+                          checked={formData.ragConfig.defaultMode === option.value}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              ragConfig: { ...formData.ragConfig, defaultMode: e.target.value as any },
+                            })
+                          }
+                          disabled={loading}
+                        />
+                        <span className="text-sm text-neutral-100">{option.label}</span>
+                      </div>
+                      <span className="text-xs text-neutral-400 ml-6">{option.description}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Model Selection */}
+              <div className="space-y-4 border-t border-neutral-800 pt-4">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-medium text-neutral-200">Modèles par défaut</h4>
+                  {loadingModels && <span className="text-xs text-neutral-400">Chargement...</span>}
+                </div>
+
+                {/* Text Model */}
+                {(formData.ragConfig.defaultMode === 'text' || formData.ragConfig.defaultMode === 'hybrid' || formData.ragConfig.defaultMode === 'auto') && (
+                  <div>
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 mb-2">
+                      Modèle pour RAG textuel
+                      <Info className="w-3 h-3 text-neutral-500" />
+                    </label>
+                    <select
+                      value={formData.ragConfig.text.model || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          ragConfig: {
+                            ...formData.ragConfig,
+                            text: { ...formData.ragConfig.text, model: e.target.value || undefined },
+                          },
+                        })
+                      }
+                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-100 focus:outline-none focus:border-blue-500"
+                      disabled={loading}
+                    >
+                      <option value="">Utiliser le modèle par défaut</option>
+                      {availableModels.filter(m => m.downloaded && (m.modality === 'text' || m.modality === 'multimodal' || !m.modality)).map((model) => (
+                        <option key={model.name} value={model.name}>
+                          {model.name.split('/').pop()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Vision Model */}
+                {(formData.ragConfig.defaultMode === 'vision' || formData.ragConfig.defaultMode === 'hybrid') && (
+                  <div>
+                    <label className="flex items-center gap-2 text-sm text-neutral-300 mb-2">
+                      Modèle pour RAG visuel
+                      <Info className="w-3 h-3 text-neutral-500" />
+                    </label>
+                    <select
+                      value={formData.ragConfig.vision.model || ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          ragConfig: {
+                            ...formData.ragConfig,
+                            vision: { ...formData.ragConfig.vision, model: e.target.value || undefined },
+                          },
+                        })
+                      }
+                      className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-sm text-neutral-100 focus:outline-none focus:border-blue-500"
+                      disabled={loading}
+                    >
+                      <option value="">Utiliser le modèle par défaut</option>
+
+                      {/* Colette Models */}
+                      {availableModels.filter(m => m.downloaded && m.backend === 'colette').length > 0 && (
+                        <optgroup label="Colette/ColPali (Multi-plateforme)">
+                          {availableModels.filter(m => m.downloaded && m.backend === 'colette').map((model) => (
+                            <option key={model.name} value={model.name}>
+                              {model.name.split('/').pop()}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+
+                      {/* MLX Models */}
+                      {availableModels.filter(m => m.downloaded && m.backend === 'mlx').length > 0 && (
+                        <optgroup label="MLX (Apple Silicon uniquement)">
+                          {availableModels.filter(m => m.downloaded && m.backend === 'mlx').map((model) => (
+                            <option key={model.name} value={model.name}>
+                              {model.name.split('/').pop()}
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+                    </select>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
