@@ -816,6 +816,44 @@ export class VectorStoreService {
   }
 
   /**
+   * Récupérer tous les patches d'un attachment pour visualisation
+   */
+  async getVisionPatchesByAttachment(attachmentId: string): Promise<any[]> {
+    if (!this.visionCollection) {
+      console.warn('[VectorStore] No vision collection available');
+      return [];
+    }
+
+    try {
+      // Refresh collection to ensure we have the latest data
+      try {
+        this.visionCollection = await this.db.openTable(this.VISION_COLLECTION);
+      } catch (refreshError) {
+        console.warn('[VectorStore] Could not refresh vision collection');
+      }
+
+      // Fetch all patches for this attachment using dummy vector search
+      const dummyVector = [0.0];
+      const query = this.visionCollection
+        .search(dummyVector)
+        .limit(1000)
+        .nprobes(100);
+
+      const allResults = await query.execute();
+
+      // Filter by attachmentId in-memory
+      const filtered = allResults.filter((row: any) => row.attachmentId === attachmentId);
+
+      console.log('[VectorStore] Found', filtered.length, 'patches for attachment:', attachmentId);
+
+      return filtered;
+    } catch (error) {
+      console.error('[VectorStore] Error getting vision patches:', error);
+      return [];
+    }
+  }
+
+  /**
    * Recreate text collection with correct schema
    * Useful when changing embedding dimensions (e.g., 384 -> 768)
    */

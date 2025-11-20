@@ -124,5 +124,18 @@ export function registerVisionRAGHandlers(): void {
     }
   });
 
+  /**
+   * Récupérer les patches d'un document pour visualisation dans la bibliothèque
+   */
+  ipcMain.handle('vision-rag:getDocumentPatches', async (_event, attachmentId: string) => {
+    try {
+      const patches = await coletteVisionRAGService.getDocumentPatches(attachmentId);
+      return { success: true, data: patches };
+    } catch (error) {
+      console.error('[VisionRAG] Error in getDocumentPatches:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
   console.log('[VisionRAG] ✅ IPC handlers registered');
 }

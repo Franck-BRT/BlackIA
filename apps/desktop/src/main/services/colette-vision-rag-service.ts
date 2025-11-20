@@ -276,6 +276,23 @@ export class ColetteVisionRAGService {
   }
 
   /**
+   * Convertir une image en base64
+   */
+  private async imageToBase64(imagePath: string): Promise<string | undefined> {
+    try {
+      const fs = await import('fs/promises');
+      const imageBuffer = await fs.readFile(imagePath);
+      const base64 = imageBuffer.toString('base64');
+      const ext = imagePath.toLowerCase().split('.').pop() || 'png';
+      const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
+      return `data:${mimeType};base64,${base64}`;
+    } catch (error) {
+      console.error('[Colette] Error converting image to base64:', error);
+      return undefined;
+    }
+  }
+
+  /**
    * Indexer un document avec Colette Vision RAG
    */
   async indexDocument(params: VisionRAGIndexParams): Promise<{
@@ -318,6 +335,11 @@ export class ColetteVisionRAGService {
       for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
         const patchVectors = embeddings[pageIndex]; // [patches, dims]
 
+        // Convertir l'image de la page en base64 pour l'affichage dans l'UI
+        const imageBase64 = params.imagePaths[pageIndex]
+          ? await this.imageToBase64(params.imagePaths[pageIndex])
+          : undefined;
+
         const schema: VisionRAGPatchSchema = {
           id: `${params.attachmentId}-page-${pageIndex}`,
           attachmentId: params.attachmentId,
@@ -332,6 +354,7 @@ export class ColetteVisionRAGService {
             model: embeddingsResult.metadata?.model || model,
             numPatches: patchVectors.length,
             embeddingDim: patchVectors[0]?.length || 0,
+            imageBase64, // Stocker l'image pour l'affichage dans les sources
           }),
           createdAt: Date.now(),
         };
@@ -436,6 +459,45 @@ export class ColetteVisionRAGService {
         results: [],
         error: error instanceof Error ? error.message : 'Unknown error',
       };
+    }
+  }
+
+  /**
+   * Récupérer tous les patches d'un document pour visualisation
+   */
+  async getDocumentPatches(attachmentId: string): Promise<Array<{
+    id: string;
+    pageIndex: number;
+    pageNumber: number;
+    patchCount: number;
+    pageThumbnail?: string;
+    metadata: any;
+  }>> {
+    try {
+      console.log('[Colette] Getting patches for attachment:', attachmentId);
+      const patches = await vectorStore.getVisionPatchesByAttachment(attachmentId);
+
+      return patches.map((patch: any) => {
+        const metadata = typeof patch.metadata === 'string'
+          ? JSON.parse(patch.metadata)
+          : patch.metadata;
+
+        const patchVectors = typeof patch.patchVectors === 'string'
+          ? JSON.parse(patch.patchVectors)
+          : patch.patchVectors;
+
+        return {
+          id: patch.id,
+          pageIndex: patch.pageIndex,
+          pageNumber: patch.pageIndex + 1,
+          patchCount: patchVectors.length,
+          pageThumbnail: metadata.imageBase64,
+          metadata,
+        };
+      });
+    } catch (error) {
+      console.error('[Colette] Error getting document patches:', error);
+      return [];
     }
   }
 
