@@ -1,12 +1,14 @@
-import React, { RefObject } from 'react';
+import React, { RefObject, useState } from 'react';
 import { ChatMessage } from './ChatMessage';
 import { SourcesList } from './SourcesList';
 import { RAGSources } from './RAGSources';
+import { ChunkViewModal } from './ChunkViewModal';
 import type { OllamaMessage } from '@blackia/ollama';
 import type { Persona } from '../../types/persona';
 import type { MessageMetadata } from '../../hooks/useConversations';
 import type { ChatSettingsData } from './ChatSettings';
 import type { WebSearchResponse } from '@blackia/shared';
+import type { RAGSource } from '../../types/attachment';
 
 interface ChatMessagesProps {
   // Messages
@@ -69,6 +71,9 @@ export function ChatMessages({
   handleEditUserMessage,
   messagesEndRef,
 }: ChatMessagesProps) {
+  // State pour la modal de visualisation des chunks
+  const [selectedChunk, setSelectedChunk] = useState<RAGSource | null>(null);
+
   // Si aucun message, afficher l'état vide
   if (messages.length === 0 && !streamingMessage) {
     return (
@@ -152,6 +157,7 @@ export function ChatMessages({
               {shouldShowRAGSources && (
                 <RAGSources
                   metadata={metadata.ragMetadata!}
+                  onViewSource={setSelectedChunk}
                 />
               )}
               {shouldShowWebSources && (
@@ -186,6 +192,14 @@ export function ChatMessages({
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Modal pour visualiser un chunk complet */}
+      {selectedChunk && (
+        <ChunkViewModal
+          source={selectedChunk}
+          onClose={() => setSelectedChunk(null)}
+        />
+      )}
     </div>
   );
 }
