@@ -456,6 +456,8 @@ const api = {
   attachments: {
     upload: (params: { fileName: string; buffer: Buffer; mimeType: string; entityType: string; entityId: string }) =>
       ipcRenderer.invoke('attachments:upload', params),
+    linkFromLibrary: (params: { libraryDocumentIds: string[]; entityType: string; entityId: string; tags?: string[] }) =>
+      ipcRenderer.invoke('attachments:linkFromLibrary', params),
     getByEntity: (params: { entityType: string; entityId: string }) =>
       ipcRenderer.invoke('attachments:getByEntity', params),
     getById: (params: { attachmentId: string }) =>
@@ -780,6 +782,7 @@ export interface ElectronAPI {
 
   attachments: {
     upload: (params: { fileName: string; buffer: Buffer; mimeType: string; entityType: string; entityId: string }) => Promise<any>;
+    linkFromLibrary: (params: { libraryDocumentIds: string[]; entityType: string; entityId: string; tags?: string[] }) => Promise<any>;
     getByEntity: (params: { entityType: string; entityId: string }) => Promise<any>;
     getById: (params: { attachmentId: string }) => Promise<any>;
     delete: (params: { attachmentId: string }) => Promise<any>;

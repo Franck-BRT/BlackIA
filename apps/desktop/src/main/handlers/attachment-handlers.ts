@@ -86,6 +86,52 @@ export function registerAttachmentHandlers(): void {
     }
   );
 
+  /**
+   * Lier un document de bibliothèque comme attachment
+   */
+  ipcMain.handle(
+    'attachments:linkFromLibrary',
+    async (
+      _event,
+      params: {
+        libraryDocumentIds: string[];
+        entityType: EntityType;
+        entityId: string;
+        tags?: string[];
+      }
+    ) => {
+      try {
+        console.log('[Attachments] 📚 Link from library request:', {
+          documentIds: params.libraryDocumentIds,
+          entityType: params.entityType,
+          entityId: params.entityId,
+        });
+
+        const attachments: any[] = [];
+
+        for (const documentId of params.libraryDocumentIds) {
+          const attachment = await attachmentService.linkFromLibraryDocument({
+            libraryDocumentId: documentId,
+            entityType: params.entityType,
+            entityId: params.entityId,
+            tags: params.tags,
+          });
+
+          attachments.push(attachment);
+        }
+
+        console.log('[Attachments] ✅ Linked from library successful:', {
+          count: attachments.length,
+        });
+
+        return { success: true, attachments };
+      } catch (error) {
+        console.error('[Attachments] ❌ Error linking from library:', error);
+        return { success: false, error: String(error) };
+      }
+    }
+  );
+
   // ==================== READ ====================
 
   /**
