@@ -364,38 +364,83 @@ export class VectorStoreService {
         filters
       });
 
-      // Recherche vectorielle avec LanceDB
-      let query = this.textCollection
-        .search(queryEmbedding)
-        .limit(topK)
-        .metricType('cosine'); // Cosine similarity
+      // LanceDB 0.4.x: WHERE clause doesn't work reliably with search()
+      // Workaround: Fetch more results and filter in-memory
+      const fetchLimit = topK * 10; // Fetch 10x more to ensure we have enough after filtering
 
-      // Appliquer les filtres
-      // Note: LanceDB est sensible à la casse, les noms de colonnes doivent être entre guillemets doubles
+      logger.debug('rag', 'Executing LanceDB query (will filter in-memory)', `Fetching ${fetchLimit} rows for topK=${topK}`, {
+        fetchLimit,
+        topK,
+        willFilterBy: {
+          entityType: !!filters?.entityType,
+          entityId: !!filters?.entityId,
+          attachmentIds: filters?.attachmentIds?.length || 0
+        }
+      });
+
+      // Recherche vectorielle avec LanceDB (sans filtres WHERE)
+      const query = this.textCollection
+        .search(queryEmbedding)
+        .limit(fetchLimit)
+        .metricType('cosine') // Cosine similarity
+        .nprobes(100);
+
+      const unfilteredResults = await query.execute();
+
+      logger.debug('rag', 'Unfiltered query completed', `Got ${unfilteredResults.length} rows before filtering`, {
+        totalFetched: unfilteredResults.length,
+        sampleResults: unfilteredResults.slice(0, 3).map((r: any) => ({
+          id: r.id,
+          attachmentId: r.attachmentId,
+          entityType: r.entityType,
+          entityId: r.entityId,
+          score: r._distance ? (1 - r._distance) : 0
+        }))
+      });
+
+      // Filter results in-memory
+      let filtered = unfilteredResults;
+
       if (filters) {
         if (filters.entityType) {
-          query = query.where(`"entityType" = '${filters.entityType}'`);
+          const before = filtered.length;
+          filtered = filtered.filter((row: any) => row.entityType === filters.entityType);
+          logger.debug('rag', 'Filtered by entityType', `${filtered.length} rows after entityType filter (was ${before})`, {
+            entityType: filters.entityType,
+            before,
+            after: filtered.length
+          });
         }
         if (filters.entityId) {
-          query = query.where(`"entityId" = '${filters.entityId}'`);
+          const before = filtered.length;
+          filtered = filtered.filter((row: any) => row.entityId === filters.entityId);
+          logger.debug('rag', 'Filtered by entityId', `${filtered.length} rows after entityId filter (was ${before})`, {
+            entityId: filters.entityId,
+            before,
+            after: filtered.length
+          });
         }
         if (filters.attachmentIds && filters.attachmentIds.length > 0) {
-          const attachmentFilter = filters.attachmentIds
-            .map((id) => `'${id}'`)
-            .join(', ');
-          const whereClause = `"attachmentId" IN (${attachmentFilter})`;
-          logger.debug('rag', 'Applying LanceDB WHERE clause', whereClause, {
-            attachmentIds: filters.attachmentIds,
-            whereClause
+          const before = filtered.length;
+          const attachmentIdSet = new Set(filters.attachmentIds);
+          filtered = filtered.filter((row: any) => attachmentIdSet.has(row.attachmentId));
+          logger.debug('rag', 'Filtered by attachmentIds', `${filtered.length} rows after attachmentId filter (was ${before})`, {
+            requestedIds: filters.attachmentIds,
+            before,
+            after: filtered.length,
+            matchedIds: filtered.slice(0, 5).map((r: any) => r.attachmentId)
           });
-          query = query.where(whereClause);
         }
       }
 
-      logger.debug('rag', 'Executing LanceDB query', 'Query built, executing search');
-      const results = await query.execute();
-      logger.debug('rag', 'LanceDB query completed', `Returned ${results.length} results`, {
-        resultCount: results.length
+      // Apply requested topK limit
+      const results = filtered.slice(0, topK);
+
+      logger.debug('rag', 'LanceDB query completed', `Returned ${results.length} results after filtering`, {
+        unfilteredCount: unfilteredResults.length,
+        filteredCount: filtered.length,
+        finalCount: results.length,
+        topK
       });
 
       // Transformer en TextRAGResult
