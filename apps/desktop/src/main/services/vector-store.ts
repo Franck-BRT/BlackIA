@@ -527,7 +527,12 @@ export class VectorStoreService {
         : 500; // Standard limit otherwise
 
       // 1. Fetch candidates WITHOUT WHERE clauses (they don't work reliably)
-      const query = this.visionCollection.limit(fetchLimit);
+      // LanceDB 0.4.x requires a vector search - use dummy vector to fetch all candidates
+      const dummyVector = [0.0]; // Match the dummy vector field in VisionRAGPatchSchema
+      const query = this.visionCollection
+        .search(dummyVector)
+        .limit(fetchLimit)
+        .nprobes(100);
 
       const unfilteredCandidates = await query.execute();
 
