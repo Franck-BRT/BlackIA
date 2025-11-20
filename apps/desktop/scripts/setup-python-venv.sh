@@ -75,7 +75,7 @@ fi
 if [ "$ARCH" = "arm64" ]; then
     echo ""
     echo "▶ Installing MLX for Apple Silicon..."
-    pip install mlx==0.20.0 mlx-lm==0.20.1 mlx-vlm==0.0.13
+    pip install mlx==0.20.0 mlx-lm==0.20.1 mlx-vlm>=0.1.21
     echo "✅ MLX installed successfully"
 fi
 
