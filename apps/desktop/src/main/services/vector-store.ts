@@ -825,21 +825,32 @@ export class VectorStoreService {
     }
 
     try {
+      console.log('[VectorStore] getVisionPatchesByAttachment called for:', attachmentId);
+
       // Refresh collection to ensure we have the latest data
       try {
         this.visionCollection = await this.db.openTable(this.VISION_COLLECTION);
+        console.log('[VectorStore] Vision collection refreshed');
       } catch (refreshError) {
-        console.warn('[VectorStore] Could not refresh vision collection');
+        console.warn('[VectorStore] Could not refresh vision collection:', refreshError);
       }
 
-      // Fetch all patches for this attachment using dummy vector search
+      // Fetch patches using dummy vector search with high limit
+      // Note: We need a high limit because we can't use WHERE filters reliably in LanceDB 0.4.x
       const dummyVector = [0.0];
       const query = this.visionCollection
         .search(dummyVector)
-        .limit(1000)
+        .limit(200000) // Increased limit to handle large documents
         .nprobes(100);
 
+      console.log('[VectorStore] Executing query...');
       const allResults = await query.execute();
+      console.log('[VectorStore] Query returned', allResults.length, 'total patches');
+
+      // Log first few attachmentIds to debug
+      const sampleIds = allResults.slice(0, 5).map((r: any) => r.attachmentId);
+      console.log('[VectorStore] Sample attachmentIds from results:', sampleIds);
+      console.log('[VectorStore] Looking for attachmentId:', attachmentId);
 
       // Filter by attachmentId in-memory
       const filtered = allResults.filter((row: any) => row.attachmentId === attachmentId);
