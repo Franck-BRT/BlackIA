@@ -228,6 +228,7 @@ export interface VisionRAGPatchSchema {
   attachmentId: string;
   pageIndex: number;
   patchVectors: string; // JSON stringified array of vectors [1024, 128]
+  vector: number[]; // Dummy vector for vectordb 0.4.x compatibility (required for automatic indexing)
   imageBase64?: string; // page screenshot (optional)
   entityType: string;
   entityId: string;

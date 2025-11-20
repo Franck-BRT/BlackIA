@@ -97,6 +97,7 @@ export class VisionRAGService {
           attachmentId: params.attachmentId,
           pageIndex,
           patchVectors: JSON.stringify(patchVectors), // Serialize pour LanceDB
+          vector: [0.0], // Dummy vector for vectordb 0.4.x compatibility
           entityType: params.entityType,
           entityId: params.entityId,
           metadata: JSON.stringify({

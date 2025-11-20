@@ -1132,6 +1132,7 @@ export class VectorStoreService {
                 attachmentId: params.targetAttachmentId,
                 pageIndex: patch.pageIndex,
                 patchVectors: patchVectors,
+                vector: patch.vector || [0.0], // Copy or create dummy vector for vectordb compatibility
                 entityType: params.targetEntityType,
                 entityId: params.targetEntityId,
                 metadata: JSON.stringify({
