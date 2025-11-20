@@ -502,7 +502,7 @@ export class AttachmentService {
       }
 
       // 6. Utiliser le ragMode du document de bibliothèque
-      const ragMode = doc.ragMode || recommendRAGMode(doc.mimeType, extractedText);
+      const ragMode = doc.ragMode || recommendRAGMode(doc.mimeType, extractedText || undefined);
 
       // 7. Créer l'entrée DB
       const db = getDatabase();
