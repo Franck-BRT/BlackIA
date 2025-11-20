@@ -556,6 +556,8 @@ export class AttachmentService {
             targetId: id,
             copyText: doc.isIndexedText,
             copyVision: doc.isIndexedVision,
+            targetEntityType: params.entityType,
+            targetEntityId: params.entityId,
           });
 
           // Import dynamique pour éviter les dépendances circulaires
