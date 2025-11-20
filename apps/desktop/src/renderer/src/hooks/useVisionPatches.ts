@@ -22,23 +22,28 @@ export function useVisionPatches(): UseVisionPatchesReturn {
 
   const getDocumentPatches = useCallback(async (attachmentId: string): Promise<VisionPatch[]> => {
     try {
+      console.log('[useVisionPatches] Fetching patches for attachmentId:', attachmentId);
       setLoading(true);
       setError(null);
       setLastAttachmentId(attachmentId);
 
       const result = await window.api.visionRAG.getDocumentPatches(attachmentId);
+      console.log('[useVisionPatches] Result from backend:', result);
 
       if (result.success) {
         const patchesData = result.data || [];
+        console.log('[useVisionPatches] Patches loaded:', patchesData.length, patchesData);
         setPatches(patchesData);
         return patchesData;
       } else {
+        console.error('[useVisionPatches] Failed to load patches:', result.error);
         setError(result.error || 'Failed to load patches');
         setPatches([]);
         return [];
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('[useVisionPatches] Exception:', errorMessage, err);
       setError(errorMessage);
       setPatches([]);
       return [];
