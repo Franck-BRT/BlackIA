@@ -366,7 +366,11 @@ export class VectorStoreService {
 
       // LanceDB 0.4.x: WHERE clause doesn't work reliably with search()
       // Workaround: Fetch more results and filter in-memory
-      const fetchLimit = topK * 10; // Fetch 10x more to ensure we have enough after filtering
+      // When filtering by attachmentIds, we need to fetch MORE results because we're doing
+      // in-memory filtering and the target chunks might not be in the top results
+      const fetchLimit = filters?.attachmentIds && filters.attachmentIds.length > 0
+        ? Math.max(topK * 50, 500) // Much higher limit when filtering by attachment IDs
+        : topK * 10; // Standard 10x multiplier otherwise
 
       logger.debug('rag', 'Executing LanceDB query (will filter in-memory)', `Fetching ${fetchLimit} rows for topK=${topK}`, {
         fetchLimit,
