@@ -548,6 +548,96 @@ export class AttachmentService {
         ragMode,
       });
 
+      // 8. Copier les embeddings si le document de bibliothèque était indexé
+      if (doc.isIndexedText || doc.isIndexedVision) {
+        try {
+          console.log('[AttachmentService] Copying embeddings from library document:', {
+            sourceId: doc.id,
+            targetId: id,
+            copyText: doc.isIndexedText,
+            copyVision: doc.isIndexedVision,
+          });
+
+          // Import dynamique pour éviter les dépendances circulaires
+          const { vectorStore } = await import('./vector-store');
+
+          const copyResult = await vectorStore.copyEmbeddings({
+            sourceAttachmentId: doc.id,
+            targetAttachmentId: id,
+            targetEntityType: params.entityType,
+            targetEntityId: params.entityId,
+            copyText: doc.isIndexedText || false,
+            copyVision: doc.isIndexedVision || false,
+          });
+
+          if (copyResult.success) {
+            console.log('[AttachmentService] ✅ Embeddings copied successfully:', {
+              textChunksCopied: copyResult.textChunksCopied,
+              visionPatchesCopied: copyResult.visionPatchesCopied,
+            });
+
+            // Mettre à jour les compteurs de chunks si des embeddings ont été copiés
+            if (copyResult.textChunksCopied > 0) {
+              newAttachment.textChunkCount = copyResult.textChunksCopied;
+            }
+            if (copyResult.visionPatchesCopied > 0) {
+              newAttachment.visionPatchCount = copyResult.visionPatchesCopied;
+            }
+
+            // Mettre à jour la DB avec les compteurs corrects
+            await db.update(attachments)
+              .set({
+                textChunkCount: newAttachment.textChunkCount,
+                visionPatchCount: newAttachment.visionPatchCount,
+                updatedAt: new Date(),
+              })
+              .where(eq(attachments.id, id));
+          } else {
+            console.error('[AttachmentService] ⚠️  Failed to copy embeddings:', copyResult.error);
+            // Réinitialiser les flags d'indexation car les embeddings n'ont pas pu être copiés
+            newAttachment.isIndexedText = false;
+            newAttachment.isIndexedVision = false;
+            newAttachment.textChunkCount = 0;
+            newAttachment.visionPatchCount = 0;
+            newAttachment.indexingError = `Failed to copy embeddings: ${copyResult.error}`;
+
+            await db.update(attachments)
+              .set({
+                isIndexedText: false,
+                isIndexedVision: false,
+                textChunkCount: 0,
+                visionPatchCount: 0,
+                indexingError: newAttachment.indexingError,
+                updatedAt: new Date(),
+              })
+              .where(eq(attachments.id, id));
+          }
+        } catch (copyError) {
+          const errorMsg = copyError instanceof Error ? copyError.message : String(copyError);
+          console.error('[AttachmentService] ⚠️  Error copying embeddings:', errorMsg);
+
+          // Réinitialiser les flags d'indexation
+          newAttachment.isIndexedText = false;
+          newAttachment.isIndexedVision = false;
+          newAttachment.textChunkCount = 0;
+          newAttachment.visionPatchCount = 0;
+          newAttachment.indexingError = `Embedding copy failed: ${errorMsg}`;
+
+          await db.update(attachments)
+            .set({
+              isIndexedText: false,
+              isIndexedVision: false,
+              textChunkCount: 0,
+              visionPatchCount: 0,
+              indexingError: newAttachment.indexingError,
+              updatedAt: new Date(),
+            })
+            .where(eq(attachments.id, id));
+        }
+      } else {
+        console.log('[AttachmentService] No embeddings to copy (document not indexed)');
+      }
+
       return {
         ...newAttachment,
         tags: params.tags || [],

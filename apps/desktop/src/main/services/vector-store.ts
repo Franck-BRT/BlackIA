@@ -919,6 +919,181 @@ export class VectorStoreService {
   }
 
   /**
+   * Copier les embeddings d'un attachment source vers un attachment destination
+   * Utilisé lors du linkFromLibrary pour copier les embeddings depuis la bibliothèque
+   */
+  async copyEmbeddings(params: {
+    sourceAttachmentId: string;
+    targetAttachmentId: string;
+    targetEntityType: EntityType;
+    targetEntityId: string;
+    copyText?: boolean;
+    copyVision?: boolean;
+  }): Promise<{
+    success: boolean;
+    textChunksCopied: number;
+    visionPatchesCopied: number;
+    error?: string;
+  }> {
+    try {
+      logger.info('rag', 'Copying embeddings', `From ${params.sourceAttachmentId} to ${params.targetAttachmentId}`, {
+        sourceAttachmentId: params.sourceAttachmentId,
+        targetAttachmentId: params.targetAttachmentId,
+        copyText: params.copyText,
+        copyVision: params.copyVision,
+      });
+
+      let textChunksCopied = 0;
+      let visionPatchesCopied = 0;
+
+      // 1. Copier les text chunks si demandé
+      if (params.copyText && this.textCollection) {
+        try {
+          // Récupérer tous les chunks du document source
+          const sourceChunks = await this.getAllChunksByFilter({
+            attachmentIds: [params.sourceAttachmentId],
+          });
+
+          logger.info('rag', 'Retrieved source text chunks', `Found ${sourceChunks.length} chunks to copy`, {
+            sourceChunksCount: sourceChunks.length,
+          });
+
+          if (sourceChunks.length > 0) {
+            // Créer de nouveaux chunks avec le targetAttachmentId
+            const newChunks: TextRAGChunkSchema[] = sourceChunks.map((chunk) => {
+              const metadata = typeof chunk.metadata === 'string'
+                ? JSON.parse(chunk.metadata)
+                : chunk.metadata;
+
+              return {
+                id: `${params.targetAttachmentId}-chunk-${chunk.metadata.chunkIndex}`,
+                attachmentId: params.targetAttachmentId,
+                chunkIndex: chunk.metadata.chunkIndex,
+                text: chunk.text,
+                vector: chunk.vector,
+                entityType: params.targetEntityType,
+                entityId: params.targetEntityId,
+                metadata: JSON.stringify({
+                  originalName: metadata.originalName,
+                  page: metadata.page,
+                  lineStart: metadata.lineStart,
+                  lineEnd: metadata.lineEnd,
+                }),
+                createdAt: Date.now(),
+              };
+            });
+
+            // Indexer les nouveaux chunks
+            await this.indexTextChunks(newChunks);
+            textChunksCopied = newChunks.length;
+
+            logger.success('rag', 'Text chunks copied successfully', `Copied ${textChunksCopied} chunks`, {
+              textChunksCopied,
+            });
+          } else {
+            logger.info('rag', 'No text chunks to copy', 'Source document has no text embeddings');
+          }
+        } catch (error) {
+          logger.error('rag', 'Failed to copy text chunks', '', {
+            error: error instanceof Error ? error.message : String(error),
+            sourceAttachmentId: params.sourceAttachmentId,
+          });
+          throw error;
+        }
+      }
+
+      // 2. Copier les vision patches si demandé
+      if (params.copyVision && this.visionCollection) {
+        try {
+          // Récupérer tous les patches du document source
+          // Pour vision, on doit récupérer tous les documents de la collection et filtrer
+          const dummyVector = new Array(128).fill(0.001);
+          const allPatches = await this.visionCollection
+            .search(dummyVector)
+            .limit(10000)
+            .execute();
+
+          const sourcePatches = allPatches.filter(
+            (row: any) => row.attachmentId === params.sourceAttachmentId
+          );
+
+          logger.info('rag', 'Retrieved source vision patches', `Found ${sourcePatches.length} patches to copy`, {
+            sourcePatchesCount: sourcePatches.length,
+          });
+
+          if (sourcePatches.length > 0) {
+            // Créer de nouveaux patches avec le targetAttachmentId
+            const newPatches: VisionRAGPatchSchema[] = sourcePatches.map((patch: any) => {
+              const metadata = typeof patch.metadata === 'string'
+                ? JSON.parse(patch.metadata)
+                : patch.metadata;
+
+              const patchVectors = typeof patch.patchVectors === 'string'
+                ? patch.patchVectors // Keep as string for serialization
+                : JSON.stringify(patch.patchVectors);
+
+              return {
+                id: `${params.targetAttachmentId}-page-${patch.pageIndex}`,
+                attachmentId: params.targetAttachmentId,
+                pageIndex: patch.pageIndex,
+                patchVectors: patchVectors,
+                entityType: params.targetEntityType,
+                entityId: params.targetEntityId,
+                metadata: JSON.stringify({
+                  originalName: metadata.originalName,
+                  pageNumber: metadata.pageNumber,
+                  imageBase64: metadata.imageBase64,
+                }),
+                createdAt: Date.now(),
+              };
+            });
+
+            // Indexer les nouveaux patches
+            await this.indexVisionPatches(newPatches);
+            visionPatchesCopied = newPatches.length;
+
+            logger.success('rag', 'Vision patches copied successfully', `Copied ${visionPatchesCopied} patches`, {
+              visionPatchesCopied,
+            });
+          } else {
+            logger.info('rag', 'No vision patches to copy', 'Source document has no vision embeddings');
+          }
+        } catch (error) {
+          logger.error('rag', 'Failed to copy vision patches', '', {
+            error: error instanceof Error ? error.message : String(error),
+            sourceAttachmentId: params.sourceAttachmentId,
+          });
+          throw error;
+        }
+      }
+
+      logger.success('rag', 'Embeddings copied successfully', `Text: ${textChunksCopied}, Vision: ${visionPatchesCopied}`, {
+        textChunksCopied,
+        visionPatchesCopied,
+      });
+
+      return {
+        success: true,
+        textChunksCopied,
+        visionPatchesCopied,
+      };
+    } catch (error) {
+      logger.error('rag', 'Failed to copy embeddings', '', {
+        error: error instanceof Error ? error.message : String(error),
+        sourceAttachmentId: params.sourceAttachmentId,
+        targetAttachmentId: params.targetAttachmentId,
+      });
+
+      return {
+        success: false,
+        textChunksCopied: 0,
+        visionPatchesCopied: 0,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
    * Fermer la connexion
    */
   async close(): Promise<void> {
