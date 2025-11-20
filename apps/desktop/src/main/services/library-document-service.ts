@@ -88,6 +88,27 @@ export interface IndexResult {
 
 export class LibraryDocumentService {
   /**
+   * Créer un nom de fichier lisible: nom-original-uuid8.ext
+   */
+  private createReadableFilename(originalName: string, uuid: string): string {
+    const ext = path.extname(originalName);
+    const baseName = path.basename(originalName, ext);
+
+    // Slugifier le nom (enlever accents, caractères spéciaux)
+    const slug = baseName
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with dashes
+      .replace(/^-+|-+$/g, '') // Remove leading/trailing dashes
+      .substring(0, 50); // Limit length
+
+    // Utiliser les 8 premiers caractères de l'UUID
+    const shortId = uuid.substring(0, 8);
+
+    return `${slug}-${shortId}${ext}`;
+  }
+
+  /**
    * Ajouter un document à une bibliothèque
    */
   async addDocument(params: {
@@ -110,9 +131,8 @@ export class LibraryDocumentService {
       // 2. Générer un ID unique
       const id = randomUUID();
 
-      // 3. Déterminer le chemin de destination
-      const ext = path.extname(params.originalName);
-      const filename = `${id}${ext}`;
+      // 3. Créer un nom de fichier lisible: nom-original-uuid8.ext
+      const filename = this.createReadableFilename(params.originalName, id);
       const destPath = path.join(library.storagePath, filename);
 
       // 4. Copier le fichier
