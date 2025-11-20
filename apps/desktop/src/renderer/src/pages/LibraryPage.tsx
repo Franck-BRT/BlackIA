@@ -70,6 +70,16 @@ export function LibraryPage() {
       if (selectedLibrary) {
         await getDocuments(selectedLibrary.id);
         await refreshLibraries();
+
+        // Update selectedDocument with the refreshed data to show updated model info
+        const updatedDoc = documents.find(doc => doc.id === documentId);
+        if (updatedDoc) {
+          console.log('[LibraryPage] Updating selectedDocument with refreshed data:', {
+            textModel: updatedDoc.textEmbeddingModel,
+            visionModel: updatedDoc.visionEmbeddingModel,
+          });
+          setSelectedDocument(updatedDoc);
+        }
       }
       console.log('[LibraryPage] Document list refreshed');
     } catch (error) {
