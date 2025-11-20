@@ -38,13 +38,13 @@ extraResources:
       - "!**/venv/**"  # Exclude venv here, will be added separately
 
   # Python virtual environment (bundled dependencies)
+  # Note: We include test/tests folders because some packages like numpy
+  # have essential modules in _core.tests that are needed at runtime
   - from: src/python/venv
     to: python/venv
     filter:
       - "**/*"
       - "!**/__pycache__/**"
-      - "!**/test/**"
-      - "!**/tests/**"
 
   # Scripts Python MLX (LLM, téléchargement, embeddings)
   - from: src/main/services/backends/mlx
