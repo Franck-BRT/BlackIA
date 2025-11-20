@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, List, RefreshCw, Check, Settings, Eye, FileText } from 'lucide-react';
+import { X, List, RefreshCw, Check, Settings, Eye, FileText, Bug } from 'lucide-react';
 import { MarkdownEditor } from '../editor/MarkdownEditor';
 import { useChunkEditor } from '../../hooks/useChunkEditor';
 import { useVisionPatches } from '../../hooks/useVisionPatches';
@@ -250,6 +250,26 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
     }
   };
 
+  const handleCopyDebugInfo = async () => {
+    try {
+      const debugInfo = await window.api.visionRAG.getDebugInfo(doc.id);
+      const debugJson = JSON.stringify(debugInfo, null, 2);
+
+      // Copier dans le presse-papier
+      await navigator.clipboard.writeText(debugJson);
+
+      // Afficher un message de succès temporaire
+      setIndexingMessage('✓ Debug info copié dans le presse-papier');
+      setTimeout(() => setIndexingMessage(''), 3000);
+
+      console.log('[DocumentViewer] Debug info copied to clipboard:', debugInfo);
+    } catch (error) {
+      console.error('[DocumentViewer] Error copying debug info:', error);
+      setIndexingMessage('❌ Erreur lors de la copie du debug info');
+      setTimeout(() => setIndexingMessage(''), 3000);
+    }
+  };
+
   // Use window.document to avoid conflict with 'doc' prop
   const portalRoot = window.document.getElementById('root');
   if (!portalRoot) return null;
@@ -266,6 +286,17 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
           >
             <X className="w-5 h-5" />
           </button>
+
+          {/* Bouton Debug Vision RAG */}
+          {doc.isIndexedVision && (
+            <button
+              onClick={handleCopyDebugInfo}
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors text-orange-400"
+              title="Copier les informations de debug Vision RAG dans le presse-papier"
+            >
+              <Bug className="w-4 h-4" />
+            </button>
+          )}
 
           <div>
             <h1 className="text-lg font-semibold text-neutral-100">{doc.originalName}</h1>
