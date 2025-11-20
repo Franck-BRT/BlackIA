@@ -172,7 +172,17 @@ export function ChatInput({
       let finalMessage = message.trim();
 
       if (ragEnabled && headerAttachments.length > 0) {
-        console.log('[ChatInput] RAG enabled, contextualizing message...');
+        console.log('[ChatInput] 🔍 RAG enabled, contextualizing message...', {
+          ragMode,
+          attachmentsCount: headerAttachments.length,
+          attachments: headerAttachments.map(a => ({
+            id: a.id,
+            name: a.originalName,
+            isIndexedText: a.isIndexedText,
+            isIndexedVision: a.isIndexedVision,
+            ragMode: a.ragMode,
+          })),
+        });
 
         const { context, metadata } = await contextualizeMessage(finalMessage, {
           conversationId,
@@ -181,15 +191,25 @@ export function ChatInput({
           mode: ragMode,
         });
 
+        console.log('[ChatInput] 🔍 RAG search results:', {
+          hasContext: !!context,
+          contextLength: context?.length || 0,
+          metadata,
+        });
+
         if (context) {
           // Enrichir le message avec le contexte
           finalMessage = `${context}\n\nUser: ${finalMessage}`;
           ragMetadata = metadata;
 
-          console.log('[ChatInput] Message contextualized:', {
+          console.log('[ChatInput] ✅ Message contextualized:', {
             chunksUsed: metadata.chunksUsed,
             mode: metadata.mode,
           });
+        } else {
+          console.log('[ChatInput] ⚠️ No context returned from RAG search - no sources will be displayed');
+          // Assigner quand même les métadonnées pour traçabilité
+          ragMetadata = metadata;
         }
       }
 
