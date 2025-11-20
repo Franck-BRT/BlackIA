@@ -508,34 +508,62 @@ export class VectorStoreService {
     }
 
     try {
+      // Refresh collection to ensure we have the latest data
+      try {
+        this.visionCollection = await this.db.openTable(this.VISION_COLLECTION);
+        console.log('[VectorStore] Vision collection refreshed before search');
+      } catch (refreshError) {
+        console.warn('[VectorStore] Could not refresh vision collection, using existing reference');
+      }
+
       console.log('[VectorStore] MaxSim search with query shape:', [
         queryEmbedding.length,
         queryEmbedding[0]?.length || 0,
       ]);
 
-      // 1. Récupérer tous les candidats (on pourrait optimiser avec un pre-filtering)
-      let query = this.visionCollection.limit(1000); // Limit to avoid memory issues
+      // Adaptive limit based on filter type (same logic as text search)
+      const fetchLimit = filters?.attachmentIds && filters.attachmentIds.length > 0
+        ? 1000 // Higher limit when filtering by attachment IDs
+        : 500; // Standard limit otherwise
 
-      // Appliquer les filtres
-      // Note: LanceDB est sensible à la casse, les noms de colonnes doivent être entre guillemets doubles
+      // 1. Fetch candidates WITHOUT WHERE clauses (they don't work reliably)
+      const query = this.visionCollection.limit(fetchLimit);
+
+      const unfilteredCandidates = await query.execute();
+
+      console.log('[VectorStore] Fetched', unfilteredCandidates.length, 'unfiltered vision candidates');
+
+      // 2. Apply in-memory filtering
+      let candidates = unfilteredCandidates;
+
       if (filters) {
-        if (filters.entityType) {
-          query = query.where(`"entityType" = '${filters.entityType}'`);
-        }
-        if (filters.entityId) {
-          query = query.where(`"entityId" = '${filters.entityId}'`);
-        }
         if (filters.attachmentIds && filters.attachmentIds.length > 0) {
-          const attachmentFilter = filters.attachmentIds
-            .map((id) => `'${id}'`)
-            .join(', ');
-          query = query.where(`"attachmentId" IN (${attachmentFilter})`);
+          // Use attachment IDs as primary filter (for linked documents)
+          const before = candidates.length;
+          const attachmentIdSet = new Set(filters.attachmentIds);
+          candidates = candidates.filter((row: any) => attachmentIdSet.has(row.attachmentId));
+          console.log('[VectorStore] Filtered by attachmentIds:', {
+            before,
+            after: candidates.length,
+            requestedIds: filters.attachmentIds,
+            matchedIds: candidates.slice(0, 3).map((r: any) => r.attachmentId),
+          });
+        } else {
+          // No attachment IDs - use entityType/entityId filters
+          if (filters.entityType) {
+            const before = candidates.length;
+            candidates = candidates.filter((row: any) => row.entityType === filters.entityType);
+            console.log('[VectorStore] Filtered by entityType:', { before, after: candidates.length });
+          }
+          if (filters.entityId) {
+            const before = candidates.length;
+            candidates = candidates.filter((row: any) => row.entityId === filters.entityId);
+            console.log('[VectorStore] Filtered by entityId:', { before, after: candidates.length });
+          }
         }
       }
 
-      const candidates = await query.execute();
-
-      console.log('[VectorStore] Found', candidates.length, 'candidates for MaxSim');
+      console.log('[VectorStore] Found', candidates.length, 'candidates for MaxSim after filtering');
 
       // 2. Calculer MaxSim pour chaque document
       const scoredResults = candidates.map((row: any) => {
@@ -557,11 +585,12 @@ export class VectorStoreService {
           patchIndex: 0,
           score: maxSimScore,
           patchVectors,
+          pageThumbnail: metadata.imageBase64, // Add pageThumbnail at top level for frontend
           metadata: {
             originalName: metadata.originalName || '',
             entityType: row.entityType as EntityType,
             pageNumber: row.pageIndex + 1,
-            imageBase64: row.imageBase64,
+            imageBase64: metadata.imageBase64,
           },
         };
       });

@@ -216,38 +216,35 @@ export class HybridRAGService {
    */
   private async decideRAGMode(params: RAGSearchParams): Promise<RAGMode> {
     try {
-      // Si pas de filtres, utiliser hybrid par défaut
+      // Si pas de filtres attachmentIds, analyser par mots-clés
       if (!params.filters?.attachmentIds || params.filters.attachmentIds.length === 0) {
-        console.log('[HybridRAG] No attachment filters, defaulting to hybrid');
-        return 'hybrid';
-      }
+        console.log('[HybridRAG] No attachment filters, using keyword-based detection');
 
-      // Analyser les attachments pour déterminer le meilleur mode
-      // Note: Pour l'instant, on utilise une heuristique simple
-      // TODO: Implémenter une vraie analyse basée sur les métadonnées des attachments
+        // Heuristique basée sur les mots-clés de la query
+        const visualKeywords = ['image', 'photo', 'diagram', 'chart', 'graph', 'figure', 'screenshot', 'page'];
+        const queryLower = params.query.toLowerCase();
+        const hasVisualKeywords = visualKeywords.some((kw) => queryLower.includes(kw));
 
-      // Heuristique simple: si la query contient des mots-clés visuels, favoriser vision
-      const visualKeywords = ['image', 'photo', 'diagram', 'chart', 'graph', 'figure', 'screenshot'];
-      const textKeywords = ['text', 'code', 'document', 'paragraph', 'sentence'];
+        if (hasVisualKeywords) {
+          console.log('[HybridRAG] Visual keywords detected → hybrid mode (to include vision)');
+          return 'hybrid';
+        }
 
-      const queryLower = params.query.toLowerCase();
-
-      const hasVisualKeywords = visualKeywords.some((kw) => queryLower.includes(kw));
-      const hasTextKeywords = textKeywords.some((kw) => queryLower.includes(kw));
-
-      if (hasVisualKeywords && !hasTextKeywords) {
-        console.log('[HybridRAG] Visual keywords detected → vision mode');
-        return 'vision';
-      }
-
-      if (hasTextKeywords && !hasVisualKeywords) {
-        console.log('[HybridRAG] Text keywords detected → text mode');
+        // Par défaut text si pas de mots-clés visuels
+        console.log('[HybridRAG] No visual keywords → text mode');
         return 'text';
       }
 
-      // Par défaut, hybrid pour profiter des deux
-      console.log('[HybridRAG] No clear preference → hybrid mode');
-      return 'hybrid';
+      // Analyser les attachments pour déterminer le meilleur mode
+      const analysis = await this.analyzeAttachments(params.filters.attachmentIds);
+
+      console.log('[HybridRAG] Attachment analysis:', {
+        textRatio: analysis.textRatio,
+        visionRatio: analysis.visionRatio,
+        recommendedMode: analysis.recommendedMode,
+      });
+
+      return analysis.recommendedMode;
     } catch (error) {
       console.warn('[HybridRAG] Error in auto-mode decision:', error);
       return 'hybrid'; // Fallback sûr
@@ -256,25 +253,70 @@ export class HybridRAGService {
 
   /**
    * Analyser les attachments pour déterminer le mode optimal
-   * (à implémenter quand attachment-service sera prêt)
    */
   private async analyzeAttachments(attachmentIds: string[]): Promise<{
     textRatio: number;
     visionRatio: number;
     recommendedMode: RAGMode;
   }> {
-    // TODO: Implémenter l'analyse des attachments
-    // 1. Récupérer les attachments depuis la DB
-    // 2. Compter combien sont indexés en text vs vision
-    // 3. Calculer les ratios
-    // 4. Recommander le mode
+    try {
+      const { attachmentService } = await import('./attachment-service');
 
-    // Placeholder pour l'instant
-    return {
-      textRatio: 0.5,
-      visionRatio: 0.5,
-      recommendedMode: 'hybrid',
-    };
+      let textCount = 0;
+      let visionCount = 0;
+
+      // Analyser chaque attachment
+      for (const id of attachmentIds) {
+        const attachment = await attachmentService.getById(id);
+        if (!attachment) continue;
+
+        if (attachment.isIndexedText) textCount++;
+        if (attachment.isIndexedVision) visionCount++;
+      }
+
+      const total = attachmentIds.length;
+      const textRatio = total > 0 ? textCount / total : 0;
+      const visionRatio = total > 0 ? visionCount / total : 0;
+
+      console.log('[HybridRAG] Attachment indexing status:', {
+        total,
+        textCount,
+        visionCount,
+        textRatio,
+        visionRatio,
+      });
+
+      // Déterminer le mode recommandé
+      let recommendedMode: RAGMode;
+
+      if (visionRatio >= 0.5 && textRatio >= 0.5) {
+        // Les deux types d'index sont présents
+        recommendedMode = 'hybrid';
+      } else if (visionRatio > textRatio) {
+        // Principalement vision
+        recommendedMode = 'vision';
+      } else if (textRatio > 0) {
+        // Principalement text
+        recommendedMode = 'text';
+      } else {
+        // Aucun index, fallback sur text
+        recommendedMode = 'text';
+      }
+
+      return {
+        textRatio,
+        visionRatio,
+        recommendedMode,
+      };
+    } catch (error) {
+      console.error('[HybridRAG] Error analyzing attachments:', error);
+      // Fallback sûr
+      return {
+        textRatio: 0.5,
+        visionRatio: 0.5,
+        recommendedMode: 'hybrid',
+      };
+    }
   }
 
   /**

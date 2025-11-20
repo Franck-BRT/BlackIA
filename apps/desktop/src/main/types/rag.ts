@@ -118,6 +118,7 @@ export interface VisionRAGResult {
   patchIndex: number;
   score: number; // late interaction score
   patchVectors: number[][]; // multi-vector embeddings [1024, 128]
+  pageThumbnail?: string; // page screenshot at top level for frontend
   metadata: {
     originalName: string;
     entityType: EntityType;
