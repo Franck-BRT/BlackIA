@@ -184,11 +184,15 @@ export function ChatInput({
           })),
         });
 
+        // Extract attachment IDs for RAG search filtering
+        const attachmentIds = headerAttachments.map(a => a.id);
+
         const { context, metadata } = await contextualizeMessage(finalMessage, {
           conversationId,
           entityType,
           entityId: entityId || conversationId,
           mode: ragMode,
+          attachmentIds, // CRITICAL: Filter by attachment IDs, not entity IDs
         });
 
         console.log('[ChatInput] 🔍 RAG search results:', {

@@ -154,6 +154,7 @@ export function useRAG({
         entityType?: 'conversation' | 'message';
         entityId?: string;
         mode?: 'text' | 'vision' | 'hybrid' | 'auto';
+        attachmentIds?: string[]; // CRITICAL: Filter by attachment IDs
       } = {}
     ): Promise<{
       context: string;
@@ -183,6 +184,7 @@ export function useRAG({
           conversationId: options.conversationId,
           entityType: options.entityType,
           entityId: options.entityId,
+          attachmentIds: options.attachmentIds, // CRITICAL: Pass attachment IDs for filtering
         },
       });
 

@@ -399,28 +399,13 @@ export class VectorStoreService {
       });
 
       // Filter results in-memory
+      // IMPORTANT: If attachmentIds are provided, use those INSTEAD of entityType/entityId
+      // because linked library documents have their own entity IDs (library ID, not conversation ID)
       let filtered = unfilteredResults;
 
       if (filters) {
-        if (filters.entityType) {
-          const before = filtered.length;
-          filtered = filtered.filter((row: any) => row.entityType === filters.entityType);
-          logger.debug('rag', 'Filtered by entityType', `${filtered.length} rows after entityType filter (was ${before})`, {
-            entityType: filters.entityType,
-            before,
-            after: filtered.length
-          });
-        }
-        if (filters.entityId) {
-          const before = filtered.length;
-          filtered = filtered.filter((row: any) => row.entityId === filters.entityId);
-          logger.debug('rag', 'Filtered by entityId', `${filtered.length} rows after entityId filter (was ${before})`, {
-            entityId: filters.entityId,
-            before,
-            after: filtered.length
-          });
-        }
         if (filters.attachmentIds && filters.attachmentIds.length > 0) {
+          // Use attachment IDs as primary filter (for linked documents)
           const before = filtered.length;
           const attachmentIdSet = new Set(filters.attachmentIds);
           filtered = filtered.filter((row: any) => attachmentIdSet.has(row.attachmentId));
@@ -430,6 +415,26 @@ export class VectorStoreService {
             after: filtered.length,
             matchedIds: filtered.slice(0, 5).map((r: any) => r.attachmentId)
           });
+        } else {
+          // No attachment IDs - use entityType/entityId filters (for direct conversation attachments)
+          if (filters.entityType) {
+            const before = filtered.length;
+            filtered = filtered.filter((row: any) => row.entityType === filters.entityType);
+            logger.debug('rag', 'Filtered by entityType', `${filtered.length} rows after entityType filter (was ${before})`, {
+              entityType: filters.entityType,
+              before,
+              after: filtered.length
+            });
+          }
+          if (filters.entityId) {
+            const before = filtered.length;
+            filtered = filtered.filter((row: any) => row.entityId === filters.entityId);
+            logger.debug('rag', 'Filtered by entityId', `${filtered.length} rows after entityId filter (was ${before})`, {
+              entityId: filters.entityId,
+              before,
+              after: filtered.length
+            });
+          }
         }
       }
 
