@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, FolderOpen } from 'lucide-react';
 import type { CreateLibraryInput } from '../../types/library';
 
 interface CreateLibraryModalProps {
@@ -31,6 +31,7 @@ export function CreateLibraryModal({ isOpen, onClose, onCreate }: CreateLibraryM
     description: '',
     color: 'blue',
     icon: '📚',
+    storagePath: undefined,
     ragConfig: {
       defaultMode: 'auto',
       autoIndex: true,
@@ -57,6 +58,18 @@ export function CreateLibraryModal({ isOpen, onClose, onCreate }: CreateLibraryM
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleSelectFolder = async () => {
+    try {
+      const result = await window.electronAPI.dialog.selectFolder();
+      if (result.success && result.path) {
+        setFormData({ ...formData, storagePath: result.path });
+      }
+    } catch (error) {
+      console.error('[CreateLibraryModal] Failed to select folder:', error);
+      setError('Erreur lors de la sélection du dossier');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,6 +154,35 @@ export function CreateLibraryModal({ isOpen, onClose, onCreate }: CreateLibraryM
               rows={3}
               disabled={loading}
             />
+          </div>
+
+          {/* Storage Path */}
+          <div>
+            <label className="block text-sm font-medium text-neutral-200 mb-2">
+              Emplacement de stockage
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={formData.storagePath || ''}
+                readOnly
+                className="flex-1 px-4 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-neutral-100 placeholder-neutral-500 focus:outline-none"
+                placeholder="Par défaut: ~/Library/Application Support/BlackIA/libraries/{nom}"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={handleSelectFolder}
+                className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg transition-colors flex items-center gap-2"
+                disabled={loading}
+              >
+                <FolderOpen className="w-4 h-4" />
+                Choisir
+              </button>
+            </div>
+            <p className="text-xs text-neutral-400 mt-1">
+              Laissez vide pour utiliser l'emplacement par défaut
+            </p>
           </div>
 
           {/* Icon */}

@@ -775,6 +775,34 @@ ipcMain.handle('file:exportPDF', async (_event, options: {
   }
 });
 
+// ============================================================================
+// DIALOG HANDLERS
+// ============================================================================
+
+ipcMain.handle('dialog:selectFolder', async (_event, options?: {
+  title?: string;
+  defaultPath?: string;
+}) => {
+  if (!mainWindow) return { success: false, error: 'No main window' };
+
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: options?.title || 'Sélectionner un dossier',
+      defaultPath: options?.defaultPath,
+      properties: ['openDirectory', 'createDirectory'],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+
+    return { success: true, path: result.filePaths[0] };
+  } catch (error: any) {
+    console.error('Erreur lors de la sélection du dossier:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 console.log('BlackIA Desktop started');
 console.log('Development mode:', isDev);
 console.log('App version:', app.getVersion());

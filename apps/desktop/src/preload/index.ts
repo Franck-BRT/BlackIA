@@ -42,6 +42,12 @@ const api = {
       ipcRenderer.invoke('file:exportPDF', options),
   },
 
+  // Dialog API
+  dialog: {
+    selectFolder: (options?: { title?: string; defaultPath?: string }) =>
+      ipcRenderer.invoke('dialog:selectFolder', options),
+  },
+
   // Personas API
   personas: {
     getAll: () => ipcRenderer.invoke('personas:getAll'),
