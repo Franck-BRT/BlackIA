@@ -114,8 +114,33 @@ export function useRAG({
   const formatSources = useCallback(
     (results: Array<TextRAGSearchResult | VisionRAGSearchResult>): RAGSource[] => {
       return results.map((result) => {
-        // Vérifier si c'est un résultat text ou vision
-        if ('chunkId' in result) {
+        // HybridRAGResult from backend - check if it has textResult or visionResult
+        if ('textResult' in result && result.textResult) {
+          // This is a HybridRAGResult with text data
+          const textResult = result.textResult;
+          return {
+            attachmentId: result.attachmentId,
+            fileName: textResult.metadata.originalName,
+            score: result.score,
+            type: 'text',
+            chunkText: textResult.text, // ← Extract text from textResult
+            chunkIndex: textResult.metadata.chunkIndex,
+          };
+        } else if ('visionResult' in result && result.visionResult) {
+          // This is a HybridRAGResult with vision data
+          const visionResult = result.visionResult;
+          return {
+            attachmentId: result.attachmentId,
+            fileName: visionResult.metadata.originalName,
+            score: result.score,
+            type: 'vision',
+            page: visionResult.metadata.pageNumber,
+            pageThumbnail: visionResult.pageThumbnail,
+            patchIndex: visionResult.patchIndex,
+          };
+        }
+        // Fallback: direct TextRAGSearchResult or VisionRAGSearchResult
+        else if ('chunkId' in result) {
           // Text result
           return {
             attachmentId: result.attachmentId,
