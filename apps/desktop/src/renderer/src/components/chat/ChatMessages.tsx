@@ -121,6 +121,17 @@ export function ChatMessages({
           const shouldShowWebSources = webSearch && webSearchSettings.showSources && message.role === 'assistant';
           const shouldShowRAGSources = metadata?.ragMetadata && message.role === 'assistant';
 
+          // Debug logging pour RAG
+          if (message.role === 'assistant') {
+            console.log('[ChatMessages] 🔍 Assistant message debug:', {
+              index,
+              hasMetadata: !!metadata,
+              hasRagMetadata: !!metadata?.ragMetadata,
+              ragMetadata: metadata?.ragMetadata,
+              shouldShowRAGSources,
+            });
+          }
+
           return (
             <React.Fragment key={index}>
               <ChatMessage
