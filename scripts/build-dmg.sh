@@ -141,6 +141,13 @@ if [ "$CLEAN" = true ]; then
     rm -rf "$PROJECT_ROOT/packages/*/node_modules"
     rm -rf "$PROJECT_ROOT/apps/*/node_modules"
 
+    # Nettoyer le venv Python pour forcer la réinstallation des dépendances
+    log "Nettoyage du venv Python pour réinstallation propre..."
+    if [ -d "$DESKTOP_DIR/src/python/venv" ]; then
+        rm -rf "$DESKTOP_DIR/src/python/venv"
+        success "Venv Python supprimé"
+    fi
+
     success "Nettoyage terminé"
 fi
 
