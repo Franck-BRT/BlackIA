@@ -47,6 +47,10 @@ export function useChatState() {
   const [webSearchResults, setWebSearchResults] = useState<Record<number, WebSearchResponse>>({}); // Par index de message
   const [isWebSearching, setIsWebSearching] = useState(false);
 
+  // États RAG
+  const [ragEnabled, setRagEnabled] = useState(false);
+  const [ragMode, setRagMode] = useState<'text' | 'vision' | 'hybrid' | 'auto'>('auto');
+
   // Chat settings avec persistence localStorage
   const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
     try {
@@ -154,6 +158,12 @@ export function useChatState() {
     setWebSearchResults,
     isWebSearching,
     setIsWebSearching,
+
+    // RAG
+    ragEnabled,
+    setRagEnabled,
+    ragMode,
+    setRagMode,
 
     // Settings
     chatSettings,

@@ -3,7 +3,6 @@ import { Send, Square, Paperclip } from 'lucide-react';
 import { PersonaMentionDropdown } from './PersonaMentionDropdown';
 import { PromptMentionDropdown } from './PromptMentionDropdown';
 import { PromptVariablesModal } from '../prompts/PromptVariablesModal';
-import { RAGToggle } from './RAGToggle';
 import type { Persona } from '../../types/persona';
 import type { Prompt } from '../../types/prompt';
 import type { Attachment, RAGMetadata } from '../../types/attachment';
@@ -34,7 +33,8 @@ interface ChatInputProps {
   conversationId?: string; // ID de la conversation pour attachments et RAG
   entityType?: 'conversation' | 'message';
   entityId?: string;
-  ragEnabled?: boolean; // Activer/désactiver RAG par défaut
+  ragEnabled: boolean; // État RAG géré par le parent
+  ragMode: 'text' | 'vision' | 'hybrid' | 'auto'; // Mode RAG géré par le parent
   headerAttachments?: Attachment[]; // Attachments gérés depuis le header
 }
 
@@ -52,7 +52,8 @@ export function ChatInput({
   conversationId,
   entityType = 'conversation',
   entityId,
-  ragEnabled: ragEnabledProp = false, // Désactivé par défaut en attendant l'implémentation des handlers RAG
+  ragEnabled,
+  ragMode,
   headerAttachments = [],
 }: ChatInputProps) {
   const [message, setMessage] = useState(initialMessage);
@@ -71,10 +72,6 @@ export function ChatInput({
   const [currentPromptPosition, setCurrentPromptPosition] = useState<number>(0); // Position du curseur lors de /prompt
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [showPromptVariablesModal, setShowPromptVariablesModal] = useState(false);
-
-  // NOUVEAUX ÉTATS pour RAG
-  const [ragEnabled, setRagEnabled] = useState(ragEnabledProp);
-  const [ragMode, setRagMode] = useState<'text' | 'vision' | 'hybrid' | 'auto'>('auto');
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -626,24 +623,6 @@ export function ChatInput({
                 Inclure les exemples ({totalFewShots} exemples au total)
               </span>
             </label>
-          )}
-        </div>
-      )}
-
-      {/* RAG Controls */}
-      {conversationId && (
-        <div className="flex items-center gap-2 mb-2">
-          <RAGToggle
-            enabled={ragEnabled}
-            mode={ragMode}
-            onToggle={() => setRagEnabled(!ragEnabled)}
-            onModeChange={setRagMode}
-          />
-
-          {isSearching && (
-            <span className="text-xs text-purple-500 dark:text-purple-400 animate-pulse">
-              Recherche RAG...
-            </span>
           )}
         </div>
       )}

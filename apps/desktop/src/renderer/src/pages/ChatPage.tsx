@@ -98,6 +98,11 @@ export function ChatPage() {
     setWebSearchResults,
     isWebSearching,
     setIsWebSearching,
+    // RAG
+    ragEnabled,
+    setRagEnabled,
+    ragMode,
+    setRagMode,
     // Settings
     chatSettings,
     updateChatSettings,
@@ -537,6 +542,10 @@ export function ChatPage() {
           setWebSearchEnabled={setWebSearchEnabled}
           isWebSearching={isWebSearching}
           webSearchProviderName={activeProvider?.name}
+          ragEnabled={ragEnabled}
+          setRagEnabled={setRagEnabled}
+          ragMode={ragMode}
+          setRagMode={setRagMode}
           messages={messages}
           conversations={conversations}
           folders={folders}
@@ -608,7 +617,8 @@ export function ChatPage() {
               prefillPersonaId={prefillPersonaId}
               prefillIncludeFewShots={prefillIncludeFewShots}
               conversationId={currentConversationId || undefined}
-              ragEnabled={true}
+              ragEnabled={ragEnabled}
+              ragMode={ragMode}
               headerAttachments={currentAttachments}
             />
           </div>
