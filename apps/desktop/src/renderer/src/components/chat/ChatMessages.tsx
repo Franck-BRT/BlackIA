@@ -1,6 +1,7 @@
 import React, { RefObject } from 'react';
 import { ChatMessage } from './ChatMessage';
 import { SourcesList } from './SourcesList';
+import { RAGSources } from './RAGSources';
 import type { OllamaMessage } from '@blackia/ollama';
 import type { Persona } from '../../types/persona';
 import type { MessageMetadata } from '../../hooks/useConversations';
@@ -117,7 +118,8 @@ export function ChatMessages({
                 : undefined);
 
           const webSearch = webSearchResults[index];
-          const shouldShowSources = webSearch && webSearchSettings.showSources && message.role === 'assistant';
+          const shouldShowWebSources = webSearch && webSearchSettings.showSources && message.role === 'assistant';
+          const shouldShowRAGSources = metadata?.ragMetadata && message.role === 'assistant';
 
           return (
             <React.Fragment key={index}>
@@ -134,10 +136,14 @@ export function ChatMessages({
                 syntaxTheme={chatSettings.syntaxTheme}
                 showLineNumbers={chatSettings.showLineNumbers}
                 mentionedPersonas={mentionedPersonas}
-                ragMetadata={metadata?.ragMetadata}
                 attachmentIds={metadata?.attachmentIds}
               />
-              {shouldShowSources && (
+              {shouldShowRAGSources && (
+                <RAGSources
+                  metadata={metadata.ragMetadata!}
+                />
+              )}
+              {shouldShowWebSources && (
                 <SourcesList
                   results={webSearch.results}
                   query={webSearch.query}
