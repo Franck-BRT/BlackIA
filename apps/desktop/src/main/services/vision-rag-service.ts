@@ -57,6 +57,7 @@ export class VisionRAGService {
     success: boolean;
     patchCount: number;
     pageCount: number;
+    model?: string;
     error?: string;
   }> {
     const startTime = Date.now();
@@ -117,6 +118,7 @@ export class VisionRAGService {
       console.log('[VisionRAG] Indexed successfully:', {
         patchCount,
         pageCount,
+        model,
         duration: `${duration}ms`,
       });
 
@@ -124,6 +126,7 @@ export class VisionRAGService {
         success: true,
         patchCount,
         pageCount,
+        model,
       };
     } catch (error) {
       console.error('[VisionRAG] Indexing error:', error);
