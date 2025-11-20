@@ -359,6 +359,18 @@ export class VectorStoreService {
     }
 
     try {
+      // Refresh collection to ensure we have the latest data
+      // This is especially important after copyEmbeddings operations
+      try {
+        this.textCollection = await this.db.openTable(this.TEXT_COLLECTION);
+        logger.debug('rag', 'Collection refreshed before search', 'Ensuring latest data is available');
+      } catch (refreshError) {
+        // Non-fatal - continue with existing collection reference
+        logger.warning('rag', 'Could not refresh collection', 'Using existing reference', {
+          error: refreshError instanceof Error ? refreshError.message : String(refreshError)
+        });
+      }
+
       logger.debug('rag', 'LanceDB text search starting', `Filters: ${JSON.stringify(filters)}`, {
         topK,
         filters
