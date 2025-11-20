@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 import { highlightCode } from '../../utils/syntaxHighlighter';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 
 interface MarkdownRendererProps {
   content: string;
@@ -139,6 +141,59 @@ export function MarkdownRenderer({
       return placeholder;
     });
 
+    // 1.5. SAUVEGARDER les formules LaTeX (avant le code inline)
+    const mathBlocks: string[] = [];
+
+    // Display math: \[...\] ou $$...$$
+    html = html.replace(/\\\[([\s\S]*?)\\\]/g, (match, formula) => {
+      const placeholder = `§§§MATH_DISPLAY_${mathBlocks.length}§§§`;
+      try {
+        const rendered = katex.renderToString(formula.trim(), {
+          displayMode: true,
+          throwOnError: false,
+          strict: false,
+        });
+        mathBlocks.push(`<div class="katex-display-wrapper">${rendered}</div>`);
+      } catch (e) {
+        console.error('[Markdown] KaTeX render error:', e);
+        mathBlocks.push(`<div class="katex-error">\\[${formula}\\]</div>`);
+      }
+      return placeholder;
+    });
+
+    html = html.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+      const placeholder = `§§§MATH_DISPLAY_${mathBlocks.length}§§§`;
+      try {
+        const rendered = katex.renderToString(formula.trim(), {
+          displayMode: true,
+          throwOnError: false,
+          strict: false,
+        });
+        mathBlocks.push(`<div class="katex-display-wrapper">${rendered}</div>`);
+      } catch (e) {
+        console.error('[Markdown] KaTeX render error:', e);
+        mathBlocks.push(`<div class="katex-error">$$${formula}$$</div>`);
+      }
+      return placeholder;
+    });
+
+    // Inline math: $...$
+    html = html.replace(/\$([^\$\n]+?)\$/g, (match, formula) => {
+      const placeholder = `§§§MATH_INLINE_${mathBlocks.length}§§§`;
+      try {
+        const rendered = katex.renderToString(formula.trim(), {
+          displayMode: false,
+          throwOnError: false,
+          strict: false,
+        });
+        mathBlocks.push(`<span class="katex-inline-wrapper">${rendered}</span>`);
+      } catch (e) {
+        console.error('[Markdown] KaTeX render error:', e);
+        mathBlocks.push(`<span class="katex-error">$${formula}$</span>`);
+      }
+      return placeholder;
+    });
+
     // 2. SAUVEGARDER le code inline
     const inlineCode: string[] = [];
     html = html.replace(/`([^`]+)`/g, (match, code) => {
@@ -250,6 +305,11 @@ export function MarkdownRenderer({
 
     inlineCode.forEach((code, index) => {
       html = html.replace(`§§§INLINE_CODE_${index}§§§`, code);
+    });
+
+    mathBlocks.forEach((math, index) => {
+      html = html.replace(`§§§MATH_DISPLAY_${index}§§§`, math);
+      html = html.replace(`§§§MATH_INLINE_${index}§§§`, math);
     });
 
     // 12. RESTAURER les search highlights
