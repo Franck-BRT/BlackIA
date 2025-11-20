@@ -3,7 +3,7 @@
  * Expose library CRUD operations to renderer process
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, shell } from 'electron';
 import { libraryService } from '../services/library-service';
 import type { CreateLibraryInput, UpdateLibraryInput } from '../../renderer/src/types/library';
 
@@ -132,6 +132,29 @@ export function registerLibraryHandlers() {
       return { success: true, data: libraries };
     } catch (error) {
       console.error('[IPC] library:getFavorites error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  });
+
+  // Open library folder in system file browser
+  ipcMain.handle('library:openFolder', async (_, id: string) => {
+    try {
+      const library = await libraryService.getById(id);
+      if (!library) {
+        throw new Error(`Library not found: ${id}`);
+      }
+
+      const error = await shell.openPath(library.storagePath);
+      if (error) {
+        throw new Error(`Failed to open folder: ${error}`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('[IPC] library:openFolder error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',

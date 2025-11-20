@@ -497,6 +497,7 @@ const api = {
     getStats: (libraryId: string) => ipcRenderer.invoke('library:getStats', libraryId),
     updateStats: (libraryId: string) => ipcRenderer.invoke('library:updateStats', libraryId),
     getFavorites: () => ipcRenderer.invoke('library:getFavorites'),
+    openFolder: (id: string) => ipcRenderer.invoke('library:openFolder', id),
   },
 
   // Library Document API

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { MoreVertical, Edit2, Trash2, Star } from 'lucide-react';
+import { MoreVertical, Edit2, Trash2, Star, FolderOpen } from 'lucide-react';
 import { useLibraries } from '../hooks/useLibraries';
 import { useLibraryDocuments, type LibraryDocument } from '../hooks/useLibraryDocuments';
 import { CreateLibraryModal } from '../components/library/CreateLibraryModal';
@@ -144,6 +144,15 @@ export function LibraryPage() {
     }
   };
 
+  const handleOpenFolder = async (library: Library) => {
+    try {
+      await window.electronAPI.library.openFolder(library.id);
+      setLibraryMenuOpen(null);
+    } catch (error) {
+      console.error('[LibraryPage] Failed to open folder:', error);
+    }
+  };
+
   return (
     <div className="flex h-full bg-neutral-950">
       {/* Sidebar - Library List */}
@@ -242,6 +251,14 @@ export function LibraryPage() {
                     <Edit2 className="w-4 h-4" />
                     Modifier
                   </button>
+                  <button
+                    onClick={() => handleOpenFolder(library)}
+                    className="w-full px-4 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700 flex items-center gap-2"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    Ouvrir le dossier
+                  </button>
+                  <div className="border-t border-neutral-700 my-1" />
                   <button
                     onClick={() => handleDeleteLibrary(library)}
                     className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-neutral-700 flex items-center gap-2"
