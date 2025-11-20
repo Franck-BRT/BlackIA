@@ -14,6 +14,16 @@ Référence: https://github.com/jolibrain/colette
 
 import sys
 import json
+import io
+
+# BUILD VERSION IDENTIFIER - This will appear in logs even if imports fail
+print("[COLETTE_EMBEDDER_BUILD_2025-01-19-v3]", file=sys.stderr, flush=True)
+
+# CRITICAL FIX: Redirect stdout IMMEDIATELY to prevent ANY non-JSON output
+# This must happen BEFORE any imports that might write to stdout
+_ORIGINAL_STDOUT = sys.stdout
+sys.stdout = io.StringIO()
+
 import argparse
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
@@ -24,10 +34,21 @@ warnings.filterwarnings('ignore')
 try:
     from PIL import Image
     import torch
+    import transformers
     from colpali_engine.models import ColPali, ColPaliProcessor
     from pdf2image import convert_from_path
     import numpy as np
+    # Import poppler_utils - gérer import relatif et absolu
+    try:
+        from .poppler_utils import check_poppler_installed, get_installation_instructions
+    except ImportError:
+        from poppler_utils import check_poppler_installed, get_installation_instructions
+
+    # Log version info to stderr for debugging (won't pollute JSON stdout)
+    print(f"[Colette] ✓ Dependencies loaded - transformers v{transformers.__version__}, torch v{torch.__version__}", file=sys.stderr)
 except ImportError as e:
+    # Restore stdout for error output
+    sys.stdout = _ORIGINAL_STDOUT
     print(json.dumps({
         "success": False,
         "error": f"Missing dependencies: {str(e)}. Install with: pip install colpali-engine torch torchvision pdf2image pillow"
@@ -67,6 +88,7 @@ class ColetteEmbedder:
 
         try:
             # Load ColPali model and processor
+            # stdout is already redirected, so any output from transformers goes nowhere
             self.model = ColPali.from_pretrained(
                 model_name,
                 torch_dtype=torch.float16 if self.device != "cpu" else torch.float32,
@@ -92,6 +114,14 @@ class ColetteEmbedder:
         Returns:
             List of PIL Images
         """
+        # Vérifier poppler pour la conversion PDF
+        poppler_installed, poppler_path = check_poppler_installed()
+
+        if not poppler_installed:
+            error_msg = get_installation_instructions()
+            print(f"[Colette] ERROR: {error_msg}", file=sys.stderr)
+            raise RuntimeError(f"poppler not installed. {error_msg}")
+
         images = []
         for path_str in image_paths:
             try:
@@ -103,8 +133,13 @@ class ColetteEmbedder:
 
                 # Handle PDF
                 if path.suffix.lower() == '.pdf':
-                    # Convert PDF pages to images
-                    pdf_images = convert_from_path(str(path))
+                    # Convert PDF pages to images with poppler_path if needed
+                    convert_kwargs = {}
+                    if poppler_path:
+                        convert_kwargs["poppler_path"] = poppler_path
+                        print(f"[Colette] Using poppler from: {poppler_path}", file=sys.stderr)
+
+                    pdf_images = convert_from_path(str(path), **convert_kwargs)
                     images.extend(pdf_images)
                     print(f"[Colette] Converted PDF to {len(pdf_images)} images", file=sys.stderr)
                 else:
@@ -200,19 +235,20 @@ class ColetteEmbedder:
 
 def main():
     """Main entry point for the embedder"""
-    parser = argparse.ArgumentParser(description="Colette Vision RAG Embedder")
-    parser.add_argument("--input", type=str, required=True, help="JSON input file or string")
-    parser.add_argument("--mode", type=str, default="embed_images",
-                       choices=["embed_images", "encode_query"],
-                       help="Operation mode")
-    parser.add_argument("--model", type=str, default="vidore/colpali",
-                       help="Model name (vidore/colpali or vidore/colqwen2)")
-    parser.add_argument("--device", type=str, default="auto",
-                       help="Device (cuda, mps, cpu, auto)")
-
-    args = parser.parse_args()
-
     try:
+        # stdout is already redirected at module level
+        parser = argparse.ArgumentParser(description="Colette Vision RAG Embedder")
+        parser.add_argument("--input", type=str, required=True, help="JSON input file or string")
+        parser.add_argument("--mode", type=str, default="embed_images",
+                           choices=["embed_images", "encode_query"],
+                           help="Operation mode")
+        parser.add_argument("--model", type=str, default="vidore/colpali",
+                           help="Model name (vidore/colpali or vidore/colqwen2)")
+        parser.add_argument("--device", type=str, default="auto",
+                           help="Device (cuda, mps, cpu, auto)")
+
+        args = parser.parse_args()
+
         # Parse input
         try:
             input_data = json.loads(args.input)
@@ -265,10 +301,15 @@ def main():
                 "embedding_dim": query_emb.shape[-1],
             }
 
-        # Print result as JSON
+        # Restore stdout for JSON output ONLY
+        sys.stdout = _ORIGINAL_STDOUT
+
+        # Print result as JSON (THIS IS THE ONLY STDOUT OUTPUT)
         print(json.dumps(result))
 
     except Exception as e:
+        # Restore stdout in case of error
+        sys.stdout = _ORIGINAL_STDOUT
         error_result = {
             "success": False,
             "error": str(e),

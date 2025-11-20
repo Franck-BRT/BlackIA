@@ -6,6 +6,16 @@ Inspiré de ColPali pour la recherche de documents
 
 import sys
 import json
+import io
+
+# BUILD VERSION IDENTIFIER - This will appear in logs even if imports fail
+print("[MLX_VISION_EMBEDDER_BUILD_2025-01-19-v3]", file=sys.stderr, flush=True)
+
+# CRITICAL FIX: Redirect stdout IMMEDIATELY to prevent ANY non-JSON output
+# This must happen BEFORE any imports that might write to stdout (like MLX)
+_ORIGINAL_STDOUT = sys.stdout
+sys.stdout = io.StringIO()
+
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
@@ -15,7 +25,13 @@ try:
     from mlx_vlm import load, generate
     from mlx_vlm.utils import load_image
     from PIL import Image
+    import transformers
+
+    # Log version info to stderr for debugging (won't pollute JSON stdout)
+    print(f"[MLX] ✓ Dependencies loaded - transformers v{transformers.__version__}, mlx v{mx.__version__}", file=sys.stderr)
 except ImportError as e:
+    # Restore stdout for error output
+    sys.stdout = _ORIGINAL_STDOUT
     print(json.dumps({
         "success": False,
         "error": f"MLX dependencies not installed: {e}. Run: cd src/python && ./setup.sh",
@@ -68,6 +84,7 @@ class MLXVisionEmbedder:
                 print(f"[MLXVision] Loading model: {self.model_name}...", file=sys.stderr)
 
             # Charger le modèle et le processeur
+            # stdout is already redirected at module level, so any output goes nowhere
             self.model, self.processor = load(self.model_name)
 
             if self.verbose:
@@ -251,36 +268,53 @@ def main():
     """
     import argparse
 
-    parser = argparse.ArgumentParser(description="MLX Vision Embedder for document retrieval")
-    parser.add_argument("image_paths", nargs="+", help="Path(s) to image files")
-    parser.add_argument("--model", default="mlx-community/Qwen2-VL-2B-Instruct", help="MLX-VLM model name")
-    parser.add_argument("--query", default="Describe this document page in detail.", help="Query prompt")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
-    parser.add_argument("--output", help="Output JSON file path")
+    try:
+        # stdout is already redirected at module level
+        # Parse arguments (any argparse output goes to the redirected stdout = discarded)
+        parser = argparse.ArgumentParser(description="MLX Vision Embedder for document retrieval")
+        parser.add_argument("image_paths", nargs="+", help="Path(s) to image files")
+        parser.add_argument("--model", default="mlx-community/Qwen2-VL-2B-Instruct", help="MLX-VLM model name")
+        parser.add_argument("--query", default="Describe this document page in detail.", help="Query prompt")
+        parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+        parser.add_argument("--output", help="Output JSON file path")
 
-    args = parser.parse_args()
+        args = parser.parse_args()
 
-    # Créer l'embedder
-    embedder = MLXVisionEmbedder(
-        model_name=args.model,
-        verbose=args.verbose
-    )
+        # Créer l'embedder
+        embedder = MLXVisionEmbedder(
+            model_name=args.model,
+            verbose=args.verbose
+        )
 
-    # Traiter les images
-    result = embedder.process_images(args.image_paths, args.query)
+        # Traiter les images
+        result = embedder.process_images(args.image_paths, args.query)
 
-    # Sortir le résultat en JSON
-    output = json.dumps(result, indent=2)
+        # Restore stdout for JSON output ONLY
+        sys.stdout = _ORIGINAL_STDOUT
 
-    if args.output:
-        with open(args.output, 'w') as f:
-            f.write(output)
-        print(f"Results saved to {args.output}", file=sys.stderr)
-    else:
-        print(output)
+        # Sortir le résultat en JSON (THIS IS THE ONLY STDOUT OUTPUT)
+        output = json.dumps(result)
 
-    # Exit code basé sur le succès
-    sys.exit(0 if result["success"] else 1)
+        if args.output:
+            with open(args.output, 'w') as f:
+                f.write(output)
+            print(f"Results saved to {args.output}", file=sys.stderr)
+        else:
+            print(output)  # Only JSON goes to stdout
+
+        # Exit code basé sur le succès
+        sys.exit(0 if result["success"] else 1)
+
+    except Exception as e:
+        # Restore stdout in case of error
+        sys.stdout = _ORIGINAL_STDOUT
+        error_result = {
+            "success": False,
+            "error": str(e),
+        }
+        # Output error as JSON
+        print(json.dumps(error_result))
+        sys.exit(1)
 
 
 if __name__ == "__main__":

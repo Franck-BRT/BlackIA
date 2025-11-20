@@ -437,6 +437,221 @@ export class AttachmentService {
   }
 
   /**
+   * Lier un document de bibliothèque comme attachment
+   * Copie le fichier depuis la bibliothèque vers le dossier des attachments
+   */
+  async linkFromLibraryDocument(params: {
+    libraryDocumentId: string;
+    entityType: EntityType;
+    entityId: string;
+    tags?: string[];
+  }): Promise<AttachmentWithParsedFields> {
+    try {
+      // Import dynamique pour éviter les dépendances circulaires
+      const { libraryDocumentService } = await import('./library-document-service');
+
+      // 1. Récupérer le document de bibliothèque
+      const doc = await libraryDocumentService.getById(params.libraryDocumentId);
+      if (!doc) {
+        throw new Error(`Library document not found: ${params.libraryDocumentId}`);
+      }
+
+      console.log('[AttachmentService] Linking library document:', {
+        id: doc.id,
+        name: doc.originalName,
+        filePath: doc.filePath,
+      });
+
+      // 2. Copier le fichier depuis la bibliothèque vers les attachments
+      await fs.mkdir(this.attachmentsDir, { recursive: true });
+
+      const id = randomUUID();
+      const ext = path.extname(doc.originalName);
+      const filename = `${id}${ext}`;
+      const destPath = path.join(this.attachmentsDir, filename);
+
+      await fs.copyFile(doc.filePath, destPath);
+
+      // 3. Obtenir la taille
+      const stats = await fs.stat(destPath);
+      const size = stats.size;
+
+      // 4. Utiliser le texte déjà extrait de la bibliothèque si disponible
+      const extractedText = doc.extractedText;
+
+      // 5. Générer une vignette si c'est une image
+      let thumbnailPath: string | undefined;
+      if (doc.mimeType.startsWith('image/')) {
+        try {
+          const thumbFilename = getThumbnailFilename(filename);
+          const thumbPath = path.join(this.attachmentsDir, thumbFilename);
+
+          const success = await generateThumbnail(destPath, thumbPath, doc.mimeType, {
+            width: 300,
+            height: 300,
+            fit: 'inside',
+            quality: 80,
+          });
+
+          if (success) {
+            thumbnailPath = thumbPath;
+          }
+        } catch (error) {
+          console.warn('[AttachmentService] Thumbnail generation failed:', error);
+        }
+      }
+
+      // 6. Utiliser le ragMode du document de bibliothèque
+      const ragMode = doc.ragMode || recommendRAGMode(doc.mimeType, extractedText || undefined);
+
+      // 7. Créer l'entrée DB
+      const db = getDatabase();
+      const now = new Date();
+
+      const newAttachment: NewAttachment = {
+        id,
+        filename,
+        originalName: doc.originalName,
+        mimeType: doc.mimeType,
+        size,
+        filePath: destPath,
+        thumbnailPath,
+        extractedText,
+        extractedMetadata: undefined,
+        entityType: params.entityType,
+        entityId: params.entityId,
+        tags: JSON.stringify(params.tags || []),
+        ragMode,
+        // Copier les infos d'indexation si le document était indexé
+        isIndexedText: doc.isIndexedText || false,
+        textEmbeddingModel: doc.textEmbeddingModel,
+        textChunkCount: doc.textChunkCount || 0,
+        isIndexedVision: doc.isIndexedVision || false,
+        visionEmbeddingModel: doc.visionEmbeddingModel,
+        visionPatchCount: doc.visionPatchCount || 0,
+        pageCount: doc.pageCount || 0,
+        lastIndexedAt: doc.lastIndexedAt,
+        indexingDuration: doc.indexingDuration,
+        indexingError: doc.indexingError,
+        uploadedBy: undefined,
+        isAnalyzed: false,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await db.insert(attachments).values(newAttachment);
+
+      console.log('[AttachmentService] Linked from library:', {
+        id,
+        originalName: doc.originalName,
+        libraryDocumentId: doc.id,
+        ragMode,
+      });
+
+      // 8. Copier les embeddings si le document de bibliothèque était indexé
+      if (doc.isIndexedText || doc.isIndexedVision) {
+        try {
+          console.log('[AttachmentService] Copying embeddings from library document:', {
+            sourceId: doc.id,
+            targetId: id,
+            copyText: doc.isIndexedText,
+            copyVision: doc.isIndexedVision,
+            targetEntityType: params.entityType,
+            targetEntityId: params.entityId,
+          });
+
+          // Import dynamique pour éviter les dépendances circulaires
+          const { vectorStore } = await import('./vector-store');
+
+          const copyResult = await vectorStore.copyEmbeddings({
+            sourceAttachmentId: doc.id,
+            targetAttachmentId: id,
+            targetEntityType: params.entityType,
+            targetEntityId: params.entityId,
+            copyText: doc.isIndexedText || false,
+            copyVision: doc.isIndexedVision || false,
+          });
+
+          if (copyResult.success) {
+            console.log('[AttachmentService] ✅ Embeddings copied successfully:', {
+              textChunksCopied: copyResult.textChunksCopied,
+              visionPatchesCopied: copyResult.visionPatchesCopied,
+            });
+
+            // Mettre à jour les compteurs de chunks si des embeddings ont été copiés
+            if (copyResult.textChunksCopied > 0) {
+              newAttachment.textChunkCount = copyResult.textChunksCopied;
+            }
+            if (copyResult.visionPatchesCopied > 0) {
+              newAttachment.visionPatchCount = copyResult.visionPatchesCopied;
+            }
+
+            // Mettre à jour la DB avec les compteurs corrects
+            await db.update(attachments)
+              .set({
+                textChunkCount: newAttachment.textChunkCount,
+                visionPatchCount: newAttachment.visionPatchCount,
+                updatedAt: new Date(),
+              })
+              .where(eq(attachments.id, id));
+          } else {
+            console.error('[AttachmentService] ⚠️  Failed to copy embeddings:', copyResult.error);
+            // Réinitialiser les flags d'indexation car les embeddings n'ont pas pu être copiés
+            newAttachment.isIndexedText = false;
+            newAttachment.isIndexedVision = false;
+            newAttachment.textChunkCount = 0;
+            newAttachment.visionPatchCount = 0;
+            newAttachment.indexingError = `Failed to copy embeddings: ${copyResult.error}`;
+
+            await db.update(attachments)
+              .set({
+                isIndexedText: false,
+                isIndexedVision: false,
+                textChunkCount: 0,
+                visionPatchCount: 0,
+                indexingError: newAttachment.indexingError,
+                updatedAt: new Date(),
+              })
+              .where(eq(attachments.id, id));
+          }
+        } catch (copyError) {
+          const errorMsg = copyError instanceof Error ? copyError.message : String(copyError);
+          console.error('[AttachmentService] ⚠️  Error copying embeddings:', errorMsg);
+
+          // Réinitialiser les flags d'indexation
+          newAttachment.isIndexedText = false;
+          newAttachment.isIndexedVision = false;
+          newAttachment.textChunkCount = 0;
+          newAttachment.visionPatchCount = 0;
+          newAttachment.indexingError = `Embedding copy failed: ${errorMsg}`;
+
+          await db.update(attachments)
+            .set({
+              isIndexedText: false,
+              isIndexedVision: false,
+              textChunkCount: 0,
+              visionPatchCount: 0,
+              indexingError: newAttachment.indexingError,
+              updatedAt: new Date(),
+            })
+            .where(eq(attachments.id, id));
+        }
+      } else {
+        console.log('[AttachmentService] No embeddings to copy (document not indexed)');
+      }
+
+      return {
+        ...newAttachment,
+        tags: params.tags || [],
+        extractedMetadata: undefined,
+      } as AttachmentWithParsedFields;
+    } catch (error) {
+      console.error('[AttachmentService] Link from library error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Récupérer un attachment par ID
    */
   async getById(id: string): Promise<AttachmentWithParsedFields | null> {

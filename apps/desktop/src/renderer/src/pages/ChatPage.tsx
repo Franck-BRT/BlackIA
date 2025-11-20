@@ -98,6 +98,11 @@ export function ChatPage() {
     setWebSearchResults,
     isWebSearching,
     setIsWebSearching,
+    // RAG
+    ragEnabled,
+    setRagEnabled,
+    ragMode,
+    setRagMode,
     // Settings
     chatSettings,
     updateChatSettings,
@@ -362,6 +367,22 @@ export function ChatPage() {
     console.log('[ChatPage] 🗑️ Dossier supprimé:', folderId);
   };
 
+  // Auto-save messages and metadata to current conversation
+  useEffect(() => {
+    if (currentConversationId && messages.length > 0) {
+      updateConversation(currentConversationId, {
+        messages,
+        messageMetadata,
+      }, true); // skipSort = true pour éviter de réorganiser la liste pendant l'édition
+
+      console.log('[ChatPage] 💾 Conversation auto-sauvegardée:', currentConversationId, {
+        messagesCount: messages.length,
+        metadataCount: Object.keys(messageMetadata).length,
+        ragMetadataIndexes: Object.keys(messageMetadata).filter(idx => messageMetadata[parseInt(idx)]?.ragMetadata),
+      });
+    }
+  }, [messages, messageMetadata, currentConversationId, updateConversation]);
+
   // === RACCOURCIS CLAVIER ===
 
   const keyboardShortcuts: KeyboardShortcut[] = useMemo(() => {
@@ -537,6 +558,10 @@ export function ChatPage() {
           setWebSearchEnabled={setWebSearchEnabled}
           isWebSearching={isWebSearching}
           webSearchProviderName={activeProvider?.name}
+          ragEnabled={ragEnabled}
+          setRagEnabled={setRagEnabled}
+          ragMode={ragMode}
+          setRagMode={setRagMode}
           messages={messages}
           conversations={conversations}
           folders={folders}
@@ -608,7 +633,8 @@ export function ChatPage() {
               prefillPersonaId={prefillPersonaId}
               prefillIncludeFewShots={prefillIncludeFewShots}
               conversationId={currentConversationId || undefined}
-              ragEnabled={true}
+              ragEnabled={ragEnabled}
+              ragMode={ragMode}
               headerAttachments={currentAttachments}
             />
           </div>

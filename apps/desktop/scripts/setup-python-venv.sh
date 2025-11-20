@@ -43,6 +43,10 @@ echo ""
 echo "▶ Upgrading pip..."
 pip install --upgrade pip --quiet
 
+# Detect architecture
+ARCH=$(uname -m)
+echo "▶ Detected architecture: $ARCH"
+
 echo ""
 echo "▶ Installing Python dependencies..."
 echo "This may take several minutes (downloading PyTorch, etc.)..."
@@ -58,17 +62,45 @@ else
     pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
     pip install pillow
     pip install pdf2image
+    pip install transformers>=4.47.0
+    pip install accelerate>=0.34.0
     pip install colpali-engine
-    pip install transformers
     pip install huggingface-hub
 
     # Additional utilities
     pip install numpy
 fi
 
+# Install MLX on Apple Silicon
+if [ "$ARCH" = "arm64" ]; then
+    echo ""
+    echo "▶ Installing MLX for Apple Silicon..."
+    pip install mlx==0.20.0 mlx-lm==0.20.1 mlx-vlm>=0.1.21
+    echo "✅ MLX installed successfully"
+fi
+
 echo ""
 echo "▶ Verifying installation..."
-python -c "import torch; import PIL; import pdf2image; import colpali_engine; print('✅ All core dependencies verified')"
+python -c "
+import torch
+import PIL
+import pdf2image
+import colpali_engine
+import transformers
+import accelerate
+print('✅ All core dependencies verified')
+print(f'   PyTorch version: {torch.__version__}')
+print(f'   Transformers version: {transformers.__version__}')
+
+# Verify MLX on Apple Silicon
+import platform
+if platform.machine() == 'arm64':
+    try:
+        import mlx.core as mx
+        print('✅ MLX installed (Apple Silicon optimized)')
+    except ImportError:
+        print('⚠️  MLX not installed (optional for Apple Silicon)')
+"
 
 echo ""
 echo "▶ Deactivating virtual environment..."

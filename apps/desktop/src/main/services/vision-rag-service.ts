@@ -1,5 +1,6 @@
 import path from 'path';
 import { app } from 'electron';
+import { spawn } from 'child_process';
 import { randomUUID } from 'crypto';
 import type {
   VisionRAGIndexParams,
@@ -21,13 +22,12 @@ import { vectorStore } from './vector-store';
  * 3. Stockage dans LanceDB
  * 4. Recherche avec Late Interaction (MaxSim)
  *
- * Note: Nécessite python-shell et environnement Python configuré
+ * Note: Utilise spawn pour exécuter les scripts Python (plus robuste que python-shell)
  */
 export class VisionRAGService {
   private pythonPath: string;
   private scriptsPath: string;
   private defaultModel: string;
-  private pythonShellAvailable: boolean = false;
 
   constructor(defaultModel: string = 'mlx-community/Qwen2-VL-2B-4bit') {
     this.defaultModel = defaultModel;
@@ -48,36 +48,6 @@ export class VisionRAGService {
 
     console.log('[VisionRAG] Python path:', this.pythonPath);
     console.log('[VisionRAG] Scripts path:', this.scriptsPath);
-
-    // Vérifier si python-shell est disponible
-    this.checkPythonShellAvailability();
-  }
-
-  /**
-   * Vérifier si python-shell est disponible
-   */
-  private async checkPythonShellAvailability(): Promise<void> {
-    try {
-      await import('python-shell');
-      this.pythonShellAvailable = true;
-    } catch {
-      this.pythonShellAvailable = false;
-      console.warn('[VisionRAG] ⚠️  python-shell module not installed. Install with: pnpm add python-shell');
-    }
-  }
-
-  /**
-   * Obtenir PythonShell ou throw une erreur claire
-   */
-  private async getPythonShell(): Promise<any> {
-    try {
-      const module = await import('python-shell');
-      return module.PythonShell;
-    } catch (error) {
-      throw new Error(
-        'python-shell module not installed. Install dependencies: pnpm add python-shell @types/python-shell'
-      );
-    }
   }
 
   /**
@@ -87,6 +57,7 @@ export class VisionRAGService {
     success: boolean;
     patchCount: number;
     pageCount: number;
+    model?: string;
     error?: string;
   }> {
     const startTime = Date.now();
@@ -126,6 +97,7 @@ export class VisionRAGService {
           attachmentId: params.attachmentId,
           pageIndex,
           patchVectors: JSON.stringify(patchVectors), // Serialize pour LanceDB
+          vector: [0.0], // Dummy vector for vectordb 0.4.x compatibility
           entityType: params.entityType,
           entityId: params.entityId,
           metadata: JSON.stringify({
@@ -147,6 +119,7 @@ export class VisionRAGService {
       console.log('[VisionRAG] Indexed successfully:', {
         patchCount,
         pageCount,
+        model,
         duration: `${duration}ms`,
       });
 
@@ -154,6 +127,7 @@ export class VisionRAGService {
         success: true,
         patchCount,
         pageCount,
+        model,
       };
     } catch (error) {
       console.error('[VisionRAG] Indexing error:', error);
@@ -242,46 +216,66 @@ export class VisionRAGService {
     outputDir: string,
     dpi: number = 200
   ): Promise<DocumentProcessorResponse> {
-    try {
+    return new Promise((resolve) => {
       console.log('[VisionRAG] Converting PDF to images:', pdfPath);
 
-      // Utiliser python-shell pour exécuter document_processor.py
-      const PythonShell = await this.getPythonShell();
-
       const scriptPath = path.join(this.scriptsPath, 'vision_rag/document_processor.py');
+      const args = [
+        scriptPath,
+        pdfPath,
+        outputDir,
+        '--dpi', dpi.toString(),
+        '--format', 'PNG',
+      ];
 
-      const options = {
-        mode: 'json' as const,
-        pythonPath: this.pythonPath,
-        pythonOptions: ['-u'], // unbuffered
-        scriptPath: path.dirname(scriptPath),
-        args: [
-          pdfPath,
-          outputDir,
-          '--dpi', dpi.toString(),
-          '--format', 'PNG',
-        ],
-      };
+      const pythonProcess = spawn(this.pythonPath, args);
 
-      const results = await PythonShell.run(path.basename(scriptPath), options);
+      let stdoutData = '';
+      let stderrData = '';
 
-      // Le dernier résultat contient le JSON de sortie
-      const result = results[results.length - 1] as any;
+      pythonProcess.stdout.on('data', (data) => {
+        stdoutData += data.toString();
+      });
 
-      if (!result.success) {
-        throw new Error(result.error || 'PDF conversion failed');
-      }
+      pythonProcess.stderr.on('data', (data) => {
+        const message = data.toString();
+        stderrData += message;
+        console.log('[VisionRAG Python]', message.trim());
+      });
 
-      console.log('[VisionRAG] Converted', result.pageCount, 'pages');
+      pythonProcess.on('close', (code) => {
+        if (code !== 0) {
+          console.error('[VisionRAG] Python process exited with code', code);
+          console.error('[VisionRAG] stderr:', stderrData);
+          resolve({
+            success: false,
+            error: `Python process failed with code ${code}: ${stderrData}`,
+          });
+          return;
+        }
 
-      return result as DocumentProcessorResponse;
-    } catch (error) {
-      console.error('[VisionRAG] PDF conversion error:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
+        try {
+          const result = JSON.parse(stdoutData) as DocumentProcessorResponse;
+          console.log('[VisionRAG] Converted', result.pageCount, 'pages');
+          resolve(result);
+        } catch (error) {
+          console.error('[VisionRAG] Failed to parse Python output:', error);
+          console.error('[VisionRAG] stdout:', stdoutData);
+          resolve({
+            success: false,
+            error: `Failed to parse Python output: ${error}`,
+          });
+        }
+      });
+
+      pythonProcess.on('error', (error) => {
+        console.error('[VisionRAG] Failed to start Python process:', error);
+        resolve({
+          success: false,
+          error: `Failed to start Python: ${error.message}`,
+        });
+      });
+    });
   }
 
   /**
@@ -291,49 +285,69 @@ export class VisionRAGService {
     imagePaths: string[],
     model: string
   ): Promise<MLXVisionEmbedderResponse> {
-    try {
+    return new Promise((resolve) => {
       console.log('[VisionRAG] Generating embeddings for', imagePaths.length, 'images...');
 
-      // Utiliser python-shell pour exécuter mlx_vision_embedder.py
-      const PythonShell = await this.getPythonShell();
-
       const scriptPath = path.join(this.scriptsPath, 'vision_rag/mlx_vision_embedder.py');
+      const args = [
+        scriptPath,
+        ...imagePaths,
+        '--model', model,
+        '--verbose',
+      ];
 
-      const options = {
-        mode: 'json' as const,
-        pythonPath: this.pythonPath,
-        pythonOptions: ['-u'],
-        scriptPath: path.dirname(scriptPath),
-        args: [
-          ...imagePaths,
-          '--model', model,
-          '--verbose',
-        ],
-      };
+      const pythonProcess = spawn(this.pythonPath, args);
 
-      const results = await PythonShell.run(path.basename(scriptPath), options);
+      let stdoutData = '';
+      let stderrData = '';
 
-      // Le dernier résultat contient le JSON de sortie
-      const result = results[results.length - 1] as any;
-
-      if (!result.success) {
-        throw new Error(result.error || 'Embedding generation failed');
-      }
-
-      console.log('[VisionRAG] Generated embeddings:', {
-        pageCount: result.pageCount,
-        patchesPerPage: result.patchesPerPage,
-        embeddingDim: result.embeddingDim,
+      pythonProcess.stdout.on('data', (data) => {
+        stdoutData += data.toString();
       });
 
-      return result as MLXVisionEmbedderResponse;
-    } catch (error) {
-      console.error('[VisionRAG] Embedding generation error:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
+      pythonProcess.stderr.on('data', (data) => {
+        const message = data.toString();
+        stderrData += message;
+        console.log('[VisionRAG Python]', message.trim());
+      });
+
+      pythonProcess.on('close', (code) => {
+        if (code !== 0) {
+          console.error('[VisionRAG] Python process exited with code', code);
+          console.error('[VisionRAG] stderr:', stderrData);
+          resolve({
+            success: false,
+            error: `Python process failed with code ${code}: ${stderrData}`,
+          });
+          return;
+        }
+
+        try {
+          const result = JSON.parse(stdoutData) as MLXVisionEmbedderResponse;
+          console.log('[VisionRAG] Generated embeddings:', {
+            pageCount: result.pageCount,
+            patchesPerPage: result.patchesPerPage,
+            embeddingDim: result.embeddingDim,
+          });
+          resolve(result);
+        } catch (error) {
+          console.error('[VisionRAG] Failed to parse Python output:', error);
+          console.error('[VisionRAG] stdout:', stdoutData);
+          resolve({
+            success: false,
+            error: `Failed to parse Python output: ${error}`,
+          });
+        }
+      });
+
+      pythonProcess.on('error', (error) => {
+        console.error('[VisionRAG] Failed to start Python process:', error);
+        resolve({
+          success: false,
+          error: `Failed to start Python: ${error.message}`,
+        });
+      });
+    });
   }
 
   /**
@@ -345,34 +359,46 @@ export class VisionRAGService {
     mlxAvailable?: boolean;
     error?: string;
   }> {
-    try {
-      const PythonShell = await this.getPythonShell();
+    return new Promise((resolve) => {
+      const pythonProcess = spawn(this.pythonPath, ['--version']);
 
-      // Test simple: exécuter Python et vérifier la version
-      const options = {
-        mode: 'text' as const,
-        pythonPath: this.pythonPath,
-        args: ['--version'],
-      };
+      let stdoutData = '';
+      let stderrData = '';
 
-      const results = await PythonShell.run('-c', options);
-      const pythonVersion = results.join(' ');
+      pythonProcess.stdout.on('data', (data) => {
+        stdoutData += data.toString();
+      });
 
-      // TODO: Vérifier MLX availability
-      // const mlxCheck = await this.checkMLXAvailability();
+      pythonProcess.stderr.on('data', (data) => {
+        stderrData += data.toString();
+      });
 
-      return {
-        available: true,
-        pythonVersion,
-        mlxAvailable: true, // TODO: vraie vérification
-      };
-    } catch (error) {
-      console.error('[VisionRAG] Python environment check error:', error);
-      return {
-        available: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
+      pythonProcess.on('close', (code) => {
+        if (code !== 0) {
+          resolve({
+            available: false,
+            error: `Python check failed with code ${code}`,
+          });
+          return;
+        }
+
+        // Python version is often on stderr
+        const pythonVersion = (stdoutData + stderrData).trim();
+
+        resolve({
+          available: true,
+          pythonVersion,
+          mlxAvailable: true, // TODO: vraie vérification
+        });
+      });
+
+      pythonProcess.on('error', (error) => {
+        resolve({
+          available: false,
+          error: `Python not found: ${error.message}`,
+        });
+      });
+    });
   }
 
   /**

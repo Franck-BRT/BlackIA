@@ -118,6 +118,7 @@ export interface VisionRAGResult {
   patchIndex: number;
   score: number; // late interaction score
   patchVectors: number[][]; // multi-vector embeddings [1024, 128]
+  pageThumbnail?: string; // page screenshot at top level for frontend
   metadata: {
     originalName: string;
     entityType: EntityType;
@@ -227,6 +228,7 @@ export interface VisionRAGPatchSchema {
   attachmentId: string;
   pageIndex: number;
   patchVectors: string; // JSON stringified array of vectors [1024, 128]
+  vector: number[]; // Dummy vector for vectordb 0.4.x compatibility (required for automatic indexing)
   imageBase64?: string; // page screenshot (optional)
   entityType: string;
   entityId: string;
@@ -245,6 +247,8 @@ export interface MLXVisionEmbedderResponse {
   success: boolean;
   embeddings?: number[][][]; // [pages, patches, dims]
   pageCount?: number;
+  patchesPerPage?: number;
+  embeddingDim?: number;
   error?: string;
   processingTime?: number; // ms
 }

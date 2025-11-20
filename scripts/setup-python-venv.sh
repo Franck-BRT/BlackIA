@@ -62,12 +62,32 @@ source "$VENV_DIR/bin/activate"
 echo "Upgrading pip..."
 pip install --upgrade pip
 
-# Installer les dépendances
+# Détecter l'architecture
+ARCH=$(uname -m)
+echo "Detected architecture: $ARCH"
 echo ""
+
+# Installer les dépendances
 echo "Installing Python dependencies..."
 echo "This may take several minutes (PyTorch is large)..."
 echo ""
-pip install colpali-engine torch torchvision pdf2image pillow
+
+# Installation depuis requirements.txt
+if [ -f "$PYTHON_DIR/requirements.txt" ]; then
+    echo "Installing from requirements.txt..."
+    pip install -r "$PYTHON_DIR/requirements.txt"
+else
+    echo "Installing core dependencies..."
+    pip install transformers>=4.47.0 accelerate>=0.34.0 colpali-engine torch torchvision pdf2image pillow sentence-transformers lancedb pyarrow numpy python-dotenv
+fi
+
+# Installer MLX si on est sur Apple Silicon
+if [ "$ARCH" = "arm64" ]; then
+    echo ""
+    echo "📦 Apple Silicon detected - Installing MLX for Vision RAG..."
+    pip install mlx==0.20.0 mlx-lm==0.20.1 mlx-vlm>=0.1.21
+    echo "✓ MLX installed successfully"
+fi
 
 # Vérifier l'installation
 echo ""
@@ -78,9 +98,22 @@ import torch
 import torchvision
 import pdf2image
 import PIL
-print('✓ All dependencies installed successfully')
+import transformers
+import accelerate
+print('✓ All core dependencies installed successfully')
 print(f'✓ PyTorch version: {torch.__version__}')
-print(f'✓ Device available: {\"CUDA\" if torch.cuda.is_available() else \"MPS\" if torch.backends.mps.is_available() else \"CPU\"}')
+print(f'✓ Transformers version: {transformers.__version__}')
+device_type = 'CUDA' if torch.cuda.is_available() else 'MPS' if torch.backends.mps.is_available() else 'CPU'
+print(f'✓ Device available: {device_type}')
+
+# Vérifier MLX si sur Apple Silicon
+import platform
+if platform.machine() == 'arm64':
+    try:
+        import mlx.core as mx
+        print('✓ MLX installed (Apple Silicon optimized)')
+    except ImportError:
+        print('⚠️  MLX not installed (optional for Apple Silicon)')
 "
 
 echo ""

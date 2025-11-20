@@ -286,3 +286,48 @@
     box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.6);
   }
 }
+
+/* KaTeX Math Rendering */
+.katex-display-wrapper {
+  margin: 1em 0;
+  text-align: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.katex-display-wrapper .katex-display {
+  margin: 0;
+}
+
+.katex-inline-wrapper {
+  display: inline;
+}
+
+.katex-error {
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.1);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+/* Make KaTeX formulas responsive */
+.katex {
+  font-size: 1.1em;
+}
+
+.katex-display .katex {
+  font-size: 1.2em;
+}
+
+/* Adjust KaTeX colors for dark theme */
+.katex .mord,
+.katex .mop,
+.katex .mrel,
+.katex .mopen,
+.katex .mclose,
+.katex .mpunct,
+.katex .minner {
+  color: inherit;
+}

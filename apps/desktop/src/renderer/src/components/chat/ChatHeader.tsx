@@ -5,6 +5,7 @@ import { ExportMenu } from './ExportMenu';
 import { ImportExportMenu, BackupData } from './ImportExportMenu';
 import { WebSearchToggle } from './WebSearchToggle';
 import { AttachmentHeaderButton } from './AttachmentHeaderButton';
+import { RAGToggle } from './RAGToggle';
 import type { OllamaMessage } from '@blackia/ollama';
 import type { Persona } from '../../types/persona';
 import { PERSONA_COLOR_CLASSES } from '../../types/persona';
@@ -33,6 +34,12 @@ interface ChatHeaderProps {
   setWebSearchEnabled: (enabled: boolean) => void;
   isWebSearching: boolean;
   webSearchProviderName?: string;
+
+  // RAG
+  ragEnabled: boolean;
+  setRagEnabled: (enabled: boolean) => void;
+  ragMode: 'text' | 'vision' | 'hybrid' | 'auto';
+  setRagMode: (mode: 'text' | 'vision' | 'hybrid' | 'auto') => void;
 
   // Messages
   messages: OllamaMessage[];
@@ -66,6 +73,10 @@ export function ChatHeader({
   setWebSearchEnabled,
   isWebSearching,
   webSearchProviderName,
+  ragEnabled,
+  setRagEnabled,
+  ragMode,
+  setRagMode,
   messages,
   conversations,
   folders,
@@ -140,6 +151,18 @@ export function ChatHeader({
             disabled={!selectedModel || !currentConversationId}
           />
         </div>
+
+        {/* RAG Toggle */}
+        {currentConversationId && (
+          <div className="hidden md:block">
+            <RAGToggle
+              enabled={ragEnabled}
+              mode={ragMode}
+              onToggle={() => setRagEnabled(!ragEnabled)}
+              onModeChange={setRagMode}
+            />
+          </div>
+        )}
       </div>
 
       {/* Right side - Actions (adaptés pour mobile) */}

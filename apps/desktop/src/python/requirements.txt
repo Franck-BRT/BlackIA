@@ -5,14 +5,17 @@
 sentence-transformers>=2.2.2
 
 # ===== Colette / ColPali for Vision RAG (Multi-platform: CUDA/MPS/CPU) =====
+transformers>=4.47.0
+accelerate>=0.34.0
 colpali-engine>=0.3.12
 torch>=2.7.0
 torchvision>=0.22.0
 
-# ===== MLX Framework (Apple Silicon only - optional) =====
+# ===== MLX Framework (Apple Silicon only - installed automatically by setup script) =====
 # mlx==0.20.0
 # mlx-lm==0.20.1
 # mlx-vlm==0.0.13
+# Note: These are automatically installed on arm64 systems by setup-python-venv.sh
 
 # ===== Image Processing =====
 Pillow>=11.3.0
@@ -34,5 +37,10 @@ python-dotenv>=1.0.1
 # black==24.8.0
 # mypy==1.11.0
 
-# NOTE: Pour Apple Silicon, vous pouvez aussi installer MLX-VLM (commenté ci-dessus)
+# NOTE: MLX-VLM est automatiquement installé sur Apple Silicon (arm64) via setup-python-venv.sh
 # Pour les autres plateformes, Colette/ColPali est la solution recommandée
+#
+# Installation automatique sur Apple Silicon:
+#   npm run setup:python:venv  (dans apps/desktop/)
+#   ou
+#   bash scripts/setup-python-venv.sh

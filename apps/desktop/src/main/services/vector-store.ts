@@ -359,43 +359,109 @@ export class VectorStoreService {
     }
 
     try {
+      // Refresh collection to ensure we have the latest data
+      // This is especially important after copyEmbeddings operations
+      try {
+        this.textCollection = await this.db.openTable(this.TEXT_COLLECTION);
+        logger.debug('rag', 'Collection refreshed before search', 'Ensuring latest data is available');
+      } catch (refreshError) {
+        // Non-fatal - continue with existing collection reference
+        logger.warning('rag', 'Could not refresh collection', 'Using existing reference', {
+          error: refreshError instanceof Error ? refreshError.message : String(refreshError)
+        });
+      }
+
       logger.debug('rag', 'LanceDB text search starting', `Filters: ${JSON.stringify(filters)}`, {
         topK,
         filters
       });
 
-      // Recherche vectorielle avec LanceDB
-      let query = this.textCollection
-        .search(queryEmbedding)
-        .limit(topK)
-        .metricType('cosine'); // Cosine similarity
+      // LanceDB 0.4.x: WHERE clause doesn't work reliably with search()
+      // Workaround: Fetch more results and filter in-memory
+      // When filtering by attachmentIds, we need to fetch MORE results because we're doing
+      // in-memory filtering and the target chunks might not be in the top results
+      const fetchLimit = filters?.attachmentIds && filters.attachmentIds.length > 0
+        ? Math.max(topK * 50, 500) // Much higher limit when filtering by attachment IDs
+        : topK * 10; // Standard 10x multiplier otherwise
 
-      // Appliquer les filtres
-      // Note: LanceDB est sensible à la casse, les noms de colonnes doivent être entre guillemets doubles
+      logger.debug('rag', 'Executing LanceDB query (will filter in-memory)', `Fetching ${fetchLimit} rows for topK=${topK}`, {
+        fetchLimit,
+        topK,
+        willFilterBy: {
+          entityType: !!filters?.entityType,
+          entityId: !!filters?.entityId,
+          attachmentIds: filters?.attachmentIds?.length || 0
+        }
+      });
+
+      // Recherche vectorielle avec LanceDB (sans filtres WHERE)
+      const query = this.textCollection
+        .search(queryEmbedding)
+        .limit(fetchLimit)
+        .metricType('cosine') // Cosine similarity
+        .nprobes(100);
+
+      const unfilteredResults = await query.execute();
+
+      logger.debug('rag', 'Unfiltered query completed', `Got ${unfilteredResults.length} rows before filtering`, {
+        totalFetched: unfilteredResults.length,
+        sampleResults: unfilteredResults.slice(0, 3).map((r: any) => ({
+          id: r.id,
+          attachmentId: r.attachmentId,
+          entityType: r.entityType,
+          entityId: r.entityId,
+          score: r._distance ? (1 - r._distance) : 0
+        }))
+      });
+
+      // Filter results in-memory
+      // IMPORTANT: If attachmentIds are provided, use those INSTEAD of entityType/entityId
+      // because linked library documents have their own entity IDs (library ID, not conversation ID)
+      let filtered = unfilteredResults;
+
       if (filters) {
-        if (filters.entityType) {
-          query = query.where(`"entityType" = '${filters.entityType}'`);
-        }
-        if (filters.entityId) {
-          query = query.where(`"entityId" = '${filters.entityId}'`);
-        }
         if (filters.attachmentIds && filters.attachmentIds.length > 0) {
-          const attachmentFilter = filters.attachmentIds
-            .map((id) => `'${id}'`)
-            .join(', ');
-          const whereClause = `"attachmentId" IN (${attachmentFilter})`;
-          logger.debug('rag', 'Applying LanceDB WHERE clause', whereClause, {
-            attachmentIds: filters.attachmentIds,
-            whereClause
+          // Use attachment IDs as primary filter (for linked documents)
+          const before = filtered.length;
+          const attachmentIdSet = new Set(filters.attachmentIds);
+          filtered = filtered.filter((row: any) => attachmentIdSet.has(row.attachmentId));
+          logger.debug('rag', 'Filtered by attachmentIds', `${filtered.length} rows after attachmentId filter (was ${before})`, {
+            requestedIds: filters.attachmentIds,
+            before,
+            after: filtered.length,
+            matchedIds: filtered.slice(0, 5).map((r: any) => r.attachmentId)
           });
-          query = query.where(whereClause);
+        } else {
+          // No attachment IDs - use entityType/entityId filters (for direct conversation attachments)
+          if (filters.entityType) {
+            const before = filtered.length;
+            filtered = filtered.filter((row: any) => row.entityType === filters.entityType);
+            logger.debug('rag', 'Filtered by entityType', `${filtered.length} rows after entityType filter (was ${before})`, {
+              entityType: filters.entityType,
+              before,
+              after: filtered.length
+            });
+          }
+          if (filters.entityId) {
+            const before = filtered.length;
+            filtered = filtered.filter((row: any) => row.entityId === filters.entityId);
+            logger.debug('rag', 'Filtered by entityId', `${filtered.length} rows after entityId filter (was ${before})`, {
+              entityId: filters.entityId,
+              before,
+              after: filtered.length
+            });
+          }
         }
       }
 
-      logger.debug('rag', 'Executing LanceDB query', 'Query built, executing search');
-      const results = await query.execute();
-      logger.debug('rag', 'LanceDB query completed', `Returned ${results.length} results`, {
-        resultCount: results.length
+      // Apply requested topK limit
+      const results = filtered.slice(0, topK);
+
+      logger.debug('rag', 'LanceDB query completed', `Returned ${results.length} results after filtering`, {
+        unfilteredCount: unfilteredResults.length,
+        filteredCount: filtered.length,
+        finalCount: results.length,
+        topK
       });
 
       // Transformer en TextRAGResult
@@ -442,34 +508,67 @@ export class VectorStoreService {
     }
 
     try {
+      // Refresh collection to ensure we have the latest data
+      try {
+        this.visionCollection = await this.db.openTable(this.VISION_COLLECTION);
+        console.log('[VectorStore] Vision collection refreshed before search');
+      } catch (refreshError) {
+        console.warn('[VectorStore] Could not refresh vision collection, using existing reference');
+      }
+
       console.log('[VectorStore] MaxSim search with query shape:', [
         queryEmbedding.length,
         queryEmbedding[0]?.length || 0,
       ]);
 
-      // 1. Récupérer tous les candidats (on pourrait optimiser avec un pre-filtering)
-      let query = this.visionCollection.limit(1000); // Limit to avoid memory issues
+      // Adaptive limit based on filter type (same logic as text search)
+      const fetchLimit = filters?.attachmentIds && filters.attachmentIds.length > 0
+        ? 1000 // Higher limit when filtering by attachment IDs
+        : 500; // Standard limit otherwise
 
-      // Appliquer les filtres
-      // Note: LanceDB est sensible à la casse, les noms de colonnes doivent être entre guillemets doubles
+      // 1. Fetch candidates WITHOUT WHERE clauses (they don't work reliably)
+      // LanceDB 0.4.x requires a vector search - use dummy vector to fetch all candidates
+      const dummyVector = [0.0]; // Match the dummy vector field in VisionRAGPatchSchema
+      const query = this.visionCollection
+        .search(dummyVector)
+        .limit(fetchLimit)
+        .nprobes(100);
+
+      const unfilteredCandidates = await query.execute();
+
+      console.log('[VectorStore] Fetched', unfilteredCandidates.length, 'unfiltered vision candidates');
+
+      // 2. Apply in-memory filtering
+      let candidates = unfilteredCandidates;
+
       if (filters) {
-        if (filters.entityType) {
-          query = query.where(`"entityType" = '${filters.entityType}'`);
-        }
-        if (filters.entityId) {
-          query = query.where(`"entityId" = '${filters.entityId}'`);
-        }
         if (filters.attachmentIds && filters.attachmentIds.length > 0) {
-          const attachmentFilter = filters.attachmentIds
-            .map((id) => `'${id}'`)
-            .join(', ');
-          query = query.where(`"attachmentId" IN (${attachmentFilter})`);
+          // Use attachment IDs as primary filter (for linked documents)
+          const before = candidates.length;
+          const attachmentIdSet = new Set(filters.attachmentIds);
+          candidates = candidates.filter((row: any) => attachmentIdSet.has(row.attachmentId));
+          console.log('[VectorStore] Filtered by attachmentIds:', {
+            before,
+            after: candidates.length,
+            requestedIds: filters.attachmentIds,
+            matchedIds: candidates.slice(0, 3).map((r: any) => r.attachmentId),
+          });
+        } else {
+          // No attachment IDs - use entityType/entityId filters
+          if (filters.entityType) {
+            const before = candidates.length;
+            candidates = candidates.filter((row: any) => row.entityType === filters.entityType);
+            console.log('[VectorStore] Filtered by entityType:', { before, after: candidates.length });
+          }
+          if (filters.entityId) {
+            const before = candidates.length;
+            candidates = candidates.filter((row: any) => row.entityId === filters.entityId);
+            console.log('[VectorStore] Filtered by entityId:', { before, after: candidates.length });
+          }
         }
       }
 
-      const candidates = await query.execute();
-
-      console.log('[VectorStore] Found', candidates.length, 'candidates for MaxSim');
+      console.log('[VectorStore] Found', candidates.length, 'candidates for MaxSim after filtering');
 
       // 2. Calculer MaxSim pour chaque document
       const scoredResults = candidates.map((row: any) => {
@@ -491,11 +590,12 @@ export class VectorStoreService {
           patchIndex: 0,
           score: maxSimScore,
           patchVectors,
+          pageThumbnail: metadata.imageBase64, // Add pageThumbnail at top level for frontend
           metadata: {
             originalName: metadata.originalName || '',
             entityType: row.entityType as EntityType,
             pageNumber: row.pageIndex + 1,
-            imageBase64: row.imageBase64,
+            imageBase64: metadata.imageBase64,
           },
         };
       });
@@ -915,6 +1015,182 @@ export class VectorStoreService {
     } catch (error) {
       console.error('[VectorStore] Error removing duplicates:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Copier les embeddings d'un attachment source vers un attachment destination
+   * Utilisé lors du linkFromLibrary pour copier les embeddings depuis la bibliothèque
+   */
+  async copyEmbeddings(params: {
+    sourceAttachmentId: string;
+    targetAttachmentId: string;
+    targetEntityType: EntityType;
+    targetEntityId: string;
+    copyText?: boolean;
+    copyVision?: boolean;
+  }): Promise<{
+    success: boolean;
+    textChunksCopied: number;
+    visionPatchesCopied: number;
+    error?: string;
+  }> {
+    try {
+      logger.info('rag', 'Copying embeddings', `From ${params.sourceAttachmentId} to ${params.targetAttachmentId}`, {
+        sourceAttachmentId: params.sourceAttachmentId,
+        targetAttachmentId: params.targetAttachmentId,
+        copyText: params.copyText,
+        copyVision: params.copyVision,
+      });
+
+      let textChunksCopied = 0;
+      let visionPatchesCopied = 0;
+
+      // 1. Copier les text chunks si demandé
+      if (params.copyText && this.textCollection) {
+        try {
+          // Récupérer tous les chunks du document source
+          const sourceChunks = await this.getAllChunksByFilter({
+            attachmentIds: [params.sourceAttachmentId],
+          });
+
+          logger.info('rag', 'Retrieved source text chunks', `Found ${sourceChunks.length} chunks to copy`, {
+            sourceChunksCount: sourceChunks.length,
+          });
+
+          if (sourceChunks.length > 0) {
+            // Créer de nouveaux chunks avec le targetAttachmentId
+            const newChunks: TextRAGChunkSchema[] = sourceChunks.map((chunk) => {
+              const metadata = typeof chunk.metadata === 'string'
+                ? JSON.parse(chunk.metadata)
+                : chunk.metadata;
+
+              return {
+                id: `${params.targetAttachmentId}-chunk-${chunk.metadata.chunkIndex}`,
+                attachmentId: params.targetAttachmentId,
+                chunkIndex: chunk.metadata.chunkIndex,
+                text: chunk.text,
+                vector: chunk.vector,
+                entityType: params.targetEntityType,
+                entityId: params.targetEntityId,
+                metadata: JSON.stringify({
+                  originalName: metadata.originalName,
+                  page: metadata.page,
+                  lineStart: metadata.lineStart,
+                  lineEnd: metadata.lineEnd,
+                }),
+                createdAt: Date.now(),
+              };
+            });
+
+            // Indexer les nouveaux chunks
+            await this.indexTextChunks(newChunks);
+            textChunksCopied = newChunks.length;
+
+            logger.success('rag', 'Text chunks copied successfully', `Copied ${textChunksCopied} chunks`, {
+              textChunksCopied,
+            });
+          } else {
+            logger.info('rag', 'No text chunks to copy', 'Source document has no text embeddings');
+          }
+        } catch (error) {
+          logger.error('rag', 'Failed to copy text chunks', '', {
+            error: error instanceof Error ? error.message : String(error),
+            sourceAttachmentId: params.sourceAttachmentId,
+          });
+          throw error;
+        }
+      }
+
+      // 2. Copier les vision patches si demandé
+      if (params.copyVision && this.visionCollection) {
+        try {
+          // Récupérer tous les patches du document source
+          // Pour vision, on doit récupérer tous les documents de la collection et filtrer
+          const dummyVector = new Array(128).fill(0.001);
+          const allPatches = await this.visionCollection
+            .search(dummyVector)
+            .limit(10000)
+            .execute();
+
+          const sourcePatches = allPatches.filter(
+            (row: any) => row.attachmentId === params.sourceAttachmentId
+          );
+
+          logger.info('rag', 'Retrieved source vision patches', `Found ${sourcePatches.length} patches to copy`, {
+            sourcePatchesCount: sourcePatches.length,
+          });
+
+          if (sourcePatches.length > 0) {
+            // Créer de nouveaux patches avec le targetAttachmentId
+            const newPatches: VisionRAGPatchSchema[] = sourcePatches.map((patch: any) => {
+              const metadata = typeof patch.metadata === 'string'
+                ? JSON.parse(patch.metadata)
+                : patch.metadata;
+
+              const patchVectors = typeof patch.patchVectors === 'string'
+                ? patch.patchVectors // Keep as string for serialization
+                : JSON.stringify(patch.patchVectors);
+
+              return {
+                id: `${params.targetAttachmentId}-page-${patch.pageIndex}`,
+                attachmentId: params.targetAttachmentId,
+                pageIndex: patch.pageIndex,
+                patchVectors: patchVectors,
+                vector: patch.vector || [0.0], // Copy or create dummy vector for vectordb compatibility
+                entityType: params.targetEntityType,
+                entityId: params.targetEntityId,
+                metadata: JSON.stringify({
+                  originalName: metadata.originalName,
+                  pageNumber: metadata.pageNumber,
+                  imageBase64: metadata.imageBase64,
+                }),
+                createdAt: Date.now(),
+              };
+            });
+
+            // Indexer les nouveaux patches
+            await this.indexVisionPatches(newPatches);
+            visionPatchesCopied = newPatches.length;
+
+            logger.success('rag', 'Vision patches copied successfully', `Copied ${visionPatchesCopied} patches`, {
+              visionPatchesCopied,
+            });
+          } else {
+            logger.info('rag', 'No vision patches to copy', 'Source document has no vision embeddings');
+          }
+        } catch (error) {
+          logger.error('rag', 'Failed to copy vision patches', '', {
+            error: error instanceof Error ? error.message : String(error),
+            sourceAttachmentId: params.sourceAttachmentId,
+          });
+          throw error;
+        }
+      }
+
+      logger.success('rag', 'Embeddings copied successfully', `Text: ${textChunksCopied}, Vision: ${visionPatchesCopied}`, {
+        textChunksCopied,
+        visionPatchesCopied,
+      });
+
+      return {
+        success: true,
+        textChunksCopied,
+        visionPatchesCopied,
+      };
+    } catch (error) {
+      logger.error('rag', 'Failed to copy embeddings', '', {
+        error: error instanceof Error ? error.message : String(error),
+        sourceAttachmentId: params.sourceAttachmentId,
+        targetAttachmentId: params.targetAttachmentId,
+      });
+
+      return {
+        success: false,
+        textChunksCopied: 0,
+        visionPatchesCopied: 0,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 

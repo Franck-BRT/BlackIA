@@ -42,6 +42,12 @@ const api = {
       ipcRenderer.invoke('file:exportPDF', options),
   },
 
+  // Dialog API
+  dialog: {
+    selectFolder: (options?: { title?: string; defaultPath?: string }) =>
+      ipcRenderer.invoke('dialog:selectFolder', options),
+  },
+
   // Personas API
   personas: {
     getAll: () => ipcRenderer.invoke('personas:getAll'),
@@ -450,6 +456,8 @@ const api = {
   attachments: {
     upload: (params: { fileName: string; buffer: Buffer; mimeType: string; entityType: string; entityId: string }) =>
       ipcRenderer.invoke('attachments:upload', params),
+    linkFromLibrary: (params: { libraryDocumentIds: string[]; entityType: string; entityId: string; tags?: string[] }) =>
+      ipcRenderer.invoke('attachments:linkFromLibrary', params),
     getByEntity: (params: { entityType: string; entityId: string }) =>
       ipcRenderer.invoke('attachments:getByEntity', params),
     getById: (params: { attachmentId: string }) =>
@@ -497,6 +505,7 @@ const api = {
     getStats: (libraryId: string) => ipcRenderer.invoke('library:getStats', libraryId),
     updateStats: (libraryId: string) => ipcRenderer.invoke('library:updateStats', libraryId),
     getFavorites: () => ipcRenderer.invoke('library:getFavorites'),
+    openFolder: (id: string) => ipcRenderer.invoke('library:openFolder', id),
   },
 
   // Library Document API
@@ -773,6 +782,7 @@ export interface ElectronAPI {
 
   attachments: {
     upload: (params: { fileName: string; buffer: Buffer; mimeType: string; entityType: string; entityId: string }) => Promise<any>;
+    linkFromLibrary: (params: { libraryDocumentIds: string[]; entityType: string; entityId: string; tags?: string[] }) => Promise<any>;
     getByEntity: (params: { entityType: string; entityId: string }) => Promise<any>;
     getById: (params: { attachmentId: string }) => Promise<any>;
     delete: (params: { attachmentId: string }) => Promise<any>;

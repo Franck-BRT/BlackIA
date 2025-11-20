@@ -88,6 +88,27 @@ export interface IndexResult {
 
 export class LibraryDocumentService {
   /**
+   * Créer un nom de fichier lisible: nom-original-uuid8.ext
+   */
+  private createReadableFilename(originalName: string, uuid: string): string {
+    const ext = path.extname(originalName);
+    const baseName = path.basename(originalName, ext);
+
+    // Slugifier le nom (enlever accents, caractères spéciaux)
+    const slug = baseName
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with dashes
+      .replace(/^-+|-+$/g, '') // Remove leading/trailing dashes
+      .substring(0, 50); // Limit length
+
+    // Utiliser les 8 premiers caractères de l'UUID
+    const shortId = uuid.substring(0, 8);
+
+    return `${slug}-${shortId}${ext}`;
+  }
+
+  /**
    * Ajouter un document à une bibliothèque
    */
   async addDocument(params: {
@@ -110,9 +131,8 @@ export class LibraryDocumentService {
       // 2. Générer un ID unique
       const id = randomUUID();
 
-      // 3. Déterminer le chemin de destination
-      const ext = path.extname(params.originalName);
-      const filename = `${id}${ext}`;
+      // 3. Créer un nom de fichier lisible: nom-original-uuid8.ext
+      const filename = this.createReadableFilename(params.originalName, id);
       const destPath = path.join(library.storagePath, filename);
 
       // 4. Copier le fichier
@@ -539,7 +559,7 @@ export class LibraryDocumentService {
             message: 'Préparation du modèle vision...',
           });
 
-          // Check model backend to ensure compatibility
+          // Check model backend to determine which service to use
           const modelBackend = await this.getModelBackend(visionModelName);
 
           console.log('[LibraryDocumentService] Vision model backend check:', {
@@ -547,35 +567,84 @@ export class LibraryDocumentService {
             backend: modelBackend,
           });
 
-          // Validate backend compatibility
+          // Route to the appropriate service based on backend
+          let visionResult: any;
+
           if (modelBackend === 'mlx') {
-            const errorMsg = `Le modèle MLX "${visionModelName}" n'est pas encore supporté pour Vision RAG. Utilisez un modèle ColPali (vidore/colpali ou vidore/colpali-v1.2) qui fonctionne sur toutes les plateformes.`;
+            // Use MLX Vision RAG Service for Apple Silicon models
+            console.log('[LibraryDocumentService] Starting vision indexation with MLX...');
+
+            params.onProgress?.({
+              documentId: params.documentId,
+              stage: 'vision-indexing',
+              percentage: mode === 'hybrid' ? 50 : 30,
+              message: 'Conversion PDF en images...',
+            });
+
+            // MLX requires PDF to be converted to images first
+            const tempDir = path.join(process.env.TEMP || '/tmp', `vision-rag-${doc.id}`);
+            await fs.mkdir(tempDir, { recursive: true });
+
+            try {
+              // Convert PDF to images
+              const conversionResult = await visionRAGService.convertPDFToImages(
+                doc.filePath,
+                tempDir,
+                200 // DPI
+              );
+
+              if (!conversionResult.success || !conversionResult.imagePaths) {
+                throw new Error(conversionResult.error || 'Failed to convert PDF to images');
+              }
+
+              params.onProgress?.({
+                documentId: params.documentId,
+                stage: 'vision-indexing',
+                percentage: mode === 'hybrid' ? 60 : 50,
+                message: `Indexation visuelle MLX (${conversionResult.imagePaths.length} pages)...`,
+              });
+
+              // Index with MLX
+              visionResult = await visionRAGService.indexDocument({
+                imagePaths: conversionResult.imagePaths,
+                attachmentId: doc.id,
+                entityType: 'document' as EntityType,
+                entityId: doc.libraryId,
+                model: visionModelName,
+              });
+
+              // Clean up temp images
+              await fs.rm(tempDir, { recursive: true, force: true });
+            } catch (error) {
+              // Clean up temp images even on error
+              await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+              throw error;
+            }
+
+          } else if (modelBackend === 'colette' || !modelBackend) {
+            // Use Colette Vision RAG Service for ColPali models
+            console.log('[LibraryDocumentService] Starting vision indexation with Colette...');
+
+            params.onProgress?.({
+              documentId: params.documentId,
+              stage: 'vision-indexing',
+              percentage: mode === 'hybrid' ? 50 : 30,
+              message: 'Indexation visuelle en cours...',
+            });
+
+            visionResult = await coletteVisionRAGService.indexDocument({
+              imagePaths: [doc.filePath], // Colette handles PDF to image conversion internally
+              attachmentId: doc.id,
+              entityType: 'document' as EntityType,
+              entityId: doc.libraryId,
+              model: visionModelName,
+            });
+
+          } else {
+            const errorMsg = `Le modèle "${visionModelName}" (backend: ${modelBackend}) n'est pas compatible avec Vision RAG. Utilisez un modèle ColPali ou MLX.`;
             console.error('[LibraryDocumentService]', errorMsg);
             throw new Error(errorMsg);
           }
-
-          if (modelBackend && modelBackend !== 'colette') {
-            const errorMsg = `Le modèle "${visionModelName}" (backend: ${modelBackend}) n'est pas compatible avec Vision RAG. Utilisez un modèle ColPali avec backend 'colette'.`;
-            console.error('[LibraryDocumentService]', errorMsg);
-            throw new Error(errorMsg);
-          }
-
-          console.log('[LibraryDocumentService] Starting vision indexation with Colette...');
-
-          params.onProgress?.({
-            documentId: params.documentId,
-            stage: 'vision-indexing',
-            percentage: mode === 'hybrid' ? 50 : 30,
-            message: 'Indexation visuelle en cours...',
-          });
-
-          const visionResult = await coletteVisionRAGService.indexDocument({
-            imagePaths: [doc.filePath], // Colette handles PDF to image conversion internally
-            attachmentId: doc.id,
-            entityType: 'document' as EntityType,
-            entityId: doc.libraryId,
-            model: visionModelName,
-          });
 
           if (visionResult.success) {
             patchCount = visionResult.patchCount;

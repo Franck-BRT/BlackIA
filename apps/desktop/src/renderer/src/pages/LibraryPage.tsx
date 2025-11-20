@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { MoreVertical, Edit2, Trash2, Star } from 'lucide-react';
+import { MoreVertical, Edit2, Trash2, Star, FolderOpen } from 'lucide-react';
 import { useLibraries } from '../hooks/useLibraries';
 import { useLibraryDocuments, type LibraryDocument } from '../hooks/useLibraryDocuments';
 import { CreateLibraryModal } from '../components/library/CreateLibraryModal';
@@ -70,6 +70,16 @@ export function LibraryPage() {
       if (selectedLibrary) {
         await getDocuments(selectedLibrary.id);
         await refreshLibraries();
+
+        // Update selectedDocument with the refreshed data to show updated model info
+        const updatedDoc = documents.find(doc => doc.id === documentId);
+        if (updatedDoc) {
+          console.log('[LibraryPage] Updating selectedDocument with refreshed data:', {
+            textModel: updatedDoc.textEmbeddingModel,
+            visionModel: updatedDoc.visionEmbeddingModel,
+          });
+          setSelectedDocument(updatedDoc);
+        }
       }
       console.log('[LibraryPage] Document list refreshed');
     } catch (error) {
@@ -131,6 +141,15 @@ export function LibraryPage() {
         await getDocuments(selectedLibrary.id);
         await refreshLibraries();
       }
+    }
+  };
+
+  const handleOpenFolder = async (library: Library) => {
+    try {
+      await window.electronAPI.library.openFolder(library.id);
+      setLibraryMenuOpen(null);
+    } catch (error) {
+      console.error('[LibraryPage] Failed to open folder:', error);
     }
   };
 
@@ -232,6 +251,14 @@ export function LibraryPage() {
                     <Edit2 className="w-4 h-4" />
                     Modifier
                   </button>
+                  <button
+                    onClick={() => handleOpenFolder(library)}
+                    className="w-full px-4 py-2 text-left text-sm text-neutral-100 hover:bg-neutral-700 flex items-center gap-2"
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                    Ouvrir le dossier
+                  </button>
+                  <div className="border-t border-neutral-700 my-1" />
                   <button
                     onClick={() => handleDeleteLibrary(library)}
                     className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-neutral-700 flex items-center gap-2"
@@ -355,13 +382,13 @@ export function LibraryPage() {
 
                       <div className="flex items-center gap-2 mt-3">
                         {doc.isIndexedText && (
-                          <span className="px-2 py-0.5 bg-green-900/30 text-green-400 text-xs rounded">
-                            Text RAG
+                          <span className="px-2 py-0.5 bg-green-900/30 text-green-400 text-xs rounded" title={`${doc.textChunkCount} chunks texte`}>
+                            Text RAG ({doc.textChunkCount})
                           </span>
                         )}
                         {doc.isIndexedVision && (
-                          <span className="px-2 py-0.5 bg-purple-900/30 text-purple-400 text-xs rounded">
-                            Vision RAG
+                          <span className="px-2 py-0.5 bg-purple-900/30 text-purple-400 text-xs rounded" title={`${doc.visionPatchCount?.toLocaleString()} patches vision`}>
+                            Vision RAG ({doc.visionPatchCount?.toLocaleString()})
                           </span>
                         )}
                         <span

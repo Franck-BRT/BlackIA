@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Paperclip, X } from 'lucide-react';
+import { Paperclip, X, BookOpen } from 'lucide-react';
 import { AttachmentButton } from '../attachments/AttachmentButton';
 import { AttachmentPreview } from '../attachments/AttachmentPreview';
 import { AttachmentViewer } from '../attachments/AttachmentViewer';
+import { LibraryFilePicker } from './LibraryFilePicker';
 import { useAttachments } from '../../hooks/useAttachments';
 import { useAttachmentViewer } from '../../hooks/useAttachmentViewer';
 import type { Attachment } from '../../types/attachment';
+import type { LibraryDocument } from '../../hooks/useLibraryDocuments';
 
 interface AttachmentHeaderButtonProps {
   conversationId?: string;
@@ -26,6 +28,7 @@ export function AttachmentHeaderButton({
   disabled = false,
 }: AttachmentHeaderButtonProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLibraryPickerOpen, setIsLibraryPickerOpen] = useState(false);
 
   const {
     attachments: uploadedAttachments,
@@ -64,6 +67,35 @@ export function AttachmentHeaderButton({
     const success = await removeAttachment(attachmentId);
     if (!success) {
       alert('Erreur lors de la suppression du fichier');
+    }
+  };
+
+  const handleSelectFromLibrary = async (documents: LibraryDocument[]) => {
+    try {
+      console.log('[AttachmentHeaderButton] 📚 Linking library documents:', documents.length);
+
+      const libraryDocumentIds = documents.map(doc => doc.id);
+
+      const result = await window.electronAPI.attachments.linkFromLibrary({
+        libraryDocumentIds,
+        entityType,
+        entityId: entityId || conversationId || '',
+        tags: [],
+      });
+
+      if (result.success) {
+        console.log('[AttachmentHeaderButton] ✅ Documents linked successfully:', result.attachments);
+
+        // Recharger la liste des attachments
+        await loadAttachments();
+
+        setIsLibraryPickerOpen(false);
+      } else {
+        throw new Error(result.error || 'Failed to link documents');
+      }
+    } catch (error) {
+      console.error('[AttachmentHeaderButton] ❌ Error linking library documents:', error);
+      alert(`Erreur lors de la liaison: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     }
   };
 
@@ -122,8 +154,9 @@ export function AttachmentHeaderButton({
               </button>
             </div>
 
-            {/* Bouton d'upload */}
-            <div className="mb-3">
+            {/* Boutons d'ajout */}
+            <div className="mb-3 space-y-2">
+              {/* Uploader un nouveau fichier */}
               <AttachmentButton
                 entityType={entityType}
                 entityId={entityId || conversationId}
@@ -138,6 +171,16 @@ export function AttachmentHeaderButton({
                 accept="image/*,application/pdf,text/*"
                 className="w-full"
               />
+
+              {/* Sélectionner depuis une bibliothèque */}
+              <button
+                onClick={() => setIsLibraryPickerOpen(true)}
+                disabled={isUploadingFiles}
+                className="w-full px-4 py-2 bg-neutral-800 hover:bg-neutral-700 border border-neutral-700 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm text-neutral-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <BookOpen className="w-4 h-4" />
+                Depuis une bibliothèque
+              </button>
             </div>
 
             {isUploadingFiles && (
@@ -181,6 +224,13 @@ export function AttachmentHeaderButton({
           onNavigate={viewer.navigateToIndex}
         />
       )}
+
+      {/* Library File Picker modal */}
+      <LibraryFilePicker
+        isOpen={isLibraryPickerOpen}
+        onClose={() => setIsLibraryPickerOpen(false)}
+        onSelect={handleSelectFromLibrary}
+      />
     </div>
   );
 }

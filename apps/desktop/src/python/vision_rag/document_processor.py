@@ -14,6 +14,11 @@ import tempfile
 try:
     from pdf2image import convert_from_path
     from PIL import Image
+    # Import poppler_utils - gérer import relatif et absolu
+    try:
+        from .poppler_utils import check_poppler_installed, get_installation_instructions
+    except ImportError:
+        from poppler_utils import check_poppler_installed, get_installation_instructions
 except ImportError as e:
     print(json.dumps({
         "success": False,
@@ -93,12 +98,27 @@ class DocumentProcessor:
                 print(f"[DocumentProcessor] Output dir: {output_dir}", file=sys.stderr)
                 print(f"[DocumentProcessor] DPI: {self.dpi}", file=sys.stderr)
 
+            # Vérifier poppler pour la conversion PDF
+            poppler_installed, poppler_path = check_poppler_installed()
+
+            if not poppler_installed:
+                error_msg = get_installation_instructions()
+                return {
+                    "success": False,
+                    "error": f"poppler not installed. {error_msg}",
+                }
+
             # Convertir PDF → images
-            images = convert_from_path(
-                pdf_path,
-                dpi=self.dpi,
-                fmt=self.output_format.lower(),
-            )
+            convert_kwargs = {
+                "dpi": self.dpi,
+                "fmt": self.output_format.lower(),
+            }
+            if poppler_path:
+                convert_kwargs["poppler_path"] = poppler_path
+                if self.verbose:
+                    print(f"[DocumentProcessor] Using poppler from: {poppler_path}", file=sys.stderr)
+
+            images = convert_from_path(pdf_path, **convert_kwargs)
 
             if self.verbose:
                 print(f"[DocumentProcessor] Converted {len(images)} pages", file=sys.stderr)
