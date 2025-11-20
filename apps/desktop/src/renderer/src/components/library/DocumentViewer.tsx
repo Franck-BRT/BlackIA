@@ -30,7 +30,10 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   const [selectedChunkId, setSelectedChunkId] = useState<string | null>(null);
   const [selectedPatchId, setSelectedPatchId] = useState<string | null>(null);
   const [showChunksPanel, setShowChunksPanel] = useState(true);
-  const [viewMode, setViewMode] = useState<'chunks' | 'patches'>('chunks'); // Mode d'affichage: chunks ou patches
+  // Mode d'affichage: par défaut sur chunks si indexé texte, sinon patches
+  const [viewMode, setViewMode] = useState<'chunks' | 'patches'>(
+    doc.isIndexedText ? 'chunks' : 'patches'
+  );
   const [showValidationPanel, setShowValidationPanel] = useState(false);
   const [validationNotes, setValidationNotes] = useState('');
   const [isIndexing, setIsIndexing] = useState(false);
@@ -318,35 +321,39 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
             </span>
           </button>
 
-          {/* Toggle chunks/patches si les deux sont disponibles */}
-          {doc.isIndexedText && doc.isIndexedVision && (
+          {/* Toggle chunks/patches si au moins un est disponible */}
+          {(doc.isIndexedText || doc.isIndexedVision) && (
             <div className="flex items-center gap-1 bg-neutral-800 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('chunks')}
-                className={cn(
-                  'px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-1.5',
-                  viewMode === 'chunks'
-                    ? 'bg-white/20 text-white'
-                    : 'text-neutral-400 hover:text-white'
-                )}
-                title="Afficher les chunks texte"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Chunks</span>
-              </button>
-              <button
-                onClick={() => setViewMode('patches')}
-                className={cn(
-                  'px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-1.5',
-                  viewMode === 'patches'
-                    ? 'bg-white/20 text-white'
-                    : 'text-neutral-400 hover:text-white'
-                )}
-                title="Afficher les patches vision"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Patches</span>
-              </button>
+              {doc.isIndexedText && (
+                <button
+                  onClick={() => setViewMode('chunks')}
+                  className={cn(
+                    'px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-1.5',
+                    viewMode === 'chunks'
+                      ? 'bg-white/20 text-white'
+                      : 'text-neutral-400 hover:text-white'
+                  )}
+                  title="Afficher les chunks texte"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Chunks</span>
+                </button>
+              )}
+              {doc.isIndexedVision && (
+                <button
+                  onClick={() => setViewMode('patches')}
+                  className={cn(
+                    'px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-1.5',
+                    viewMode === 'patches'
+                      ? 'bg-white/20 text-white'
+                      : 'text-neutral-400 hover:text-white'
+                  )}
+                  title="Afficher les patches vision"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Patches</span>
+                </button>
+              )}
             </div>
           )}
 
