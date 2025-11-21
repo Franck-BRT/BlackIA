@@ -365,11 +365,26 @@ export class VisionRAGService {
         const cachedPath = cachedImagePaths[pageIndex];
         console.log(`[MLX Vision] Page ${pageIndex}: cached path = ${cachedPath || 'undefined'}`);
 
-        const imageBase64 = cachedPath
-          ? await this.imageToBase64(cachedPath)
-          : undefined;
+        let imageBase64: string | undefined = undefined;
+        if (cachedPath && typeof cachedPath === 'string' && cachedPath !== 'undefined') {
+          imageBase64 = await this.imageToBase64(cachedPath);
+        }
 
-        console.log(`[MLX Vision] Page ${pageIndex}: imageBase64 = ${imageBase64 ? 'set' : 'undefined'}`);
+        console.log(`[MLX Vision] Page ${pageIndex}: imageBase64 = ${imageBase64 ? `set (length: ${imageBase64.length})` : 'undefined'}`);
+
+        // Build metadata - only include imageBase64 if it's a valid base64 string
+        const metadata: Record<string, any> = {
+          originalName: params.attachmentId,
+          pageNumber: pageIndex + 1,
+          model: embeddingsResult.metadata?.model || model,
+          numPatches: patchVectors.length,
+          embeddingDim: patchVectors[0]?.length || 0,
+        };
+
+        // Only add imageBase64 if it's a valid data URL
+        if (imageBase64 && imageBase64.startsWith('data:image/')) {
+          metadata.imageBase64 = imageBase64;
+        }
 
         const schema: VisionRAGPatchSchema = {
           id: `${params.attachmentId}-page-${pageIndex}`,
@@ -379,14 +394,7 @@ export class VisionRAGService {
           vector: [0.0], // Dummy vector for vectordb 0.4.x compatibility
           entityType: params.entityType,
           entityId: params.entityId,
-          metadata: JSON.stringify({
-            originalName: params.attachmentId,
-            pageNumber: pageIndex + 1,
-            model: embeddingsResult.metadata?.model || model,
-            numPatches: patchVectors.length,
-            embeddingDim: patchVectors[0]?.length || 0,
-            imageBase64,
-          }),
+          metadata: JSON.stringify(metadata),
           createdAt: Date.now(),
         };
 
