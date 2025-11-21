@@ -492,7 +492,7 @@ class MLXVisionEmbedder:
                     "model": self.model_name,
                     "device": "Apple Silicon (MLX)",
                     "num_images": len(all_embeddings),
-                    "num_patches_per_image": all_embeddings[0].shape[0] if all_embeddings else 0,
+                    "num_patches_per_image": len(all_embeddings[0]) if all_embeddings else 0,
                     "embedding_dim": self.embed_dim,
                     "total_patches": total_patches
                 }
