@@ -1,57 +1,323 @@
+/**
+ * MLX Vision RAG Service
+ * Gère l'indexation et la recherche de documents via Vision RAG avec MLX sur Apple Silicon
+ *
+ * Flow:
+ * 1. PDF/Images → Patch Embeddings (via mlx_vision_embedder.py)
+ * 2. Stockage dans LanceDB avec images cachées
+ * 3. Recherche avec Late Interaction (MaxSim)
+ *
+ * Modèles supportés:
+ * - mlx-community/Qwen2-VL-2B-Instruct-4bit (8GB RAM, rapide)
+ * - mlx-community/Qwen2-VL-2B-Instruct (16GB RAM)
+ * - mlx-community/Qwen2-VL-7B-Instruct-4bit (16GB RAM)
+ * - mlx-community/Qwen2-VL-7B-Instruct (32GB RAM)
+ * - mlx-community/paligemma-3b-mix-448-8bit (8GB)
+ * - mlx-community/pixtral-12b-4bit (16GB)
+ */
+
 import path from 'path';
 import { app } from 'electron';
-import { spawn } from 'child_process';
-import { randomUUID } from 'crypto';
+import { spawn, execSync } from 'child_process';
+import { existsSync } from 'fs';
 import type {
   VisionRAGIndexParams,
   RAGSearchParams,
   VisionRAGResult,
   VisionRAGPatchSchema,
-  DocumentProcessorResponse,
-  MLXVisionEmbedderResponse,
 } from '../types/rag';
 import { vectorStore } from './vector-store';
 
+interface MLXEmbeddingsResult {
+  success: boolean;
+  embeddings?: number[][][]; // [pages, patches, dims]
+  cached_image_paths?: string[];
+  metadata?: {
+    model: string;
+    device: string;
+    num_images: number;
+    num_patches_per_image: number;
+    embedding_dim: number;
+    total_patches: number;
+  };
+  error?: string;
+}
+
+interface MLXQueryResult {
+  success: boolean;
+  query_embedding?: number[][];
+  embedding_dim?: number;
+  num_tokens?: number;
+  error?: string;
+}
+
+// Supported MLX models
+export const MLX_VISION_MODELS = {
+  'mlx-community/Qwen2-VL-2B-Instruct-4bit': {
+    name: 'Qwen2-VL 2B 4-bit',
+    ram: '8GB',
+    description: 'Fast, low memory',
+  },
+  'mlx-community/Qwen2-VL-2B-Instruct': {
+    name: 'Qwen2-VL 2B',
+    ram: '16GB',
+    description: 'Good balance',
+  },
+  'mlx-community/Qwen2-VL-7B-Instruct-4bit': {
+    name: 'Qwen2-VL 7B 4-bit',
+    ram: '16GB',
+    description: 'High quality, quantized',
+  },
+  'mlx-community/Qwen2-VL-7B-Instruct': {
+    name: 'Qwen2-VL 7B',
+    ram: '32GB',
+    description: 'Best quality',
+  },
+  'mlx-community/paligemma-3b-mix-448-8bit': {
+    name: 'PaliGemma 3B',
+    ram: '8GB',
+    description: 'Document specialist',
+  },
+  'mlx-community/pixtral-12b-4bit': {
+    name: 'Pixtral 12B',
+    ram: '16GB',
+    description: 'Complex documents',
+  },
+};
+
 /**
- * Vision RAG Service
- * Gère l'indexation et la recherche de documents via Vision RAG (MLX-VLM)
- *
- * Flow:
- * 1. PDF → Images (via Python document_processor.py)
- * 2. Images → Patch Embeddings (via Python mlx_vision_embedder.py)
- * 3. Stockage dans LanceDB
- * 4. Recherche avec Late Interaction (MaxSim)
- *
- * Note: Utilise spawn pour exécuter les scripts Python (plus robuste que python-shell)
+ * MLX Vision RAG Service
  */
 export class VisionRAGService {
   private pythonPath: string;
-  private scriptsPath: string;
+  private scriptPath: string;
   private defaultModel: string;
 
-  constructor(defaultModel: string = 'mlx-community/Qwen2-VL-2B-4bit') {
+  constructor(defaultModel: string = 'mlx-community/Qwen2-VL-2B-Instruct-4bit') {
     this.defaultModel = defaultModel;
 
-    // Chemins vers Python
+    // Chemins vers Python et script MLX
     const isDev = !app.isPackaged;
     const appPath = app.getAppPath();
 
+    let scriptsPath: string;
+
     if (isDev) {
-      // Development: utiliser le venv local
-      this.scriptsPath = path.join(appPath, 'apps/desktop/src/python');
-      this.pythonPath = path.join(this.scriptsPath, 'venv/bin/python3');
+      scriptsPath = path.join(appPath, 'apps/desktop/src/python');
+      this.scriptPath = path.join(scriptsPath, 'vision_rag/mlx_vision_embedder.py');
+      this.pythonPath = this.detectPythonPath(scriptsPath);
     } else {
-      // Production: Python sera dans les resources
-      this.scriptsPath = path.join(process.resourcesPath, 'python');
-      this.pythonPath = path.join(this.scriptsPath, 'venv/bin/python3');
+      scriptsPath = path.join(process.resourcesPath, 'python');
+      this.scriptPath = path.join(scriptsPath, 'vision_rag/mlx_vision_embedder.py');
+
+      const venvPython = path.join(scriptsPath, 'venv/bin/python3');
+      if (existsSync(venvPython)) {
+        this.pythonPath = venvPython;
+        console.log('[MLX Vision] Using bundled venv Python:', this.pythonPath);
+      } else {
+        this.pythonPath = this.detectSystemPython();
+        console.log('[MLX Vision] Using system Python:', this.pythonPath);
+      }
     }
 
-    console.log('[VisionRAG] Python path:', this.pythonPath);
-    console.log('[VisionRAG] Scripts path:', this.scriptsPath);
+    console.log('[MLX Vision] Python path:', this.pythonPath);
+    console.log('[MLX Vision] Script path:', this.scriptPath);
+
+    if (!existsSync(this.scriptPath)) {
+      console.error(`[MLX Vision] ERROR: Script not found at ${this.scriptPath}`);
+    } else {
+      console.log('[MLX Vision] ✓ Script found');
+    }
+  }
+
+  private detectPythonPath(scriptsPath: string): string {
+    const venvPython = path.join(scriptsPath, 'venv/bin/python3');
+    if (existsSync(venvPython)) {
+      console.log('[MLX Vision] Using venv Python:', venvPython);
+      return venvPython;
+    }
+    return this.detectSystemPython();
+  }
+
+  private detectSystemPython(): string {
+    const systemPythons = ['python3', 'python'];
+    for (const pythonCmd of systemPythons) {
+      try {
+        execSync(`${pythonCmd} -c "import mlx.core; import PIL"`, { stdio: 'ignore' });
+        console.log('[MLX Vision] Using system Python with MLX:', pythonCmd);
+        return pythonCmd;
+      } catch {
+        // Continue
+      }
+    }
+    console.warn('[MLX Vision] No valid Python with MLX found');
+    return 'python3';
   }
 
   /**
-   * Indexer un document avec Vision RAG
+   * Convert image to base64
+   */
+  private async imageToBase64(imagePath: string): Promise<string | undefined> {
+    try {
+      console.log('[MLX Vision] Converting to base64:', imagePath);
+      const fs = await import('fs/promises');
+
+      try {
+        await fs.access(imagePath);
+      } catch {
+        console.error('[MLX Vision] Image file not found:', imagePath);
+        return undefined;
+      }
+
+      const imageBuffer = await fs.readFile(imagePath);
+      const base64 = imageBuffer.toString('base64');
+      const ext = imagePath.toLowerCase().split('.').pop() || 'png';
+      const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
+      const result = `data:${mimeType};base64,${base64}`;
+      console.log('[MLX Vision] Base64 conversion success, length:', result.length);
+      return result;
+    } catch (error) {
+      console.error('[MLX Vision] Error converting image to base64:', imagePath, error);
+      return undefined;
+    }
+  }
+
+  /**
+   * Generate embeddings via MLX Vision
+   */
+  private async generateEmbeddings(
+    imagePaths: string[],
+    model?: string
+  ): Promise<MLXEmbeddingsResult> {
+    return new Promise((resolve) => {
+      const inputData = JSON.stringify({ image_paths: imagePaths });
+      const modelName = model || this.defaultModel;
+
+      console.log('[MLX Vision] Generating embeddings for', imagePaths.length, 'files');
+      console.log('[MLX Vision] Using model:', modelName);
+
+      const args = [
+        this.scriptPath,
+        '--input', inputData,
+        '--mode', 'embed_images',
+        '--model', modelName,
+        '--verbose',
+      ];
+
+      const pythonProcess = spawn(this.pythonPath, args);
+
+      let stdoutData = '';
+      let stderrData = '';
+
+      pythonProcess.stdout.on('data', (data) => {
+        stdoutData += data.toString();
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        const message = data.toString();
+        stderrData += message;
+        console.log('[MLX Python]', message.trim());
+      });
+
+      pythonProcess.on('close', (code) => {
+        if (code !== 0) {
+          console.error('[MLX Vision] Python process exited with code', code);
+          console.error('[MLX Vision] stderr:', stderrData);
+          resolve({
+            success: false,
+            error: `Python process failed with code ${code}: ${stderrData}`,
+          });
+          return;
+        }
+
+        try {
+          const result = JSON.parse(stdoutData) as MLXEmbeddingsResult;
+          resolve(result);
+        } catch (error) {
+          console.error('[MLX Vision] Failed to parse Python output:', error);
+          console.error('[MLX Vision] stdout:', stdoutData);
+          resolve({
+            success: false,
+            error: `Failed to parse Python output: ${error}`,
+          });
+        }
+      });
+
+      pythonProcess.on('error', (error) => {
+        console.error('[MLX Vision] Failed to start Python process:', error);
+        resolve({
+          success: false,
+          error: `Failed to start Python: ${error.message}`,
+        });
+      });
+    });
+  }
+
+  /**
+   * Encode query for search
+   */
+  private async encodeQuery(query: string, model?: string): Promise<MLXQueryResult> {
+    return new Promise((resolve) => {
+      const inputData = JSON.stringify({ query });
+      const modelName = model || this.defaultModel;
+
+      const args = [
+        this.scriptPath,
+        '--input', inputData,
+        '--mode', 'encode_query',
+        '--model', modelName,
+        '--verbose',
+      ];
+
+      const pythonProcess = spawn(this.pythonPath, args);
+
+      let stdoutData = '';
+      let stderrData = '';
+
+      pythonProcess.stdout.on('data', (data) => {
+        stdoutData += data.toString();
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        const message = data.toString();
+        stderrData += message;
+        console.log('[MLX Python]', message.trim());
+      });
+
+      pythonProcess.on('close', (code) => {
+        if (code !== 0) {
+          console.error('[MLX Vision] Python process exited with code', code);
+          resolve({
+            success: false,
+            error: `Python process failed with code ${code}: ${stderrData}`,
+          });
+          return;
+        }
+
+        try {
+          const result = JSON.parse(stdoutData) as MLXQueryResult;
+          resolve(result);
+        } catch (error) {
+          console.error('[MLX Vision] Failed to parse Python output:', error);
+          resolve({
+            success: false,
+            error: `Failed to parse Python output: ${error}`,
+          });
+        }
+      });
+
+      pythonProcess.on('error', (error) => {
+        console.error('[MLX Vision] Failed to start Python process:', error);
+        resolve({
+          success: false,
+          error: `Failed to start Python: ${error.message}`,
+        });
+      });
+    });
+  }
+
+  /**
+   * Index a document with MLX Vision RAG
    */
   async indexDocument(params: VisionRAGIndexParams): Promise<{
     success: boolean;
@@ -63,12 +329,12 @@ export class VisionRAGService {
     const startTime = Date.now();
 
     try {
-      console.log('[VisionRAG] Indexing document:', {
+      console.log('[MLX Vision] Indexing document:', {
         imagePaths: params.imagePaths.length,
         model: params.model || this.defaultModel,
       });
 
-      // 1. Générer les embeddings via MLX-VLM
+      // Generate embeddings via MLX
       const model = params.model || this.defaultModel;
       const embeddingsResult = await this.generateEmbeddings(params.imagePaths, model);
 
@@ -81,28 +347,45 @@ export class VisionRAGService {
         };
       }
 
-      const embeddings = embeddingsResult.embeddings; // [pages, patches, dims]
+      const embeddings = embeddingsResult.embeddings;
       const pageCount = embeddings.length;
+      const cachedImagePaths = embeddingsResult.cached_image_paths || [];
 
-      console.log('[VisionRAG] Generated embeddings for', pageCount, 'pages');
+      console.log('[MLX Vision] Generated embeddings for', pageCount, 'pages');
+      console.log('[MLX Vision] Metadata:', embeddingsResult.metadata);
+      console.log('[MLX Vision] Cached image paths:', cachedImagePaths.length);
 
-      // 2. Créer les schemas pour LanceDB
+      // Create schemas for LanceDB
       const patchSchemas: VisionRAGPatchSchema[] = [];
 
       for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
-        const patchVectors = embeddings[pageIndex]; // [patches, dims]
+        const patchVectors = embeddings[pageIndex];
+
+        // Convert cached image to base64
+        const cachedPath = cachedImagePaths[pageIndex];
+        console.log(`[MLX Vision] Page ${pageIndex}: cached path = ${cachedPath || 'undefined'}`);
+
+        const imageBase64 = cachedPath
+          ? await this.imageToBase64(cachedPath)
+          : undefined;
+
+        console.log(`[MLX Vision] Page ${pageIndex}: imageBase64 = ${imageBase64 ? 'set' : 'undefined'}`);
 
         const schema: VisionRAGPatchSchema = {
           id: `${params.attachmentId}-page-${pageIndex}`,
           attachmentId: params.attachmentId,
           pageIndex,
-          patchVectors: JSON.stringify(patchVectors), // Serialize pour LanceDB
+          patchVectors: JSON.stringify(patchVectors),
           vector: [0.0], // Dummy vector for vectordb 0.4.x compatibility
           entityType: params.entityType,
           entityId: params.entityId,
           metadata: JSON.stringify({
             originalName: params.attachmentId,
             pageNumber: pageIndex + 1,
+            model: embeddingsResult.metadata?.model || model,
+            numPatches: patchVectors.length,
+            embeddingDim: patchVectors[0]?.length || 0,
+            imageBase64,
           }),
           createdAt: Date.now(),
         };
@@ -110,16 +393,18 @@ export class VisionRAGService {
         patchSchemas.push(schema);
       }
 
-      // 3. Stocker dans LanceDB
+      // Store in LanceDB
       await vectorStore.indexVisionPatches(patchSchemas);
 
       const duration = Date.now() - startTime;
-      const patchCount = patchSchemas.length;
+      const patchCount = patchSchemas.reduce(
+        (sum, schema) => sum + JSON.parse(schema.patchVectors).length,
+        0
+      );
 
-      console.log('[VisionRAG] Indexed successfully:', {
+      console.log('[MLX Vision] Indexed successfully:', {
         patchCount,
         pageCount,
-        model,
         duration: `${duration}ms`,
       });
 
@@ -127,10 +412,10 @@ export class VisionRAGService {
         success: true,
         patchCount,
         pageCount,
-        model,
+        model: embeddingsResult.metadata?.model || model,
       };
     } catch (error) {
-      console.error('[VisionRAG] Indexing error:', error);
+      console.error('[MLX Vision] Indexing error:', error);
       return {
         success: false,
         patchCount: 0,
@@ -141,7 +426,7 @@ export class VisionRAGService {
   }
 
   /**
-   * Rechercher dans les documents indexés avec Vision RAG
+   * Search indexed documents with MLX Vision RAG
    */
   async search(params: RAGSearchParams): Promise<{
     success: boolean;
@@ -151,32 +436,43 @@ export class VisionRAGService {
     try {
       const startTime = Date.now();
 
-      console.log('[VisionRAG] Searching:', {
+      console.log('[MLX Vision] Searching:', {
         query: params.query.substring(0, 100),
         topK: params.topK || 10,
         filters: params.filters,
       });
 
-      // 1. Générer l'embedding de la query via MLX-VLM
-      // Note: Pour l'instant, on utilise un embedding simple
-      // TODO: Implémenter query embedding via MLX-VLM
+      // Encode query via MLX
+      const queryResult = await this.encodeQuery(params.query, this.defaultModel);
 
-      // Placeholder: générer un embedding dummy
-      const queryEmbedding = new Array(128).fill(0); // 128 dims
+      if (!queryResult.success || !queryResult.query_embedding) {
+        return {
+          success: false,
+          results: [],
+          error: queryResult.error || 'Failed to encode query',
+        };
+      }
 
-      // 2. Recherche vectorielle dans LanceDB
+      const queryEmbedding = queryResult.query_embedding;
+
+      console.log('[MLX Vision] Query embedding generated, tokens:', queryEmbedding.length);
+
+      // Search with MaxSim
       const topK = params.topK || 10;
-      const results = await vectorStore.searchVisionPatches(queryEmbedding, topK, params.filters);
+      const results = await vectorStore.searchVisionPatchesWithMaxSim(
+        queryEmbedding,
+        topK,
+        params.filters
+      );
 
-      // 3. Filtrer par score minimum si spécifié
+      // Filter by minimum score
       const minScore = params.minScore || 0;
       const filteredResults = results.filter((r) => r.score >= minScore);
 
       const duration = Date.now() - startTime;
 
-      console.log('[VisionRAG] Search completed:', {
-        resultsCount: filteredResults.length,
-        topScore: filteredResults[0]?.score,
+      console.log('[MLX Vision] Search completed:', {
+        found: filteredResults.length,
         duration: `${duration}ms`,
       });
 
@@ -185,7 +481,7 @@ export class VisionRAGService {
         results: filteredResults,
       };
     } catch (error) {
-      console.error('[VisionRAG] Search error:', error);
+      console.error('[MLX Vision] Search error:', error);
       return {
         success: false,
         results: [],
@@ -195,31 +491,111 @@ export class VisionRAGService {
   }
 
   /**
-   * Supprimer l'indexation d'un document
+   * Delete document index
    */
   async deleteDocument(attachmentId: string): Promise<void> {
     try {
-      console.log('[VisionRAG] Deleting document:', attachmentId);
+      console.log('[MLX Vision] Deleting document:', attachmentId);
       await vectorStore.deleteByAttachmentId(attachmentId);
-      console.log('[VisionRAG] Deleted successfully');
+      console.log('[MLX Vision] Deleted successfully');
     } catch (error) {
-      console.error('[VisionRAG] Delete error:', error);
+      console.error('[MLX Vision] Delete error:', error);
       throw error;
     }
   }
 
   /**
-   * Convertir un PDF en images via Python
+   * Get document patches for visualization
+   */
+  async getDocumentPatches(attachmentId: string): Promise<Array<{
+    id: string;
+    pageIndex: number;
+    pageNumber: number;
+    patchCount: number;
+    pageThumbnail?: string;
+    metadata: any;
+  }>> {
+    try {
+      console.log('[MLX Vision] Getting patches for attachment:', attachmentId);
+      const patches = await vectorStore.getVisionPatchesByAttachment(attachmentId);
+      console.log('[MLX Vision] Raw patches count:', patches.length);
+
+      // Group patches by page
+      const patchesByPage = new Map<number, any[]>();
+
+      for (const patch of patches) {
+        const pageIndex = patch.pageIndex;
+        if (!patchesByPage.has(pageIndex)) {
+          patchesByPage.set(pageIndex, []);
+        }
+        patchesByPage.get(pageIndex)!.push(patch);
+      }
+
+      console.log('[MLX Vision] Pages found:', patchesByPage.size);
+
+      const result = Array.from(patchesByPage.entries()).map(([pageIndex, pagePatches]) => {
+        const firstPatch = pagePatches[0];
+        const metadata = typeof firstPatch.metadata === 'string'
+          ? JSON.parse(firstPatch.metadata)
+          : firstPatch.metadata;
+
+        let totalPatchCount = 0;
+        for (const patch of pagePatches) {
+          const patchVectors = typeof patch.patchVectors === 'string'
+            ? JSON.parse(patch.patchVectors)
+            : patch.patchVectors;
+          totalPatchCount += patchVectors.length;
+        }
+
+        return {
+          id: `page-${pageIndex}`,
+          pageIndex,
+          pageNumber: pageIndex + 1,
+          patchCount: totalPatchCount,
+          pageThumbnail: metadata.imageBase64,
+          metadata,
+        };
+      });
+
+      result.sort((a, b) => a.pageIndex - b.pageIndex);
+
+      console.log('[MLX Vision] Returning', result.length, 'pages with patches');
+      return result;
+    } catch (error) {
+      console.error('[MLX Vision] Error getting document patches:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Convert PDF to images (utility method)
    */
   async convertPDFToImages(
     pdfPath: string,
     outputDir: string,
     dpi: number = 200
-  ): Promise<DocumentProcessorResponse> {
+  ): Promise<{
+    success: boolean;
+    imagePaths?: string[];
+    pageCount?: number;
+    error?: string;
+  }> {
     return new Promise((resolve) => {
-      console.log('[VisionRAG] Converting PDF to images:', pdfPath);
+      console.log('[MLX Vision] Converting PDF to images:', pdfPath);
 
-      const scriptPath = path.join(this.scriptsPath, 'vision_rag/document_processor.py');
+      const scriptPath = path.join(
+        path.dirname(this.scriptPath),
+        'document_processor.py'
+      );
+
+      if (!existsSync(scriptPath)) {
+        resolve({
+          success: false,
+          error: `Document processor script not found at ${scriptPath}`,
+        });
+        return;
+      }
+
       const args = [
         scriptPath,
         pdfPath,
@@ -240,13 +616,11 @@ export class VisionRAGService {
       pythonProcess.stderr.on('data', (data) => {
         const message = data.toString();
         stderrData += message;
-        console.log('[VisionRAG Python]', message.trim());
+        console.log('[MLX Python]', message.trim());
       });
 
       pythonProcess.on('close', (code) => {
         if (code !== 0) {
-          console.error('[VisionRAG] Python process exited with code', code);
-          console.error('[VisionRAG] stderr:', stderrData);
           resolve({
             success: false,
             error: `Python process failed with code ${code}: ${stderrData}`,
@@ -255,12 +629,15 @@ export class VisionRAGService {
         }
 
         try {
-          const result = JSON.parse(stdoutData) as DocumentProcessorResponse;
-          console.log('[VisionRAG] Converted', result.pageCount, 'pages');
-          resolve(result);
+          const result = JSON.parse(stdoutData);
+          console.log('[MLX Vision] Converted', result.pageCount, 'pages');
+          resolve({
+            success: result.success,
+            imagePaths: result.imagePaths || result.image_paths,
+            pageCount: result.pageCount || result.page_count,
+            error: result.error,
+          });
         } catch (error) {
-          console.error('[VisionRAG] Failed to parse Python output:', error);
-          console.error('[VisionRAG] stdout:', stdoutData);
           resolve({
             success: false,
             error: `Failed to parse Python output: ${error}`,
@@ -269,7 +646,6 @@ export class VisionRAGService {
       });
 
       pythonProcess.on('error', (error) => {
-        console.error('[VisionRAG] Failed to start Python process:', error);
         resolve({
           success: false,
           error: `Failed to start Python: ${error.message}`,
@@ -279,79 +655,7 @@ export class VisionRAGService {
   }
 
   /**
-   * Générer des embeddings via MLX-VLM
-   */
-  private async generateEmbeddings(
-    imagePaths: string[],
-    model: string
-  ): Promise<MLXVisionEmbedderResponse> {
-    return new Promise((resolve) => {
-      console.log('[VisionRAG] Generating embeddings for', imagePaths.length, 'images...');
-
-      const scriptPath = path.join(this.scriptsPath, 'vision_rag/mlx_vision_embedder.py');
-      const args = [
-        scriptPath,
-        ...imagePaths,
-        '--model', model,
-        '--verbose',
-      ];
-
-      const pythonProcess = spawn(this.pythonPath, args);
-
-      let stdoutData = '';
-      let stderrData = '';
-
-      pythonProcess.stdout.on('data', (data) => {
-        stdoutData += data.toString();
-      });
-
-      pythonProcess.stderr.on('data', (data) => {
-        const message = data.toString();
-        stderrData += message;
-        console.log('[VisionRAG Python]', message.trim());
-      });
-
-      pythonProcess.on('close', (code) => {
-        if (code !== 0) {
-          console.error('[VisionRAG] Python process exited with code', code);
-          console.error('[VisionRAG] stderr:', stderrData);
-          resolve({
-            success: false,
-            error: `Python process failed with code ${code}: ${stderrData}`,
-          });
-          return;
-        }
-
-        try {
-          const result = JSON.parse(stdoutData) as MLXVisionEmbedderResponse;
-          console.log('[VisionRAG] Generated embeddings:', {
-            pageCount: result.pageCount,
-            patchesPerPage: result.patchesPerPage,
-            embeddingDim: result.embeddingDim,
-          });
-          resolve(result);
-        } catch (error) {
-          console.error('[VisionRAG] Failed to parse Python output:', error);
-          console.error('[VisionRAG] stdout:', stdoutData);
-          resolve({
-            success: false,
-            error: `Failed to parse Python output: ${error}`,
-          });
-        }
-      });
-
-      pythonProcess.on('error', (error) => {
-        console.error('[VisionRAG] Failed to start Python process:', error);
-        resolve({
-          success: false,
-          error: `Failed to start Python: ${error.message}`,
-        });
-      });
-    });
-  }
-
-  /**
-   * Vérifier si l'environnement Python est disponible
+   * Check Python environment
    */
   async checkPythonEnvironment(): Promise<{
     available: boolean;
@@ -360,7 +664,10 @@ export class VisionRAGService {
     error?: string;
   }> {
     return new Promise((resolve) => {
-      const pythonProcess = spawn(this.pythonPath, ['--version']);
+      const pythonProcess = spawn(this.pythonPath, [
+        '-c',
+        'import sys; import mlx.core as mx; print(f"Python {sys.version}, MLX {mx.__version__}")',
+      ]);
 
       let stdoutData = '';
       let stderrData = '';
@@ -377,18 +684,15 @@ export class VisionRAGService {
         if (code !== 0) {
           resolve({
             available: false,
-            error: `Python check failed with code ${code}`,
+            error: `Python check failed: ${stderrData}`,
           });
           return;
         }
 
-        // Python version is often on stderr
-        const pythonVersion = (stdoutData + stderrData).trim();
-
         resolve({
           available: true,
-          pythonVersion,
-          mlxAvailable: true, // TODO: vraie vérification
+          pythonVersion: stdoutData.trim(),
+          mlxAvailable: true,
         });
       });
 
@@ -402,11 +706,18 @@ export class VisionRAGService {
   }
 
   /**
-   * Mettre à jour le modèle par défaut
+   * Set default model
    */
   setDefaultModel(model: string): void {
     this.defaultModel = model;
-    console.log('[VisionRAG] Default model updated:', model);
+    console.log('[MLX Vision] Default model updated:', model);
+  }
+
+  /**
+   * Get available models
+   */
+  getAvailableModels(): typeof MLX_VISION_MODELS {
+    return MLX_VISION_MODELS;
   }
 }
 
