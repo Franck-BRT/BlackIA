@@ -192,21 +192,42 @@ export function registerVisionRAGHandlers(): void {
         collectionInfo = { error: String(collErr) };
       }
 
+      // Tronquer les imageBase64 pour éviter un JSON trop gros
+      const truncateBase64 = (str: string | undefined): string => {
+        if (!str) return 'undefined';
+        if (!str.startsWith('data:image')) return 'not_base64';
+        return str.substring(0, 100) + '... [truncated, length: ' + str.length + ']';
+      };
+
       const debugInfo = {
         attachmentId,
         timestamp: new Date().toISOString(),
         rawPatchesCount: rawPatches.length,
         formattedPatchesCount: patches.length,
         collectionInfo,
-        rawPatchesSample: rawPatches.slice(0, 2).map((p: any) => ({
-          id: p.id,
-          pageIndex: p.pageIndex,
-          attachmentId: p.attachmentId,
-          hasMetadata: !!p.metadata,
-          hasPatchVectors: !!p.patchVectors,
-          metadataType: typeof p.metadata,
+        rawPatchesSample: rawPatches.slice(0, 2).map((p: any) => {
+          const metadata = typeof p.metadata === 'string' ? JSON.parse(p.metadata) : p.metadata;
+          return {
+            id: p.id,
+            pageIndex: p.pageIndex,
+            attachmentId: p.attachmentId,
+            hasMetadata: !!p.metadata,
+            hasPatchVectors: !!p.patchVectors,
+            metadataType: typeof p.metadata,
+            metadataPreview: {
+              ...metadata,
+              imageBase64: truncateBase64(metadata?.imageBase64),
+            },
+          };
+        }),
+        formattedPatchesSample: patches.slice(0, 2).map(p => ({
+          ...p,
+          pageThumbnail: truncateBase64(p.pageThumbnail),
+          metadata: {
+            ...p.metadata,
+            imageBase64: truncateBase64(p.metadata?.imageBase64),
+          },
         })),
-        formattedPatchesSample: patches.slice(0, 2),
       };
 
       return { success: true, data: debugInfo };
