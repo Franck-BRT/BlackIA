@@ -888,9 +888,33 @@ export class LibraryDocumentService {
    */
   private async getModelBackend(modelName: string): Promise<'sentence-transformers' | 'mlx' | 'colette' | undefined> {
     try {
+      console.log('[LibraryDocumentService] getModelBackend called with:', modelName);
+
       const embeddingManager = getEmbeddingManager();
       const models = await embeddingManager.listModels();
+
+      console.log('[LibraryDocumentService] Available models count:', models.length);
+
       const model = models.find(m => m.name === modelName);
+
+      if (model) {
+        console.log('[LibraryDocumentService] Found model:', {
+          name: model.name,
+          backend: model.backend,
+          downloaded: model.downloaded,
+          modality: model.modality,
+        });
+      } else {
+        console.log('[LibraryDocumentService] Model NOT found:', modelName);
+        // Log available vision models for debugging
+        const visionModels = models.filter(m => m.modality === 'vision' || m.modality === 'multimodal');
+        console.log('[LibraryDocumentService] Available vision/multimodal models:', visionModels.map(m => ({
+          name: m.name,
+          backend: m.backend,
+          downloaded: m.downloaded,
+        })));
+      }
+
       return model?.backend;
     } catch (error) {
       console.error('[LibraryDocumentService] Error getting model backend:', error);
