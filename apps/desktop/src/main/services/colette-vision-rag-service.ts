@@ -31,7 +31,7 @@ interface ColetteEmbeddingsResult {
     embedding_dim: number;
     total_patches: number;
   };
-  cachedImagePaths?: string[]; // Paths to cached page images
+  cached_image_paths?: string[]; // Paths to cached page images (snake_case from Python)
   error?: string;
 }
 
@@ -281,14 +281,26 @@ export class ColetteVisionRAGService {
    */
   private async imageToBase64(imagePath: string): Promise<string | undefined> {
     try {
+      console.log('[Colette] Converting to base64:', imagePath);
       const fs = await import('fs/promises');
+
+      // Check if file exists first
+      try {
+        await fs.access(imagePath);
+      } catch {
+        console.error('[Colette] Image file not found:', imagePath);
+        return undefined;
+      }
+
       const imageBuffer = await fs.readFile(imagePath);
       const base64 = imageBuffer.toString('base64');
       const ext = imagePath.toLowerCase().split('.').pop() || 'png';
       const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
-      return `data:${mimeType};base64,${base64}`;
+      const result = `data:${mimeType};base64,${base64}`;
+      console.log('[Colette] Base64 conversion success, length:', result.length);
+      return result;
     } catch (error) {
-      console.error('[Colette] Error converting image to base64:', error);
+      console.error('[Colette] Error converting image to base64:', imagePath, error);
       return undefined;
     }
   }
@@ -326,11 +338,15 @@ export class ColetteVisionRAGService {
 
       const embeddings = embeddingsResult.embeddings; // [pages, patches, dims]
       const pageCount = embeddings.length;
-      const cachedImagePaths = embeddingsResult.cachedImagePaths || [];
+      // Note: Python uses snake_case, so we access cached_image_paths
+      const cachedImagePaths = embeddingsResult.cached_image_paths || [];
 
       console.log('[Colette] Generated embeddings for', pageCount, 'pages');
       console.log('[Colette] Metadata:', embeddingsResult.metadata);
       console.log('[Colette] Cached image paths:', cachedImagePaths.length);
+      if (cachedImagePaths.length > 0) {
+        console.log('[Colette] First cached path:', cachedImagePaths[0]);
+      }
 
       // 2. Créer les schemas pour LanceDB
       const patchSchemas: VisionRAGPatchSchema[] = [];
@@ -340,9 +356,14 @@ export class ColetteVisionRAGService {
 
         // Convertir l'image de la page en base64 pour l'affichage dans l'UI
         // Utiliser les images cachées générées par le script Python
-        const imageBase64 = cachedImagePaths[pageIndex]
-          ? await this.imageToBase64(cachedImagePaths[pageIndex])
+        const cachedPath = cachedImagePaths[pageIndex];
+        console.log(`[Colette] Page ${pageIndex}: cached path = ${cachedPath || 'undefined'}`);
+
+        const imageBase64 = cachedPath
+          ? await this.imageToBase64(cachedPath)
           : undefined;
+
+        console.log(`[Colette] Page ${pageIndex}: imageBase64 = ${imageBase64 ? 'set (length: ' + imageBase64.length + ')' : 'undefined'}`);
 
         const schema: VisionRAGPatchSchema = {
           id: `${params.attachmentId}-page-${pageIndex}`,
