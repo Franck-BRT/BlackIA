@@ -200,8 +200,9 @@ class MLXVisionEmbedder:
     def _create_projection(self, input_dim: int, output_dim: int) -> mx.array:
         """Create a random projection matrix for dimensionality reduction"""
         # Use random projection (works well for approximate nearest neighbor)
+        # MLX 0.20+ API: normal(shape, dtype, loc, scale, key, stream)
         key = mx.random.key(42)
-        projection = mx.random.normal(key, (input_dim, output_dim))
+        projection = mx.random.normal(shape=(input_dim, output_dim), key=key)
         # Normalize columns
         projection = projection / mx.sqrt(mx.sum(projection ** 2, axis=0, keepdims=True))
         return projection
