@@ -151,18 +151,33 @@ class ColetteEmbedder:
 
                     # Save to cache if requested
                     if save_cache:
-                        cache_dir = Path(tempfile.gettempdir()) / "colette_cache"
-                        cache_dir.mkdir(exist_ok=True)
+                        # Use home directory for cache to avoid permission issues
+                        home = Path.home()
+                        cache_dir = home / ".blackia" / "colette_cache"
+
+                        try:
+                            cache_dir.mkdir(parents=True, exist_ok=True)
+                            print(f"[Colette] Cache directory: {cache_dir}", file=sys.stderr)
+                        except Exception as cache_error:
+                            print(f"[Colette] ERROR creating cache dir: {cache_error}", file=sys.stderr)
+                            # Fallback to temp directory
+                            cache_dir = Path(tempfile.gettempdir()) / "blackia_colette_cache"
+                            cache_dir.mkdir(parents=True, exist_ok=True)
+                            print(f"[Colette] Using fallback cache: {cache_dir}", file=sys.stderr)
 
                         # Use PDF name as base for cached images
                         pdf_name = path.stem
 
                         for page_idx, img in enumerate(pdf_images):
-                            cache_path = cache_dir / f"{pdf_name}_page_{page_idx}.png"
-                            img.save(str(cache_path), "PNG")
-                            cached_paths.append(str(cache_path))
+                            try:
+                                cache_path = cache_dir / f"{pdf_name}_page_{page_idx}.png"
+                                img.save(str(cache_path), "PNG")
+                                cached_paths.append(str(cache_path))
+                            except Exception as save_error:
+                                print(f"[Colette] ERROR saving page {page_idx}: {save_error}", file=sys.stderr)
+                                continue
 
-                        print(f"[Colette] Saved {len(pdf_images)} pages to cache: {cache_dir}", file=sys.stderr)
+                        print(f"[Colette] Saved {len(cached_paths)} pages to cache: {cache_dir}", file=sys.stderr)
                 else:
                     # Load image directly
                     img = Image.open(path).convert('RGB')
