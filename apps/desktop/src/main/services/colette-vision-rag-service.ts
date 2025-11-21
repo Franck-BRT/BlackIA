@@ -464,6 +464,7 @@ export class ColetteVisionRAGService {
 
   /**
    * Récupérer tous les patches d'un document pour visualisation
+   * Groupe les patches par page pour l'affichage dans l'UI
    */
   async getDocumentPatches(attachmentId: string): Promise<Array<{
     id: string;
@@ -476,25 +477,53 @@ export class ColetteVisionRAGService {
     try {
       console.log('[Colette] Getting patches for attachment:', attachmentId);
       const patches = await vectorStore.getVisionPatchesByAttachment(attachmentId);
+      console.log('[Colette] Raw patches count:', patches.length);
 
-      return patches.map((patch: any) => {
-        const metadata = typeof patch.metadata === 'string'
-          ? JSON.parse(patch.metadata)
-          : patch.metadata;
+      // Grouper les patches par page
+      const patchesByPage = new Map<number, any[]>();
 
-        const patchVectors = typeof patch.patchVectors === 'string'
-          ? JSON.parse(patch.patchVectors)
-          : patch.patchVectors;
+      for (const patch of patches) {
+        const pageIndex = patch.pageIndex;
+        if (!patchesByPage.has(pageIndex)) {
+          patchesByPage.set(pageIndex, []);
+        }
+        patchesByPage.get(pageIndex)!.push(patch);
+      }
+
+      console.log('[Colette] Pages found:', patchesByPage.size);
+
+      // Créer un élément par page avec le total de patches
+      const result = Array.from(patchesByPage.entries()).map(([pageIndex, pagePatches]) => {
+        // Utiliser le premier patch de la page pour obtenir les métadonnées
+        const firstPatch = pagePatches[0];
+        const metadata = typeof firstPatch.metadata === 'string'
+          ? JSON.parse(firstPatch.metadata)
+          : firstPatch.metadata;
+
+        // Compter tous les vecteurs de patches pour cette page
+        let totalPatchCount = 0;
+        for (const patch of pagePatches) {
+          const patchVectors = typeof patch.patchVectors === 'string'
+            ? JSON.parse(patch.patchVectors)
+            : patch.patchVectors;
+          totalPatchCount += patchVectors.length;
+        }
 
         return {
-          id: patch.id,
-          pageIndex: patch.pageIndex,
-          pageNumber: patch.pageIndex + 1,
-          patchCount: patchVectors.length,
+          id: `page-${pageIndex}`, // ID unique par page
+          pageIndex,
+          pageNumber: pageIndex + 1,
+          patchCount: totalPatchCount,
           pageThumbnail: metadata.imageBase64,
           metadata,
         };
       });
+
+      // Trier par index de page
+      result.sort((a, b) => a.pageIndex - b.pageIndex);
+
+      console.log('[Colette] Returning', result.length, 'pages with patches');
+      return result;
     } catch (error) {
       console.error('[Colette] Error getting document patches:', error);
       return [];
