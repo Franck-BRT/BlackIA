@@ -270,6 +270,40 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
     }
   };
 
+  const handleRecreateCollection = async () => {
+    // Demander confirmation car c'est une opération destructive
+    const confirmed = window.confirm(
+      'Êtes-vous sûr de vouloir recréer la collection Vision RAG ?\n\n' +
+      'Cette action va:\n' +
+      '• Supprimer toutes les données Vision RAG existantes\n' +
+      '• Nécessiter une réindexation de tous vos documents\n\n' +
+      'Cette opération est utile si la collection est corrompue.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIndexingMessage('⏳ Recréation de la collection Vision RAG...');
+      const result = await window.api.visionRAG.recreateCollection();
+
+      if (result.success) {
+        setIndexingMessage('✓ Collection Vision RAG recréée avec succès. Vous devez maintenant réindexer vos documents.');
+        setTimeout(() => setIndexingMessage(''), 5000);
+        console.log('[DocumentViewer] Vision RAG collection recreated successfully');
+      } else {
+        setIndexingMessage('❌ Erreur lors de la recréation de la collection');
+        setTimeout(() => setIndexingMessage(''), 3000);
+        console.error('[DocumentViewer] Failed to recreate collection:', result);
+      }
+    } catch (error) {
+      console.error('[DocumentViewer] Error recreating collection:', error);
+      setIndexingMessage('❌ Erreur lors de la recréation de la collection');
+      setTimeout(() => setIndexingMessage(''), 3000);
+    }
+  };
+
   // Use window.document to avoid conflict with 'doc' prop
   const portalRoot = window.document.getElementById('root');
   if (!portalRoot) return null;
@@ -297,6 +331,15 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
               <Bug className="w-4 h-4" />
             </button>
           )}
+
+          {/* Bouton Recréer Collection Vision RAG */}
+          <button
+            onClick={handleRecreateCollection}
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors text-red-400"
+            title="Recréer la collection Vision RAG (supprime toutes les données Vision RAG)"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
 
           <div>
             <h1 className="text-lg font-semibold text-neutral-100">{doc.originalName}</h1>
