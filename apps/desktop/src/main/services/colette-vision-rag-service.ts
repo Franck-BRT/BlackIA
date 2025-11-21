@@ -31,6 +31,7 @@ interface ColetteEmbeddingsResult {
     embedding_dim: number;
     total_patches: number;
   };
+  cachedImagePaths?: string[]; // Paths to cached page images
   error?: string;
 }
 
@@ -325,9 +326,11 @@ export class ColetteVisionRAGService {
 
       const embeddings = embeddingsResult.embeddings; // [pages, patches, dims]
       const pageCount = embeddings.length;
+      const cachedImagePaths = embeddingsResult.cachedImagePaths || [];
 
       console.log('[Colette] Generated embeddings for', pageCount, 'pages');
       console.log('[Colette] Metadata:', embeddingsResult.metadata);
+      console.log('[Colette] Cached image paths:', cachedImagePaths.length);
 
       // 2. Créer les schemas pour LanceDB
       const patchSchemas: VisionRAGPatchSchema[] = [];
@@ -336,8 +339,9 @@ export class ColetteVisionRAGService {
         const patchVectors = embeddings[pageIndex]; // [patches, dims]
 
         // Convertir l'image de la page en base64 pour l'affichage dans l'UI
-        const imageBase64 = params.imagePaths[pageIndex]
-          ? await this.imageToBase64(params.imagePaths[pageIndex])
+        // Utiliser les images cachées générées par le script Python
+        const imageBase64 = cachedImagePaths[pageIndex]
+          ? await this.imageToBase64(cachedImagePaths[pageIndex])
           : undefined;
 
         const schema: VisionRAGPatchSchema = {

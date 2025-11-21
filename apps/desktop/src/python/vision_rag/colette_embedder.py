@@ -104,16 +104,20 @@ class ColetteEmbedder:
             print(f"[Colette] Error loading model: {str(e)}", file=sys.stderr)
             raise
 
-    def load_images_from_paths(self, image_paths: List[str]) -> List[Image.Image]:
+    def load_images_from_paths(self, image_paths: List[str], save_cache: bool = False) -> Tuple[List[Image.Image], List[str]]:
         """
         Load images from file paths
 
         Args:
             image_paths: List of image file paths
+            save_cache: If True, save converted PDF pages to cache and return paths
 
         Returns:
-            List of PIL Images
+            Tuple of (List of PIL Images, List of cached image paths)
         """
+        import tempfile
+        import os
+
         # Vérifier poppler pour la conversion PDF
         poppler_installed, poppler_path = check_poppler_installed()
 
@@ -123,6 +127,8 @@ class ColetteEmbedder:
             raise RuntimeError(f"poppler not installed. {error_msg}")
 
         images = []
+        cached_paths = []
+
         for path_str in image_paths:
             try:
                 path = Path(path_str)
@@ -142,16 +148,32 @@ class ColetteEmbedder:
                     pdf_images = convert_from_path(str(path), **convert_kwargs)
                     images.extend(pdf_images)
                     print(f"[Colette] Converted PDF to {len(pdf_images)} images", file=sys.stderr)
+
+                    # Save to cache if requested
+                    if save_cache:
+                        cache_dir = Path(tempfile.gettempdir()) / "colette_cache"
+                        cache_dir.mkdir(exist_ok=True)
+
+                        # Use PDF name as base for cached images
+                        pdf_name = path.stem
+
+                        for page_idx, img in enumerate(pdf_images):
+                            cache_path = cache_dir / f"{pdf_name}_page_{page_idx}.png"
+                            img.save(str(cache_path), "PNG")
+                            cached_paths.append(str(cache_path))
+
+                        print(f"[Colette] Saved {len(pdf_images)} pages to cache: {cache_dir}", file=sys.stderr)
                 else:
                     # Load image directly
                     img = Image.open(path).convert('RGB')
                     images.append(img)
+                    cached_paths.append(path_str)  # Original path for direct images
 
             except Exception as e:
                 print(f"[Colette] Error loading {path_str}: {str(e)}", file=sys.stderr)
                 continue
 
-        return images
+        return images, cached_paths
 
     def generate_embeddings(self, images: List[Image.Image]) -> Tuple[List[np.ndarray], Dict[str, Any]]:
         """
@@ -266,8 +288,8 @@ def main():
             if not image_paths:
                 raise ValueError("No image_paths provided in input")
 
-            # Load images
-            images = embedder.load_images_from_paths(image_paths)
+            # Load images with cache enabled
+            images, cached_paths = embedder.load_images_from_paths(image_paths, save_cache=True)
 
             if not images:
                 raise ValueError("No images could be loaded")
@@ -283,6 +305,7 @@ def main():
                 "success": True,
                 "embeddings": embeddings_list,
                 "metadata": metadata,
+                "cached_image_paths": cached_paths,  # Return paths to cached images
             }
 
         elif args.mode == "encode_query":
