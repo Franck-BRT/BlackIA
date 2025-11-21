@@ -578,48 +578,18 @@ export class LibraryDocumentService {
               documentId: params.documentId,
               stage: 'vision-indexing',
               percentage: mode === 'hybrid' ? 50 : 30,
-              message: 'Conversion PDF en images...',
+              message: 'Indexation visuelle MLX en cours...',
             });
 
-            // MLX requires PDF to be converted to images first
-            const tempDir = path.join(process.env.TEMP || '/tmp', `vision-rag-${doc.id}`);
-            await fs.mkdir(tempDir, { recursive: true });
-
-            try {
-              // Convert PDF to images
-              const conversionResult = await visionRAGService.convertPDFToImages(
-                doc.filePath,
-                tempDir,
-                200 // DPI
-              );
-
-              if (!conversionResult.success || !conversionResult.imagePaths) {
-                throw new Error(conversionResult.error || 'Failed to convert PDF to images');
-              }
-
-              params.onProgress?.({
-                documentId: params.documentId,
-                stage: 'vision-indexing',
-                percentage: mode === 'hybrid' ? 60 : 50,
-                message: `Indexation visuelle MLX (${conversionResult.imagePaths.length} pages)...`,
-              });
-
-              // Index with MLX
-              visionResult = await visionRAGService.indexDocument({
-                imagePaths: conversionResult.imagePaths,
-                attachmentId: doc.id,
-                entityType: 'document' as EntityType,
-                entityId: doc.libraryId,
-                model: visionModelName,
-              });
-
-              // Clean up temp images
-              await fs.rm(tempDir, { recursive: true, force: true });
-            } catch (error) {
-              // Clean up temp images even on error
-              await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
-              throw error;
-            }
+            // Pass PDF path directly to MLX (like Colette) - MLX embedder handles PDF conversion internally
+            // This ensures proper caching to ~/.blackia/mlx_vision_cache/
+            visionResult = await visionRAGService.indexDocument({
+              imagePaths: [doc.filePath], // PDF path directly, MLX handles conversion
+              attachmentId: doc.id,
+              entityType: 'document' as EntityType,
+              entityId: doc.libraryId,
+              model: visionModelName,
+            });
 
           } else if (modelBackend === 'colette' || !modelBackend) {
             // Use Colette Vision RAG Service for ColPali models

@@ -27,7 +27,7 @@ from typing import List, Dict, Any, Optional, Tuple
 import hashlib
 
 # BUILD VERSION IDENTIFIER
-print("[MLX_VISION_EMBEDDER_BUILD_2025-01-21-v4-REAL]", file=sys.stderr, flush=True)
+print("[MLX_VISION_EMBEDDER_BUILD_2025-01-21-v5-CACHE-FIX]", file=sys.stderr, flush=True)
 
 # CRITICAL: Redirect stdout to prevent non-JSON output
 _ORIGINAL_STDOUT = sys.stdout
@@ -218,11 +218,11 @@ class MLXVisionEmbedder:
         images = convert_from_path(pdf_path, dpi=150, fmt='PNG')
 
         cached_paths = []
+        pdf_name = Path(pdf_path).stem
 
         if self.save_cache:
             try:
                 self.cache_dir.mkdir(parents=True, exist_ok=True)
-                pdf_name = Path(pdf_path).stem
 
                 for idx, img in enumerate(images):
                     cache_path = self.cache_dir / f"{pdf_name}_page_{idx}.png"
@@ -232,18 +232,36 @@ class MLXVisionEmbedder:
 
             except Exception as e:
                 self._log(f"Warning: Failed to cache images: {e}")
+                # Fallback: save to temp directory if cache fails
+                import tempfile
+                temp_dir = Path(tempfile.gettempdir()) / "blackia_vision_cache"
+                temp_dir.mkdir(parents=True, exist_ok=True)
+                cached_paths = []
+                for idx, img in enumerate(images):
+                    temp_path = temp_dir / f"{pdf_name}_page_{idx}.png"
+                    img.save(str(temp_path), "PNG")
+                    cached_paths.append(str(temp_path))
+                    self._log(f"Saved page {idx} to temp: {temp_path}")
+        else:
+            # If caching disabled, still save to temp for base64 conversion
+            import tempfile
+            temp_dir = Path(tempfile.gettempdir()) / "blackia_vision_cache"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            for idx, img in enumerate(images):
+                temp_path = temp_dir / f"{pdf_name}_page_{idx}.png"
+                img.save(str(temp_path), "PNG")
+                cached_paths.append(str(temp_path))
 
-        self._log(f"Converted {len(images)} pages")
+        self._log(f"Converted {len(images)} pages, {len(cached_paths)} cached paths")
         return images, cached_paths
 
-    def _load_image(self, image_path: str) -> Tuple[Image.Image, str]:
-        """Load image and return with cache path"""
+    def _load_image(self, image_path: str) -> Tuple[List[Image.Image], List[str]]:
+        """Load image(s) and return with cache path(s)"""
         path = Path(image_path)
 
         # Check if it's a PDF
         if path.suffix.lower() == '.pdf':
             images, cached_paths = self._convert_pdf_to_images(image_path)
-            # Return first image and all cached paths
             return images, cached_paths
 
         # Regular image
@@ -257,8 +275,10 @@ class MLXVisionEmbedder:
                 cache_path = self.cache_dir / f"{img_name}.png"
                 img.save(str(cache_path), "PNG")
                 cached_path = str(cache_path)
+                self._log(f"Cached image to: {cache_path}")
             except Exception as e:
                 self._log(f"Warning: Failed to cache image: {e}")
+                # Keep original path - it should still exist for base64 conversion
 
         return [img], [cached_path]
 
