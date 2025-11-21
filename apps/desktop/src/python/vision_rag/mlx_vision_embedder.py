@@ -27,7 +27,7 @@ from typing import List, Dict, Any, Optional, Tuple
 import hashlib
 
 # BUILD VERSION IDENTIFIER
-print("[MLX_VISION_EMBEDDER_BUILD_2025-01-21-v5-CACHE-FIX]", file=sys.stderr, flush=True)
+print("[MLX_VISION_EMBEDDER_BUILD_2025-01-21-v6-POPPLER-FIX]", file=sys.stderr, flush=True)
 
 # CRITICAL: Redirect stdout to prevent non-JSON output
 _ORIGINAL_STDOUT = sys.stdout
@@ -64,7 +64,19 @@ try:
         HAS_PDF2IMAGE = False
         print("[MLX] pdf2image not available", file=sys.stderr)
 
-    print(f"[MLX] Dependencies: mlx_vlm={HAS_MLX_VLM}, mlx_clip={HAS_MLX_CLIP}, pdf2image={HAS_PDF2IMAGE}", file=sys.stderr)
+    # Import poppler_utils for finding poppler path
+    try:
+        from poppler_utils import check_poppler_installed, get_installation_instructions
+        HAS_POPPLER_UTILS = True
+    except ImportError:
+        try:
+            from .poppler_utils import check_poppler_installed, get_installation_instructions
+            HAS_POPPLER_UTILS = True
+        except ImportError:
+            HAS_POPPLER_UTILS = False
+            print("[MLX] poppler_utils not available", file=sys.stderr)
+
+    print(f"[MLX] Dependencies: mlx_vlm={HAS_MLX_VLM}, mlx_clip={HAS_MLX_CLIP}, pdf2image={HAS_PDF2IMAGE}, poppler_utils={HAS_POPPLER_UTILS}", file=sys.stderr)
     print(f"[MLX] MLX version: {mx.__version__}", file=sys.stderr)
 
 except ImportError as e:
@@ -214,8 +226,22 @@ class MLXVisionEmbedder:
 
         self._log(f"Converting PDF: {pdf_path}")
 
-        # Convert PDF to images
-        images = convert_from_path(pdf_path, dpi=150, fmt='PNG')
+        # Check for poppler installation
+        poppler_path = None
+        if HAS_POPPLER_UTILS:
+            poppler_installed, poppler_path = check_poppler_installed()
+            if not poppler_installed:
+                error_msg = get_installation_instructions()
+                raise RuntimeError(f"poppler not installed. {error_msg}")
+            if poppler_path:
+                self._log(f"Using poppler from: {poppler_path}")
+
+        # Convert PDF to images with poppler_path if available
+        convert_kwargs = {"dpi": 150, "fmt": "PNG"}
+        if poppler_path:
+            convert_kwargs["poppler_path"] = poppler_path
+
+        images = convert_from_path(pdf_path, **convert_kwargs)
 
         cached_paths = []
         pdf_name = Path(pdf_path).stem
