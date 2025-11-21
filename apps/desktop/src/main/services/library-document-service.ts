@@ -717,11 +717,21 @@ export class LibraryDocumentService {
         duration: `${duration}ms`,
       });
 
+      // Adapter le message selon le mode d'indexation
+      let completionMessage: string;
+      if (mode === 'vision') {
+        completionMessage = `Indexation terminée (${patchCount} patches)`;
+      } else if (mode === 'text') {
+        completionMessage = `Indexation terminée (${chunkCount} chunks)`;
+      } else {
+        completionMessage = `Indexation terminée (${chunkCount} chunks, ${patchCount} patches)`;
+      }
+
       params.onProgress?.({
         documentId: params.documentId,
         stage: 'complete',
         percentage: 100,
-        message: `Indexation terminée (${chunkCount} chunks, ${patchCount} patches)`,
+        message: completionMessage,
       });
 
       return {
