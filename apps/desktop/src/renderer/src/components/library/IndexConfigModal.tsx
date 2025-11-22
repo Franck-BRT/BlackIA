@@ -315,7 +315,7 @@ export function IndexConfigModal({ isOpen, onClose, onConfirm, currentConfig }: 
             )}
 
             {/* Modèle pour RAG visuel */}
-            {(config.mode === 'vision' || config.mode === 'hybrid') && (
+            {(config.mode === 'vision' || config.mode === 'hybrid' || config.mode === 'auto') && (
               <div>
                 <label className="flex items-center gap-2 text-sm text-neutral-300 mb-2">
                   Modèle pour RAG visuel
@@ -379,10 +379,15 @@ export function IndexConfigModal({ isOpen, onClose, onConfirm, currentConfig }: 
             )}
 
             {/* Info sur les modèles multimodaux */}
-            {config.mode === 'hybrid' && (
+            {(config.mode === 'hybrid' || config.mode === 'auto') && (
               <p className="text-xs text-neutral-400 flex items-start gap-1">
                 <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
-                <span>Le mode hybride combine les embeddings textuels et visuels. Pour le RAG visuel, des modèles multimodaux (comme CLIP) seront nécessaires.</span>
+                <span>
+                  {config.mode === 'auto'
+                    ? "Le mode auto détecte automatiquement si le document nécessite une indexation textuelle, visuelle ou les deux."
+                    : "Le mode hybride combine les embeddings textuels et visuels. Pour le RAG visuel, des modèles multimodaux (comme CLIP) seront nécessaires."
+                  }
+                </span>
               </p>
             )}
           </div>
