@@ -30,6 +30,9 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
   const [selectedChunkId, setSelectedChunkId] = useState<string | null>(null);
   const [selectedPatchId, setSelectedPatchId] = useState<string | null>(null);
   const [showChunksPanel, setShowChunksPanel] = useState(true);
+  // État local pour tracker la disponibilité des données (après indexation)
+  const [hasChunks, setHasChunks] = useState(doc.isIndexedText);
+  const [hasPatches, setHasPatches] = useState(doc.isIndexedVision);
   // Mode d'affichage: par défaut sur chunks si indexé texte, sinon patches
   const [viewMode, setViewMode] = useState<'chunks' | 'patches'>(
     doc.isIndexedText ? 'chunks' : 'patches'
@@ -112,18 +115,18 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
         console.log('[DocumentViewer] Chunks loaded:', loadedChunks.length);
         if (loadedChunks.length > 0) {
           console.log('[DocumentViewer] First chunk:', JSON.stringify(loadedChunks[0], null, 2));
+          setHasChunks(true);
         }
       });
 
-      // Load patches if indexed for vision
-      if (doc.isIndexedVision) {
-        getDocumentPatches(doc.id).then((loadedPatches) => {
-          console.log('[DocumentViewer] Patches loaded:', loadedPatches.length);
-          if (loadedPatches.length > 0) {
-            console.log('[DocumentViewer] First patch:', JSON.stringify(loadedPatches[0], null, 2));
-          }
-        });
-      }
+      // Load patches (always try, not just if isIndexedVision)
+      getDocumentPatches(doc.id).then((loadedPatches) => {
+        console.log('[DocumentViewer] Patches loaded:', loadedPatches.length);
+        if (loadedPatches.length > 0) {
+          console.log('[DocumentViewer] First patch:', JSON.stringify(loadedPatches[0], null, 2));
+          setHasPatches(true);
+        }
+      });
     }
   }, [doc.id, doc.isIndexedText, doc.textChunkCount, doc.isIndexedVision, doc.visionPatchCount, getDocumentChunks, getDocumentPatches]);
 
@@ -199,10 +202,20 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
         const reloadedChunks = await getDocumentChunks(doc.id);
         console.log(`[DocumentViewer] [${sessionId}] Chunks after reindex:`, reloadedChunks.length, reloadedChunks);
 
+        // Mettre à jour l'état local pour les chunks
+        if (reloadedChunks.length > 0) {
+          setHasChunks(true);
+        }
+
         // Toujours recharger les patches après indexation (pour vision ou hybrid)
         setIndexingMessage('Rechargement des patches...');
         const reloadedPatches = await getDocumentPatches(doc.id);
         console.log(`[DocumentViewer] [${sessionId}] Patches after reindex:`, reloadedPatches.length, reloadedPatches);
+
+        // Mettre à jour l'état local pour les patches
+        if (reloadedPatches.length > 0) {
+          setHasPatches(true);
+        }
 
         // Auto-switch viewMode basé sur le type d'indexation
         const indexMode = config?.mode || 'auto';
@@ -213,6 +226,7 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
           setViewMode('chunks');
           console.log(`[DocumentViewer] [${sessionId}] Auto-switched to chunks view`);
         }
+        // Pour le mode hybride, on garde le viewMode actuel mais les deux boutons seront visibles
 
         // Message adapté selon le type d'indexation
         let successMessage = '✓ Indexation terminée';
@@ -405,9 +419,9 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
           </button>
 
           {/* Toggle chunks/patches si au moins un est disponible */}
-          {(doc.isIndexedText || doc.isIndexedVision) && (
+          {(hasChunks || hasPatches || doc.isIndexedText || doc.isIndexedVision) && (
             <div className="flex items-center gap-1 bg-neutral-800 rounded-lg p-1">
-              {doc.isIndexedText && (
+              {(hasChunks || doc.isIndexedText) && (
                 <button
                   onClick={() => setViewMode('chunks')}
                   className={cn(
@@ -419,10 +433,10 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
                   title="Afficher les chunks texte"
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  <span>Chunks</span>
+                  <span>Chunks ({chunks.length})</span>
                 </button>
               )}
-              {doc.isIndexedVision && (
+              {(hasPatches || doc.isIndexedVision) && (
                 <button
                   onClick={() => setViewMode('patches')}
                   className={cn(
@@ -434,7 +448,7 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
                   title="Afficher les patches vision"
                 >
                   <Eye className="w-3.5 h-3.5" />
-                  <span>Patches</span>
+                  <span>Patches ({patches.length})</span>
                 </button>
               )}
             </div>
