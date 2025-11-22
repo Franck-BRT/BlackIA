@@ -207,13 +207,13 @@ export function useMCPTools() {
       updatedAt: Date.now(),
     };
     await window.api.invoke('mcp:addDirectory', fullDir);
-    setDirectories(prev => [...prev, fullDir]);
+    // Note: la mise à jour locale est gérée par l'événement 'mcp:directoryAdded'
   }, []);
 
   // Supprimer un répertoire
   const removeDirectory = useCallback(async (directoryId: string) => {
     await window.api.invoke('mcp:removeDirectory', directoryId);
-    setDirectories(prev => prev.filter(d => d.id !== directoryId));
+    // Note: la mise à jour locale est gérée par l'événement 'mcp:directoryRemoved'
   }, []);
 
   // Mettre à jour les permissions d'un répertoire
