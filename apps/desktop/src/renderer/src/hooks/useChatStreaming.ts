@@ -2,6 +2,45 @@ import { useEffect, useCallback, Dispatch, SetStateAction, MutableRefObject } fr
 import type { OllamaMessage, OllamaChatStreamChunk, OllamaToolCall } from '@blackia/ollama';
 import type { MessageMetadata } from './useConversations';
 
+/**
+ * Parse le format texte <function=...> utilisé par certains modèles (qwen3-coder, etc.)
+ * et le convertit en OllamaToolCall[]
+ */
+function parseTextToolCalls(content: string): OllamaToolCall[] {
+  const toolCalls: OllamaToolCall[] = [];
+
+  // Pattern pour matcher <function=nom_fonction>...</function>
+  const functionRegex = /<function=([^>]+)>([\s\S]*?)<\/function>/g;
+  let match;
+
+  while ((match = functionRegex.exec(content)) !== null) {
+    const functionName = match[1].trim();
+    const functionBody = match[2];
+
+    // Parser les paramètres
+    const args: Record<string, unknown> = {};
+    const paramRegex = /<parameter=([^>]+)>([\s\S]*?)<\/parameter>/g;
+    let paramMatch;
+
+    while ((paramMatch = paramRegex.exec(functionBody)) !== null) {
+      const paramName = paramMatch[1].trim();
+      const paramValue = paramMatch[2].trim();
+      args[paramName] = paramValue;
+    }
+
+    toolCalls.push({
+      function: {
+        name: functionName,
+        arguments: args,
+      },
+    });
+
+    console.log('[parseTextToolCalls] Parsed tool call:', functionName, args);
+  }
+
+  return toolCalls;
+}
+
 interface UseChatStreamingParams {
   setStreamingMessage: Dispatch<SetStateAction<string>>;
   setIsGenerating: Dispatch<SetStateAction<boolean>>;
@@ -125,6 +164,46 @@ export function useChatStreaming({
               currentMentionedPersonaIdRef.current = undefined;
               currentMentionedPersonaIdsRef.current = undefined;
               return '';
+            }
+
+            // Vérifier si le contenu contient des appels d'outils au format texte
+            // (utilisé par certains modèles comme qwen3-coder)
+            if (mcpEnabled && finalContent.includes('<function=')) {
+              const textToolCalls = parseTextToolCalls(finalContent);
+              if (textToolCalls.length > 0) {
+                console.log('[useChatStreaming] 🔧 Tool calls détectés dans le texte:', textToolCalls);
+                toolCallsProcessedRef.current = true;
+
+                if (setMcpToolCalls) {
+                  setMcpToolCalls(textToolCalls);
+                }
+
+                // Exécuter les outils via le callback
+                if (onToolCallsReceived) {
+                  console.log('[useChatStreaming] 🚀 Exécution des outils MCP (format texte)...');
+                  if (setIsMcpExecuting) {
+                    setIsMcpExecuting(true);
+                  }
+
+                  // Exécuter de manière asynchrone
+                  (async () => {
+                    try {
+                      await onToolCallsReceived(textToolCalls);
+                    } catch (error) {
+                      console.error('[useChatStreaming] ❌ Erreur exécution outils:', error);
+                    } finally {
+                      if (setIsMcpExecuting) {
+                        setIsMcpExecuting(false);
+                      }
+                    }
+                  })();
+                }
+
+                // Ne pas créer de message normal, le callback gère la suite
+                setIsGenerating(false);
+                currentStreamIdRef.current = null;
+                return '';
+              }
             }
 
             const finalMessage: OllamaMessage = {
