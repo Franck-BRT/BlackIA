@@ -501,6 +501,3 @@ export class MCPServer extends EventEmitter {
 
 // Export singleton
 export const mcpServer = new MCPServer();
-
-// Export class for testing
-export { MCPServer };
