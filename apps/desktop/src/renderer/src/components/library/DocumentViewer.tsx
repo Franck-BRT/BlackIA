@@ -192,17 +192,26 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
       console.log(`[DocumentViewer] [${sessionId}] Full result from backend:`, JSON.stringify(result, null, 2));
 
       if (result.success) {
+        // Recharger les chunks
         setIndexingMessage('Rechargement des chunks...');
         console.log(`[DocumentViewer] [${sessionId}] Result.data:`, JSON.stringify(result.data, null, 2));
         console.log(`[DocumentViewer] [${sessionId}] Reindex complete, reloading chunks...`);
         const reloadedChunks = await getDocumentChunks(doc.id);
         console.log(`[DocumentViewer] [${sessionId}] Chunks after reindex:`, reloadedChunks.length, reloadedChunks);
 
-        // Recharger les patches si indexation vision
-        if (result.data?.patchCount > 0) {
-          setIndexingMessage('Rechargement des patches...');
-          const reloadedPatches = await getDocumentPatches(doc.id);
-          console.log(`[DocumentViewer] [${sessionId}] Patches after reindex:`, reloadedPatches.length, reloadedPatches);
+        // Toujours recharger les patches après indexation (pour vision ou hybrid)
+        setIndexingMessage('Rechargement des patches...');
+        const reloadedPatches = await getDocumentPatches(doc.id);
+        console.log(`[DocumentViewer] [${sessionId}] Patches after reindex:`, reloadedPatches.length, reloadedPatches);
+
+        // Auto-switch viewMode basé sur le type d'indexation
+        const indexMode = config?.mode || 'auto';
+        if (indexMode === 'vision' || (indexMode === 'auto' && result.data?.patchCount > 0 && !result.data?.chunkCount)) {
+          setViewMode('patches');
+          console.log(`[DocumentViewer] [${sessionId}] Auto-switched to patches view`);
+        } else if (indexMode === 'text' || (result.data?.chunkCount > 0 && !result.data?.patchCount)) {
+          setViewMode('chunks');
+          console.log(`[DocumentViewer] [${sessionId}] Auto-switched to chunks view`);
         }
 
         // Message adapté selon le type d'indexation
