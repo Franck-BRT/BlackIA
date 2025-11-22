@@ -1,4 +1,4 @@
-import { useEffect, useCallback, Dispatch, SetStateAction, MutableRefObject } from 'react';
+import { useEffect, useCallback, useRef, Dispatch, SetStateAction, MutableRefObject } from 'react';
 import type { OllamaMessage, OllamaChatStreamChunk, OllamaToolCall } from '@blackia/ollama';
 import type { MessageMetadata } from './useConversations';
 
@@ -75,15 +75,16 @@ export function useChatStreaming({
   onToolCallsReceived,
 }: UseChatStreamingParams) {
   // Suivre si des tool_calls ont été traités pour ce stream
-  const toolCallsProcessedRef = { current: false };
+  const toolCallsProcessedRef = useRef(false);
 
   // Refs pour avoir accès aux valeurs actuelles dans les closures
-  const mcpEnabledRef = { current: mcpEnabled };
-  const onToolCallsReceivedRef = { current: onToolCallsReceived };
-  const setMcpToolCallsRef = { current: setMcpToolCalls };
-  const setIsMcpExecutingRef = { current: setIsMcpExecuting };
+  // IMPORTANT: Utiliser useRef pour que les listeners capturent une référence stable
+  const mcpEnabledRef = useRef(mcpEnabled);
+  const onToolCallsReceivedRef = useRef(onToolCallsReceived);
+  const setMcpToolCallsRef = useRef(setMcpToolCalls);
+  const setIsMcpExecutingRef = useRef(setIsMcpExecuting);
 
-  // Mettre à jour les refs quand les props changent
+  // Mettre à jour les refs quand les props changent (à chaque render)
   mcpEnabledRef.current = mcpEnabled;
   onToolCallsReceivedRef.current = onToolCallsReceived;
   setMcpToolCallsRef.current = setMcpToolCalls;
@@ -182,8 +183,14 @@ export function useChatStreaming({
 
             // Vérifier si le contenu contient des appels d'outils au format texte
             // (utilisé par certains modèles comme qwen3-coder)
+            console.log('[useChatStreaming] 🔍 Vérification tool calls texte:', {
+              mcpEnabled: mcpEnabledRef.current,
+              hasFunction: finalContent.includes('<function='),
+              contentPreview: finalContent.substring(0, 100),
+            });
             if (mcpEnabledRef.current && finalContent.includes('<function=')) {
               const textToolCalls = parseTextToolCalls(finalContent);
+              console.log('[useChatStreaming] 🔧 Résultat parsing:', textToolCalls.length, 'tool calls');
               if (textToolCalls.length > 0) {
                 console.log('[useChatStreaming] 🔧 Tool calls détectés dans le texte:', textToolCalls);
                 toolCallsProcessedRef.current = true;
