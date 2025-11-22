@@ -294,6 +294,56 @@ function createTablesDirectly() {
     );
 
     CREATE INDEX IF NOT EXISTS manual_chunks_document_idx ON manual_chunks(document_id);
+
+    -- MCP System Tables
+    CREATE TABLE IF NOT EXISTS mcp_tools_config (
+      id TEXT PRIMARY KEY NOT NULL,
+      tool_name TEXT NOT NULL UNIQUE,
+      category TEXT NOT NULL,
+      enabled INTEGER DEFAULT 1 NOT NULL,
+      config TEXT DEFAULT '{}' NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS mcp_tools_config_name_idx ON mcp_tools_config(tool_name);
+
+    CREATE TABLE IF NOT EXISTS mcp_permissions (
+      id TEXT PRIMARY KEY NOT NULL,
+      permission TEXT NOT NULL UNIQUE,
+      enabled INTEGER DEFAULT 0 NOT NULL,
+      granted_at INTEGER,
+      last_checked_at INTEGER,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS mcp_directory_access (
+      id TEXT PRIMARY KEY NOT NULL,
+      path TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      permissions TEXT DEFAULT '["read"]' NOT NULL,
+      include_subdirectories INTEGER DEFAULT 1 NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS mcp_directory_access_path_idx ON mcp_directory_access(path);
+
+    CREATE TABLE IF NOT EXISTS mcp_tool_call_logs (
+      id TEXT PRIMARY KEY NOT NULL,
+      tool_name TEXT NOT NULL,
+      parameters TEXT DEFAULT '{}' NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'success', 'error', 'cancelled', 'timeout')),
+      result TEXT,
+      error TEXT,
+      started_at INTEGER NOT NULL,
+      completed_at INTEGER,
+      duration INTEGER,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS mcp_tool_call_logs_tool_idx ON mcp_tool_call_logs(tool_name);
   `);
 
   console.log('[Database] Tables created successfully');
@@ -321,6 +371,101 @@ function verifyLibraryTables() {
     }
   } catch (error) {
     console.error('[Database] Failed to verify library tables:', error);
+  }
+
+  // Verify MCP tables
+  verifyMCPTables();
+}
+
+/**
+ * Verify MCP tables exist and create them if missing
+ */
+function verifyMCPTables() {
+  if (!sqliteInstance) {
+    return;
+  }
+
+  try {
+    const tables = sqliteInstance.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'mcp_%'"
+    ).all();
+
+    console.log('[Database] MCP tables found:', tables);
+
+    if (tables.length < 3) {
+      console.warn('[Database] ⚠️  WARNING: MCP tables missing after migrations!');
+      console.log('[Database] Creating MCP tables manually...');
+      createMCPTables();
+    }
+  } catch (error) {
+    console.error('[Database] Failed to verify MCP tables:', error);
+  }
+}
+
+/**
+ * Create MCP tables manually
+ */
+function createMCPTables() {
+  if (!sqliteInstance) {
+    throw new Error('Database not initialized');
+  }
+
+  try {
+    sqliteInstance.exec(`
+      CREATE TABLE IF NOT EXISTS mcp_tools_config (
+        id TEXT PRIMARY KEY NOT NULL,
+        tool_name TEXT NOT NULL UNIQUE,
+        category TEXT NOT NULL,
+        enabled INTEGER DEFAULT 1 NOT NULL,
+        config TEXT DEFAULT '{}' NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS mcp_tools_config_name_idx ON mcp_tools_config(tool_name);
+
+      CREATE TABLE IF NOT EXISTS mcp_permissions (
+        id TEXT PRIMARY KEY NOT NULL,
+        permission TEXT NOT NULL UNIQUE,
+        enabled INTEGER DEFAULT 0 NOT NULL,
+        granted_at INTEGER,
+        last_checked_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS mcp_directory_access (
+        id TEXT PRIMARY KEY NOT NULL,
+        path TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        permissions TEXT DEFAULT '["read"]' NOT NULL,
+        include_subdirectories INTEGER DEFAULT 1 NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS mcp_directory_access_path_idx ON mcp_directory_access(path);
+
+      CREATE TABLE IF NOT EXISTS mcp_tool_call_logs (
+        id TEXT PRIMARY KEY NOT NULL,
+        tool_name TEXT NOT NULL,
+        parameters TEXT DEFAULT '{}' NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'success', 'error', 'cancelled', 'timeout')),
+        result TEXT,
+        error TEXT,
+        started_at INTEGER NOT NULL,
+        completed_at INTEGER,
+        duration INTEGER,
+        created_at INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS mcp_tool_call_logs_tool_idx ON mcp_tool_call_logs(tool_name);
+    `);
+
+    console.log('[Database] ✅ MCP tables created successfully');
+  } catch (error) {
+    console.error('[Database] Failed to create MCP tables:', error);
+    throw error;
   }
 }
 

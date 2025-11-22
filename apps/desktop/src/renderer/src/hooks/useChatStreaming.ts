@@ -102,6 +102,17 @@ export function useChatStreaming({
           console.log('[useChatStreaming] 🏁 Stream terminé, création du message final');
           setStreamingMessage((currentContent) => {
             const finalContent = currentContent + data.chunk.message.content;
+
+            // Ne pas créer de message vide
+            if (!finalContent || !finalContent.trim()) {
+              console.warn('[useChatStreaming] ⚠️ Contenu final vide, pas de message créé');
+              setIsGenerating(false);
+              currentStreamIdRef.current = null;
+              currentMentionedPersonaIdRef.current = undefined;
+              currentMentionedPersonaIdsRef.current = undefined;
+              return '';
+            }
+
             const finalMessage: OllamaMessage = {
               role: 'assistant',
               content: finalContent,

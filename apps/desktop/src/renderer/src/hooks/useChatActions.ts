@@ -380,12 +380,27 @@ export function useChatActions({
         modelToUse = firstPersona.model;
       }
 
+      // Modèles Ollama qui supportent les function calls / tools
+      const modelsWithToolSupport = [
+        'llama3.1', 'llama3.2', 'llama3.3',
+        'mistral-nemo', 'mistral', 'mixtral',
+        'qwen2.5', 'qwen2',
+        'command-r', 'command-r-plus',
+        'firefunction',
+        'hermes3', 'hermes2',
+      ];
+
+      // Vérifier si le modèle supporte les tools
+      const modelBase = modelToUse.split(':')[0].toLowerCase();
+      const modelSupportsTools = modelsWithToolSupport.some(m => modelBase.includes(m));
+
       // Récupérer les outils MCP si activés (AVANT de construire les messages)
       let tools: OllamaTool[] | undefined = undefined;
       let disabledToolsInfo = '';
-      if (mcpEnabled) {
+      if (mcpEnabled && modelSupportsTools) {
         try {
           console.log('[useChatActions] 🔧 Récupération des outils MCP avec statut...');
+          console.log('[useChatActions] 🔧 Modèle', modelToUse, 'supporte les tools');
           const mcpResult = await window.api.invoke('mcp:getToolsForChatWithStatus');
 
           if (mcpResult.enabledTools && mcpResult.enabledTools.length > 0) {
@@ -422,6 +437,10 @@ export function useChatActions({
           setMcpError(error instanceof Error ? error.message : 'Erreur outils MCP');
           // Continuer sans outils en cas d'erreur
         }
+      } else if (mcpEnabled && !modelSupportsTools) {
+        // Le modèle ne supporte pas les tools
+        console.warn('[useChatActions] ⚠️ Modèle', modelToUse, 'ne supporte pas les tools');
+        disabledToolsInfo = `\n\n[INFO] Le modèle ${modelToUse} ne supporte pas les outils MCP. Utilisez un modèle compatible (llama3.1, llama3.2, mistral-nemo, qwen2.5, etc.) pour activer les outils.`;
       }
 
       // Ajouter les infos sur les outils désactivés au system prompt
