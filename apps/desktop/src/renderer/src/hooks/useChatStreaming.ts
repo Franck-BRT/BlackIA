@@ -119,6 +119,12 @@ export function useChatStreaming({
         // Vérifier si le modèle demande des appels d'outils
         if (data.chunk.message.tool_calls && data.chunk.message.tool_calls.length > 0) {
           console.log('[useChatStreaming] 🔧 Tool calls détectés:', data.chunk.message.tool_calls);
+          console.log('[useChatStreaming] 🔧 Tool calls JSON:', JSON.stringify(data.chunk.message.tool_calls, null, 2));
+          console.log('[useChatStreaming] 🔧 Premier tool call:', {
+            function: data.chunk.message.tool_calls[0].function,
+            name: data.chunk.message.tool_calls[0].function?.name,
+            arguments: data.chunk.message.tool_calls[0].function?.arguments,
+          });
           console.log('[useChatStreaming] 🔧 mcpEnabledRef.current:', mcpEnabledRef.current);
           console.log('[useChatStreaming] 🔧 onToolCallsReceivedRef.current:', !!onToolCallsReceivedRef.current);
           toolCallsProcessedRef.current = true; // Marquer qu'on a traité des tool_calls
