@@ -369,15 +369,6 @@ export function useChatActions({
         }
       }
 
-      if (systemPromptToUse) {
-        messagesToSend.push({
-          role: 'system',
-          content: systemPromptToUse,
-        });
-      }
-
-      messagesToSend.push(...messages, userMessage);
-
       // Déterminer les paramètres à utiliser
       const firstPersona = personasToUse[0];
       const temperature = firstPersona?.temperature ?? chatSettings.temperature;
@@ -389,7 +380,7 @@ export function useChatActions({
         modelToUse = firstPersona.model;
       }
 
-      // Récupérer les outils MCP si activés
+      // Récupérer les outils MCP si activés (AVANT de construire les messages)
       let tools: OllamaTool[] | undefined = undefined;
       let disabledToolsInfo = '';
       if (mcpEnabled) {
@@ -442,6 +433,16 @@ export function useChatActions({
       if (disabledToolsInfo) {
         systemPromptToUse += disabledToolsInfo;
       }
+
+      // Maintenant construire les messages à envoyer
+      if (systemPromptToUse) {
+        messagesToSend.push({
+          role: 'system',
+          content: systemPromptToUse,
+        });
+      }
+
+      messagesToSend.push(...messages, userMessage);
 
       // Construire la requête de chat
       const chatRequest: any = {
