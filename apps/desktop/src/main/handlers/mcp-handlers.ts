@@ -159,7 +159,12 @@ async function handleSetToolEnabled(
 }
 
 async function handleGetToolsForChat(): Promise<ReturnType<typeof mcpServer.getToolsForChat>> {
-  return mcpServer.getToolsForChat();
+  const tools = mcpServer.getToolsForChat();
+  console.log('[MCP Handler] getToolsForChat:', {
+    count: tools.length,
+    tools: tools.map(t => t.function.name),
+  });
+  return tools;
 }
 
 // ============================================================================

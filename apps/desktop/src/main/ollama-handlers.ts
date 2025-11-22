@@ -106,7 +106,12 @@ export function registerOllamaHandlers(): void {
   // Chat avec streaming
   ipcMain.handle('ollama:chatStream', async (event, request) => {
     console.log('[IPC Handler] 🚀 ollama:chatStream appelé');
-    console.log('[IPC Handler] Request:', JSON.stringify(request, null, 2));
+    console.log('[IPC Handler] Model:', request.model);
+    console.log('[IPC Handler] Messages count:', request.messages?.length);
+    console.log('[IPC Handler] Tools:', request.tools ? `${request.tools.length} outils` : 'aucun');
+    if (request.tools?.length > 0) {
+      console.log('[IPC Handler] Tools names:', request.tools.map((t: any) => t.function?.name));
+    }
 
     // Créer un ID unique pour ce stream
     const streamId = `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

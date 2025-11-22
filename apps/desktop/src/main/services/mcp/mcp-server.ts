@@ -346,17 +346,34 @@ export class MCPServer extends EventEmitter {
    * Récupère les définitions d'outils pour le chat
    */
   public getToolsForChat(): ChatToolDefinition[] {
+    const allTools = mcpToolsRegistry.getAllTools();
+    console.log('[MCPServer] getToolsForChat - Total outils:', allTools.length);
+
     // Ne retourner que les outils dont les permissions sont activées
-    return mcpToolsRegistry.getAllTools()
-      .filter(tool => {
-        if (tool.enabled === false) return false;
-        for (const perm of tool.permissions) {
-          if (!this.isPermissionEnabled(perm)) return false;
+    const filteredTools = allTools.filter(tool => {
+      if (tool.enabled === false) {
+        console.log(`[MCPServer] Outil ${tool.name} désactivé`);
+        return false;
+      }
+      for (const perm of tool.permissions) {
+        const isEnabled = this.isPermissionEnabled(perm);
+        if (!isEnabled) {
+          console.log(`[MCPServer] Outil ${tool.name} - permission ${perm} non activée`);
+          return false;
         }
-        return true;
-      })
-      .map(tool => mcpToolsRegistry.getToolsForChat().find(t => t.function.name === tool.name)!)
+      }
+      return true;
+    });
+
+    console.log('[MCPServer] Outils avec permissions:', filteredTools.length, filteredTools.map(t => t.name));
+
+    const chatTools = mcpToolsRegistry.getToolsForChat();
+    const result = filteredTools
+      .map(tool => chatTools.find(t => t.function.name === tool.name)!)
       .filter(Boolean);
+
+    console.log('[MCPServer] Outils pour chat:', result.length);
+    return result;
   }
 
   // ============================================================================

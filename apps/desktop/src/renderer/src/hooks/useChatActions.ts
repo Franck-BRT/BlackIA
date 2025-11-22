@@ -395,28 +395,41 @@ export function useChatActions({
         try {
           console.log('[useChatActions] 🔧 Récupération des outils MCP...');
           const mcpTools = await window.api.invoke('mcp:getToolsForChat');
-          if (mcpTools && mcpTools.length > 0) {
-            tools = mcpTools;
-            console.log('[useChatActions] ✅ Outils MCP récupérés:', mcpTools.length);
+          if (mcpTools && Array.isArray(mcpTools) && mcpTools.length > 0) {
+            tools = mcpTools as OllamaTool[];
+            console.log('[useChatActions] ✅ Outils MCP récupérés:', mcpTools.length, mcpTools.map((t: OllamaTool) => t.function.name));
+          } else {
+            console.log('[useChatActions] ⚠️ Aucun outil MCP disponible (permissions non accordées ?)');
           }
         } catch (error) {
           console.error('[useChatActions] ❌ Erreur récupération outils MCP:', error);
           setMcpError(error instanceof Error ? error.message : 'Erreur outils MCP');
+          // Continuer sans outils en cas d'erreur
         }
       }
 
-      // Envoyer la requête de chat avec streaming
-      await window.electronAPI.ollama.chatStream({
+      // Construire la requête de chat
+      const chatRequest: any = {
         model: modelToUse,
         messages: messagesToSend,
         stream: true,
-        tools, // Inclure les outils MCP si disponibles
         options: {
           temperature,
           num_ctx: maxTokens,
           top_p: chatSettings.topP,
         },
-      });
+      };
+
+      // N'inclure les outils que s'ils existent et ne sont pas vides
+      if (tools && tools.length > 0) {
+        chatRequest.tools = tools;
+        console.log('[useChatActions] 📤 Envoi avec', tools.length, 'outils');
+      } else {
+        console.log('[useChatActions] 📤 Envoi sans outils');
+      }
+
+      // Envoyer la requête de chat avec streaming
+      await window.electronAPI.ollama.chatStream(chatRequest);
 
       // Sauvegarder les résultats de recherche web pour l'affichage
       if (webSearchData && webSearchData.results.length > 0) {
