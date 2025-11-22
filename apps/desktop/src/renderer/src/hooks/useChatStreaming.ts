@@ -35,6 +35,9 @@ export function useChatStreaming({
   setIsMcpExecuting,
   onToolCallsReceived,
 }: UseChatStreamingParams) {
+  // Suivre si des tool_calls ont été traités pour ce stream
+  const toolCallsProcessedRef = { current: false };
+
   useEffect(() => {
     console.log('[useChatStreaming] 🎧 Enregistrement des listeners de streaming');
 
@@ -42,6 +45,7 @@ export function useChatStreaming({
     window.electronAPI.ollama.onStreamStart((data: { streamId: string }) => {
       console.log('[useChatStreaming] 🚀 Stream start reçu, streamId:', data.streamId);
       currentStreamIdRef.current = data.streamId;
+      toolCallsProcessedRef.current = false; // Reset pour le nouveau stream
       setStreamingMessage('');
       setIsGenerating(true);
     });
@@ -63,6 +67,7 @@ export function useChatStreaming({
         // Vérifier si le modèle demande des appels d'outils
         if (data.chunk.message.tool_calls && data.chunk.message.tool_calls.length > 0) {
           console.log('[useChatStreaming] 🔧 Tool calls détectés:', data.chunk.message.tool_calls);
+          toolCallsProcessedRef.current = true; // Marquer qu'on a traité des tool_calls
 
           // Sauvegarder les tool_calls dans l'état
           if (setMcpToolCalls) {
@@ -88,6 +93,15 @@ export function useChatStreaming({
           }
 
           // Ne pas terminer le stream normal ici, le callback gère la suite
+          return;
+        }
+
+        // Si on a déjà traité des tool_calls et qu'on reçoit done: true, ignorer
+        if (data.chunk.done && toolCallsProcessedRef.current) {
+          console.log('[useChatStreaming] 🔧 Stream terminé après tool_calls, ignoré (callback gère la suite)');
+          setIsGenerating(false);
+          currentStreamIdRef.current = null;
+          toolCallsProcessedRef.current = false;
           return;
         }
 
