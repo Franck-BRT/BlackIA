@@ -388,6 +388,7 @@ export function useChatActions({
         'command-r', 'command-r-plus',
         'firefunction',
         'hermes3', 'hermes2',
+        'gpt-oss',
       ];
 
       // Vérifier si le modèle supporte les tools
