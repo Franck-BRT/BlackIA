@@ -138,7 +138,23 @@ export function registerOllamaHandlers(): void {
         (chunk) => {
           chunkCount++;
           console.log('[IPC Handler] 📦 Chunk #' + chunkCount + ' reçu du client');
-          console.log('[IPC Handler] Chunk data:', JSON.stringify(chunk).substring(0, 150));
+          console.log('[IPC Handler] Chunk data:', JSON.stringify(chunk).substring(0, 300));
+
+          // Debug tool_calls
+          console.log('[IPC Handler] 🔧 Chunk keys:', Object.keys(chunk));
+          if (chunk.message) {
+            console.log('[IPC Handler] 🔧 Message keys:', Object.keys(chunk.message));
+            if (chunk.message.tool_calls) {
+              console.log('[IPC Handler] 🔧 TOOL_CALLS (message) DETECTED:', JSON.stringify(chunk.message.tool_calls));
+            }
+            if (chunk.message.content) {
+              console.log('[IPC Handler] 📝 Content:', chunk.message.content.substring(0, 100));
+            }
+          }
+          // Aussi vérifier à la racine du chunk (selon la version d'Ollama)
+          if ((chunk as any).tool_calls) {
+            console.log('[IPC Handler] 🔧 TOOL_CALLS (root) DETECTED:', JSON.stringify((chunk as any).tool_calls));
+          }
 
           // Envoyer chaque chunk au renderer
           console.log('[IPC Handler] 📤 Envoi event ollama:streamChunk #' + chunkCount);
