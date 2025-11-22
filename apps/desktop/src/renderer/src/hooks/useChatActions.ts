@@ -483,6 +483,23 @@ export function useChatActions({
       if (tools && tools.length > 0) {
         chatRequest.tools = tools;
         console.log('[useChatActions] 📤 Envoi avec', tools.length, 'outils');
+
+        // Ajouter des instructions pour que le modèle utilise les outils
+        const toolsList = tools.map(t => `• ${t.function.name}: ${t.function.description || 'Aucune description'}`).join('\n');
+        const toolInstructions = `\n\n[OUTILS DISPONIBLES]\nVous avez accès aux outils suivants. IMPORTANT: Utilisez ces outils directement plutôt que d'expliquer comment faire manuellement.\n\n${toolsList}\n\nQuand l'utilisateur demande une action que vous pouvez accomplir avec un outil, appelez l'outil correspondant au lieu de donner des instructions manuelles.`;
+
+        // Injecter les instructions dans le premier message système ou en créer un
+        if (messagesToSend.length > 0 && messagesToSend[0].role === 'system') {
+          messagesToSend[0].content += toolInstructions;
+        } else {
+          messagesToSend.unshift({
+            role: 'system',
+            content: toolInstructions.trim(),
+          });
+        }
+
+        // Mettre à jour la requête avec les messages modifiés
+        chatRequest.messages = messagesToSend;
       } else {
         console.log('[useChatActions] 📤 Envoi sans outils');
       }
