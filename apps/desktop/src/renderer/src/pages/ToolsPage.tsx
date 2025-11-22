@@ -269,8 +269,8 @@ export function ToolsPage() {
         {activeTab === 'permissions' && (
           <PermissionsPanel
             permissions={permissions}
-            onTogglePermission={setPermissionEnabled}
             onRequestPermission={requestSystemPermission}
+            onRefreshPermissions={refresh}
           />
         )}
 
