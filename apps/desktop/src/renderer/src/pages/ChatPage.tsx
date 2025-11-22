@@ -181,9 +181,9 @@ export function ChatPage() {
   useEffect(() => {
     const loadMcpToolsCount = async () => {
       try {
-        const result = await window.api.invoke('mcp:getTools');
-        if (result.success && result.tools) {
-          const enabledCount = result.tools.filter((t: any) => t.enabled).length;
+        const result = await window.api.invoke('mcp:getAllTools');
+        if (result.tools) {
+          const enabledCount = result.tools.filter((t: any) => t.enabled !== false).length;
           setMcpEnabledToolsCount(enabledCount);
         }
       } catch (error) {

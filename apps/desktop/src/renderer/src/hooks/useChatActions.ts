@@ -384,7 +384,7 @@ export function useChatActions({
       const modelsWithToolSupport = [
         'llama3.1', 'llama3.2', 'llama3.3',
         'mistral-nemo', 'mistral', 'mixtral',
-        'qwen2.5', 'qwen2',
+        'qwen3', 'qwen2.5', 'qwen2',
         'command-r', 'command-r-plus',
         'firefunction',
         'hermes3', 'hermes2',
