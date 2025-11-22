@@ -57,6 +57,7 @@ interface UseChatActionsParams {
   setMcpToolCalls: Dispatch<SetStateAction<OllamaToolCall[]>>;
   setIsMcpExecuting: Dispatch<SetStateAction<boolean>>;
   setMcpError: Dispatch<SetStateAction<string | null>>;
+  customToolModels: string[]; // Modèles personnalisés supportant les tools
 }
 
 /**
@@ -92,6 +93,7 @@ export function useChatActions({
   setMcpToolCalls,
   setIsMcpExecuting,
   setMcpError,
+  customToolModels,
 }: UseChatActionsParams) {
 
   // Envoyer un message
@@ -380,8 +382,8 @@ export function useChatActions({
         modelToUse = firstPersona.model;
       }
 
-      // Modèles Ollama qui supportent les function calls / tools
-      const modelsWithToolSupport = [
+      // Modèles Ollama qui supportent les function calls / tools (liste par défaut)
+      const defaultModelsWithToolSupport = [
         'llama3.1', 'llama3.2', 'llama3.3',
         'mistral-nemo', 'mistral', 'mixtral',
         'qwen3', 'qwen2.5', 'qwen2',
@@ -391,9 +393,15 @@ export function useChatActions({
         'gpt-oss',
       ];
 
+      // Combiner avec les modèles personnalisés de l'utilisateur
+      const allModelsWithToolSupport = [
+        ...defaultModelsWithToolSupport,
+        ...customToolModels.map(m => m.toLowerCase()),
+      ];
+
       // Vérifier si le modèle supporte les tools
       const modelBase = modelToUse.split(':')[0].toLowerCase();
-      const modelSupportsTools = modelsWithToolSupport.some(m => modelBase.includes(m));
+      const modelSupportsTools = allModelsWithToolSupport.some(m => modelBase.includes(m));
 
       // Récupérer les outils MCP si activés (AVANT de construire les messages)
       let tools: OllamaTool[] | undefined = undefined;

@@ -351,6 +351,7 @@ export function ChatPage() {
     setMcpToolCalls,
     setIsMcpExecuting,
     setMcpError,
+    customToolModels: settings.ollama.customToolModels || [],
   });
 
   // 7. Statistiques

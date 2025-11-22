@@ -135,6 +135,7 @@ const defaultSettings: AppSettings = {
     defaultModel: undefined,
     modelAliases: {},
     modelTags: {},
+    customToolModels: [],
   },
   appearance: {
     fontSize: 'medium',

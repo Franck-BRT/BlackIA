@@ -38,6 +38,9 @@ export function OllamaSettings() {
   // Tags editing states
   const [editingTags, setEditingTags] = useState<string | null>(null);
 
+  // Custom tool models states
+  const [newToolModel, setNewToolModel] = useState('');
+
   // Helper pour obtenir le nom d'affichage (alias ou nom d'origine)
   const getDisplayName = (modelName: string): string => {
     return ollama.modelAliases[modelName] || modelName;
@@ -229,6 +232,30 @@ export function OllamaSettings() {
 
   const cancelEditingTags = () => {
     setEditingTags(null);
+  };
+
+  // Custom tool models management
+  const addCustomToolModel = () => {
+    const model = newToolModel.trim().toLowerCase();
+    if (!model) return;
+
+    const currentModels = ollama.customToolModels || [];
+    if (currentModels.includes(model)) {
+      alert('Ce modèle est déjà dans la liste');
+      return;
+    }
+
+    updateOllamaSettings({
+      customToolModels: [...currentModels, model],
+    });
+    setNewToolModel('');
+  };
+
+  const removeCustomToolModel = (model: string) => {
+    const currentModels = ollama.customToolModels || [];
+    updateOllamaSettings({
+      customToolModels: currentModels.filter(m => m !== model),
+    });
   };
 
   const cancelEditing = () => {
@@ -631,6 +658,90 @@ export function OllamaSettings() {
             )}
           </div>
         )}
+      </div>
+
+      {/* Custom Tool Models */}
+      <div className="glass-card rounded-xl p-6 space-y-4">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-lg glass-lg flex items-center justify-center">
+            <Sparkles className="w-5 h-5 text-pink-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold">Modèles avec support Tools</h3>
+            <p className="text-sm text-muted-foreground">
+              Ajoutez des modèles personnalisés qui supportent les function calls/tools
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {/* Add new model */}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newToolModel}
+              onChange={(e) => setNewToolModel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') addCustomToolModel();
+              }}
+              placeholder="Nom du modèle (ex: phi3, dolphin...)"
+              className="flex-1 px-4 py-3 glass-card rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500/50"
+            />
+            <button
+              onClick={addCustomToolModel}
+              disabled={!newToolModel.trim()}
+              className="px-4 py-3 glass-lg rounded-xl font-medium transition-all hover:glass disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Ajouter
+            </button>
+          </div>
+
+          {/* Default models info */}
+          <div className="p-3 glass-card rounded-lg">
+            <p className="text-xs text-muted-foreground mb-2">
+              <span className="font-medium">Modèles supportés par défaut :</span>
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {['llama3.x', 'mistral', 'mixtral', 'qwen2/3', 'command-r', 'firefunction', 'hermes', 'gpt-oss'].map(model => (
+                <span key={model} className="px-2 py-0.5 rounded-md glass-lg text-xs text-muted-foreground">
+                  {model}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom models list */}
+          {(ollama.customToolModels || []).length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">
+                Modèles personnalisés ajoutés :
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(ollama.customToolModels || []).map(model => (
+                  <div
+                    key={model}
+                    className="flex items-center gap-2 px-3 py-1.5 glass-card rounded-lg"
+                  >
+                    <Sparkles className="w-3 h-3 text-pink-400" />
+                    <span className="text-sm">{model}</span>
+                    <button
+                      onClick={() => removeCustomToolModel(model)}
+                      className="p-0.5 rounded hover:bg-red-500/20 text-red-400 transition-colors"
+                      title="Supprimer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            💡 Les modèles ajoutés ici pourront utiliser les outils MCP dans le chat.
+            Entrez le nom de base du modèle (sans le tag, ex: "phi3" et non "phi3:latest").
+          </p>
+        </div>
       </div>
 
       {/* Pull Model Modal */}

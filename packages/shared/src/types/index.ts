@@ -287,6 +287,7 @@ export interface OllamaSettings {
   defaultModel?: string; // Modèle par défaut
   modelAliases: Record<string, string>; // Noms personnalisés pour les modèles (clé: nom technique, valeur: alias)
   modelTags: Record<string, ModelCapability[]>; // Tags/capacités pour chaque modèle (clé: nom technique, valeur: liste de tags)
+  customToolModels: string[]; // Modèles personnalisés supportant les tools/function calling
 }
 
 // Web Search types
