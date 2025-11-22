@@ -262,8 +262,43 @@ export function ChatPage() {
       if (tr.error) {
         return `Outil ${tr.tool}: Erreur - ${tr.error}`;
       }
+
+      // Formater le résultat de manière lisible selon le type d'outil
+      const result = tr.result as any;
+
+      // Si c'est un résultat de liste de fichiers/répertoires
+      if (result?.items && Array.isArray(result.items)) {
+        const items = result.items.map((item: any) => {
+          const icon = item.type === 'directory' ? '📁' : '📄';
+          const size = item.type === 'file' ? ` (${formatFileSize(item.size)})` : '';
+          return `${icon} ${item.name}${size}`;
+        }).join('\n');
+        return `Outil ${tr.tool} - ${result.count || result.items.length} éléments dans ${result.path}:\n${items}`;
+      }
+
+      // Si c'est un résultat de lecture de fichier
+      if (result?.content && typeof result.content === 'string') {
+        return `Outil ${tr.tool} - Contenu de ${result.path || 'fichier'}:\n\`\`\`\n${result.content}\n\`\`\``;
+      }
+
+      // Si c'est un résultat de commande shell
+      if (result?.stdout !== undefined || result?.output !== undefined) {
+        const output = result.stdout || result.output || '';
+        const exitCode = result.exitCode !== undefined ? ` (code: ${result.exitCode})` : '';
+        return `Outil ${tr.tool}${exitCode}:\n\`\`\`\n${output}\n\`\`\``;
+      }
+
+      // Format par défaut - JSON compacté
       return `Outil ${tr.tool}: ${JSON.stringify(tr.result, null, 2)}`;
     }).join('\n\n');
+
+    // Helper pour formater la taille des fichiers
+    function formatFileSize(bytes: number): string {
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    }
 
     // Ajouter un message avec les résultats des outils
     const toolMessage: import('@blackia/ollama').OllamaMessage = {
