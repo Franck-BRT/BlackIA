@@ -1,5 +1,6 @@
 import { textRAGService } from './text-rag-service';
 import { coletteVisionRAGService } from './colette-vision-rag-service';
+import { visionRAGService } from './vision-rag-service';
 import {
   reciprocalRankFusion,
   type RAGSearchParams,
@@ -64,7 +65,18 @@ export class HybridRAGService {
 
       if (actualMode === 'vision' || actualMode === 'hybrid') {
         try {
-          const visionSearch = await coletteVisionRAGService.search(params);
+          // Détecter le backend vision à utiliser basé sur les documents
+          const visionBackend = await this.detectVisionBackend(params.filters?.attachmentIds);
+          console.log('[HybridRAG] Using vision backend:', visionBackend);
+
+          let visionSearch;
+          if (visionBackend === 'mlx') {
+            visionSearch = await visionRAGService.search(params);
+          } else {
+            // Default to Colette for ColPali models
+            visionSearch = await coletteVisionRAGService.search(params);
+          }
+
           if (visionSearch.success) {
             visionResults = visionSearch.results;
           } else {
@@ -344,6 +356,42 @@ export class HybridRAGService {
         hybridIndexedCount: 0,
         totalStorageSize: 0,
       };
+    }
+  }
+
+  /**
+   * Détecter le backend vision à utiliser basé sur les modèles d'indexation des documents
+   * Si les documents sont indexés avec MLX, utiliser le service MLX
+   * Sinon utiliser Colette (défaut pour ColPali)
+   */
+  private async detectVisionBackend(attachmentIds?: string[]): Promise<'mlx' | 'colette'> {
+    try {
+      if (!attachmentIds || attachmentIds.length === 0) {
+        // Pas de filtres, utiliser Colette par défaut
+        return 'colette';
+      }
+
+      const { attachmentService } = await import('./attachment-service');
+
+      // Vérifier le modèle d'embedding vision des documents
+      for (const id of attachmentIds) {
+        const attachment = await attachmentService.getById(id);
+        if (!attachment || !attachment.visionEmbeddingModel) continue;
+
+        const model = attachment.visionEmbeddingModel.toLowerCase();
+
+        // Détecter les modèles MLX
+        if (model.includes('mlx') || model.includes('pixtral') || model.includes('qwen') || model.includes('paligemma')) {
+          console.log('[HybridRAG] Detected MLX model:', attachment.visionEmbeddingModel);
+          return 'mlx';
+        }
+      }
+
+      // Par défaut utiliser Colette
+      return 'colette';
+    } catch (error) {
+      console.warn('[HybridRAG] Error detecting vision backend:', error);
+      return 'colette'; // Fallback sûr
     }
   }
 
