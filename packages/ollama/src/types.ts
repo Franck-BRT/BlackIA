@@ -38,10 +38,40 @@ export interface OllamaModel {
   };
 }
 
+// Types pour les outils (MCP/Function Calling)
+export interface OllamaToolParameter {
+  type: string;
+  description?: string;
+  enum?: string[];
+  required?: string[];
+  properties?: Record<string, OllamaToolParameter>;
+}
+
+export interface OllamaTool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: 'object';
+      properties: Record<string, OllamaToolParameter>;
+      required?: string[];
+    };
+  };
+}
+
+export interface OllamaToolCall {
+  function: {
+    name: string;
+    arguments: Record<string, unknown>;
+  };
+}
+
 export interface OllamaMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
   images?: string[]; // Base64 encoded images
+  tool_calls?: OllamaToolCall[]; // Appels d'outils dans la réponse
 }
 
 export interface OllamaChatRequest {
@@ -49,6 +79,7 @@ export interface OllamaChatRequest {
   messages: OllamaMessage[];
   stream?: boolean;
   format?: 'json';
+  tools?: OllamaTool[]; // Outils disponibles pour le modèle
   options?: {
     temperature?: number;
     top_p?: number;
@@ -75,14 +106,17 @@ export interface OllamaChatResponse {
   prompt_eval_duration?: number;
   eval_count?: number;
   eval_duration?: number;
+  // Appels d'outils si le modèle en demande
+  tool_calls?: OllamaToolCall[];
 }
 
 export interface OllamaChatStreamChunk {
   model: string;
   created_at: string;
   message: {
-    role: 'assistant';
+    role: 'assistant' | 'tool';
     content: string;
+    tool_calls?: OllamaToolCall[];
   };
   done: boolean;
   done_reason?: string;

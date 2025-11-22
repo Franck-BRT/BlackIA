@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ConversationSidebar } from '../components/chat/ConversationSidebarWithFolders';
 import { ChatHeader } from '../components/chat/ChatHeader';
@@ -22,6 +22,7 @@ import { useResponsive } from '../hooks/useResponsive';
 import { useSettings } from '../contexts/SettingsContext';
 import type { BackupData } from '../components/chat/ImportExportMenu';
 import type { Folder } from '../hooks/useConversations';
+import type { OllamaToolCall } from '@blackia/ollama';
 
 /**
  * ChatPage - Composant principal du chat refactorisé
@@ -192,6 +193,80 @@ export function ChatPage() {
     loadMcpToolsCount();
   }, [mcpEnabled]);
 
+  // Callback pour exécuter les outils MCP et continuer la conversation
+  const handleToolCallsReceived = useCallback(async (toolCalls: OllamaToolCall[]) => {
+    console.log('[ChatPage] 🔧 Exécution des outils MCP:', toolCalls);
+
+    // Exécuter chaque outil
+    const toolResults: { tool: string; result: unknown; error?: string }[] = [];
+
+    for (const toolCall of toolCalls) {
+      try {
+        console.log(`[ChatPage] 🔧 Exécution de l'outil: ${toolCall.function.name}`);
+        const result = await window.api.invoke('mcp:callTool', {
+          tool: toolCall.function.name,
+          parameters: toolCall.function.arguments,
+        });
+
+        if (result.status === 'success') {
+          toolResults.push({
+            tool: toolCall.function.name,
+            result: result.result,
+          });
+          console.log(`[ChatPage] ✅ Outil ${toolCall.function.name} exécuté avec succès`);
+        } else {
+          toolResults.push({
+            tool: toolCall.function.name,
+            result: null,
+            error: result.error?.message || 'Erreur inconnue',
+          });
+          console.error(`[ChatPage] ❌ Erreur outil ${toolCall.function.name}:`, result.error);
+        }
+      } catch (error) {
+        toolResults.push({
+          tool: toolCall.function.name,
+          result: null,
+          error: error instanceof Error ? error.message : 'Erreur inconnue',
+        });
+        console.error(`[ChatPage] ❌ Exception outil ${toolCall.function.name}:`, error);
+      }
+    }
+
+    // Construire les messages de résultats d'outils et envoyer la suite
+    const toolResultsContent = toolResults.map(tr => {
+      if (tr.error) {
+        return `Outil ${tr.tool}: Erreur - ${tr.error}`;
+      }
+      return `Outil ${tr.tool}: ${JSON.stringify(tr.result, null, 2)}`;
+    }).join('\n\n');
+
+    // Ajouter un message avec les résultats des outils
+    const toolMessage: import('@blackia/ollama').OllamaMessage = {
+      role: 'tool',
+      content: toolResultsContent,
+    };
+
+    // Mettre à jour les messages et relancer la génération
+    setMessages(prev => [...prev, toolMessage]);
+
+    // Relancer la génération avec les résultats des outils
+    try {
+      const allMessages = [...messages, toolMessage];
+      await window.electronAPI.ollama.chatStream({
+        model: selectedModel,
+        messages: allMessages,
+        stream: true,
+        options: {
+          temperature: chatSettings.temperature,
+          num_ctx: chatSettings.maxTokens,
+          top_p: chatSettings.topP,
+        },
+      });
+    } catch (error) {
+      console.error('[ChatPage] ❌ Erreur lors de la reprise après outils:', error);
+    }
+  }, [messages, selectedModel, chatSettings, setMessages]);
+
   // 3. Streaming Ollama
   useChatStreaming({
     setStreamingMessage,
@@ -201,6 +276,11 @@ export function ChatPage() {
     currentStreamIdRef,
     currentMentionedPersonaIdRef,
     currentMentionedPersonaIdsRef,
+    // MCP Tools
+    mcpEnabled,
+    setMcpToolCalls,
+    setIsMcpExecuting,
+    onToolCallsReceived: handleToolCallsReceived,
   });
 
   // 4. Gestion des personas
@@ -266,6 +346,11 @@ export function ChatPage() {
     webSearchSettings: settings.webSearch,
     setWebSearchResults,
     setIsWebSearching,
+    // MCP Tools
+    mcpEnabled,
+    setMcpToolCalls,
+    setIsMcpExecuting,
+    setMcpError,
   });
 
   // 7. Statistiques

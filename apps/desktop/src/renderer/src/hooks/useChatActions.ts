@@ -1,10 +1,22 @@
 import { Dispatch, SetStateAction, MutableRefObject } from 'react';
-import type { OllamaMessage } from '@blackia/ollama';
+import type { OllamaMessage, OllamaTool, OllamaToolCall } from '@blackia/ollama';
 import type { Persona } from '../types/persona';
 import type { ChatSettingsData } from '../components/chat/ChatSettings';
 import type { MessageMetadata } from './useConversations';
 import type { WebSearchResponse, WebSearchSettings, WebSearchProviderConfig } from '@blackia/shared';
 import type { RAGMetadata } from '../types/attachment';
+
+// Type pour les résultats d'appel d'outil MCP
+interface MCPToolCallResult {
+  id: string;
+  tool: string;
+  status: 'pending' | 'running' | 'success' | 'error' | 'cancelled' | 'timeout';
+  result?: unknown;
+  error?: { code: string; message: string };
+  startedAt: number;
+  completedAt?: number;
+  duration?: number;
+}
 
 interface UseChatActionsParams {
   // États
@@ -39,6 +51,12 @@ interface UseChatActionsParams {
   webSearchSettings: WebSearchSettings;
   setWebSearchResults: Dispatch<SetStateAction<Record<number, WebSearchResponse>>>;
   setIsWebSearching: Dispatch<SetStateAction<boolean>>;
+
+  // MCP Tools
+  mcpEnabled: boolean;
+  setMcpToolCalls: Dispatch<SetStateAction<OllamaToolCall[]>>;
+  setIsMcpExecuting: Dispatch<SetStateAction<boolean>>;
+  setMcpError: Dispatch<SetStateAction<string | null>>;
 }
 
 /**
@@ -69,6 +87,11 @@ export function useChatActions({
   webSearchSettings,
   setWebSearchResults,
   setIsWebSearching,
+  // MCP
+  mcpEnabled,
+  setMcpToolCalls,
+  setIsMcpExecuting,
+  setMcpError,
 }: UseChatActionsParams) {
 
   // Envoyer un message
@@ -366,11 +389,28 @@ export function useChatActions({
         modelToUse = firstPersona.model;
       }
 
+      // Récupérer les outils MCP si activés
+      let tools: OllamaTool[] | undefined = undefined;
+      if (mcpEnabled) {
+        try {
+          console.log('[useChatActions] 🔧 Récupération des outils MCP...');
+          const mcpTools = await window.api.invoke('mcp:getToolsForChat');
+          if (mcpTools && mcpTools.length > 0) {
+            tools = mcpTools;
+            console.log('[useChatActions] ✅ Outils MCP récupérés:', mcpTools.length);
+          }
+        } catch (error) {
+          console.error('[useChatActions] ❌ Erreur récupération outils MCP:', error);
+          setMcpError(error instanceof Error ? error.message : 'Erreur outils MCP');
+        }
+      }
+
       // Envoyer la requête de chat avec streaming
       await window.electronAPI.ollama.chatStream({
         model: modelToUse,
         messages: messagesToSend,
         stream: true,
+        tools, // Inclure les outils MCP si disponibles
         options: {
           temperature,
           num_ctx: maxTokens,

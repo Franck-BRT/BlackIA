@@ -1,5 +1,5 @@
-import { useEffect, Dispatch, SetStateAction, MutableRefObject } from 'react';
-import type { OllamaMessage, OllamaChatStreamChunk } from '@blackia/ollama';
+import { useEffect, useCallback, Dispatch, SetStateAction, MutableRefObject } from 'react';
+import type { OllamaMessage, OllamaChatStreamChunk, OllamaToolCall } from '@blackia/ollama';
 import type { MessageMetadata } from './useConversations';
 
 interface UseChatStreamingParams {
@@ -10,6 +10,11 @@ interface UseChatStreamingParams {
   currentStreamIdRef: MutableRefObject<string | null>;
   currentMentionedPersonaIdRef: MutableRefObject<string | undefined>;
   currentMentionedPersonaIdsRef: MutableRefObject<string[] | undefined>;
+  // MCP Tools
+  mcpEnabled?: boolean;
+  setMcpToolCalls?: Dispatch<SetStateAction<OllamaToolCall[]>>;
+  setIsMcpExecuting?: Dispatch<SetStateAction<boolean>>;
+  onToolCallsReceived?: (toolCalls: OllamaToolCall[]) => Promise<void>;
 }
 
 /**
@@ -24,6 +29,11 @@ export function useChatStreaming({
   currentStreamIdRef,
   currentMentionedPersonaIdRef,
   currentMentionedPersonaIdsRef,
+  // MCP
+  mcpEnabled,
+  setMcpToolCalls,
+  setIsMcpExecuting,
+  onToolCallsReceived,
 }: UseChatStreamingParams) {
   useEffect(() => {
     console.log('[useChatStreaming] 🎧 Enregistrement des listeners de streaming');
@@ -37,17 +47,50 @@ export function useChatStreaming({
     });
 
     // Listener pour les chunks de streaming
-    window.electronAPI.ollama.onStreamChunk((data: { streamId: string; chunk: OllamaChatStreamChunk }) => {
+    window.electronAPI.ollama.onStreamChunk(async (data: { streamId: string; chunk: OllamaChatStreamChunk }) => {
       console.log('[useChatStreaming] 📥 Chunk reçu:', {
         receivedStreamId: data.streamId,
         currentStreamId: currentStreamIdRef.current,
         content: data.chunk.message.content,
         done: data.chunk.done,
+        hasToolCalls: !!data.chunk.message.tool_calls,
       });
 
       // Vérifier que c'est bien notre stream
       if (data.streamId === currentStreamIdRef.current) {
         console.log('[useChatStreaming] ✅ StreamId match! Traitement du chunk');
+
+        // Vérifier si le modèle demande des appels d'outils
+        if (data.chunk.message.tool_calls && data.chunk.message.tool_calls.length > 0) {
+          console.log('[useChatStreaming] 🔧 Tool calls détectés:', data.chunk.message.tool_calls);
+
+          // Sauvegarder les tool_calls dans l'état
+          if (setMcpToolCalls) {
+            setMcpToolCalls(data.chunk.message.tool_calls);
+          }
+
+          // Si on a un callback pour traiter les tool_calls, l'appeler
+          if (onToolCallsReceived && mcpEnabled) {
+            console.log('[useChatStreaming] 🚀 Exécution des outils MCP...');
+            if (setIsMcpExecuting) {
+              setIsMcpExecuting(true);
+            }
+
+            try {
+              await onToolCallsReceived(data.chunk.message.tool_calls);
+            } catch (error) {
+              console.error('[useChatStreaming] ❌ Erreur exécution outils:', error);
+            } finally {
+              if (setIsMcpExecuting) {
+                setIsMcpExecuting(false);
+              }
+            }
+          }
+
+          // Ne pas terminer le stream normal ici, le callback gère la suite
+          return;
+        }
+
         setStreamingMessage((prev) => {
           const newContent = prev + data.chunk.message.content;
           console.log('[useChatStreaming] 📝 Contenu accumulé:', newContent);

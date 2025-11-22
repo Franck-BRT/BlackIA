@@ -29,4 +29,8 @@ export type {
   OllamaPullProgress,
   StreamCallback,
   PullProgressCallback,
+  // Types pour les outils MCP
+  OllamaTool,
+  OllamaToolCall,
+  OllamaToolParameter,
 } from './types';
