@@ -77,6 +77,18 @@ export function useChatStreaming({
   // Suivre si des tool_calls ont été traités pour ce stream
   const toolCallsProcessedRef = { current: false };
 
+  // Refs pour avoir accès aux valeurs actuelles dans les closures
+  const mcpEnabledRef = { current: mcpEnabled };
+  const onToolCallsReceivedRef = { current: onToolCallsReceived };
+  const setMcpToolCallsRef = { current: setMcpToolCalls };
+  const setIsMcpExecutingRef = { current: setIsMcpExecuting };
+
+  // Mettre à jour les refs quand les props changent
+  mcpEnabledRef.current = mcpEnabled;
+  onToolCallsReceivedRef.current = onToolCallsReceived;
+  setMcpToolCallsRef.current = setMcpToolCalls;
+  setIsMcpExecutingRef.current = setIsMcpExecuting;
+
   useEffect(() => {
     console.log('[useChatStreaming] 🎧 Enregistrement des listeners de streaming');
 
@@ -106,27 +118,29 @@ export function useChatStreaming({
         // Vérifier si le modèle demande des appels d'outils
         if (data.chunk.message.tool_calls && data.chunk.message.tool_calls.length > 0) {
           console.log('[useChatStreaming] 🔧 Tool calls détectés:', data.chunk.message.tool_calls);
+          console.log('[useChatStreaming] 🔧 mcpEnabledRef.current:', mcpEnabledRef.current);
+          console.log('[useChatStreaming] 🔧 onToolCallsReceivedRef.current:', !!onToolCallsReceivedRef.current);
           toolCallsProcessedRef.current = true; // Marquer qu'on a traité des tool_calls
 
           // Sauvegarder les tool_calls dans l'état
-          if (setMcpToolCalls) {
-            setMcpToolCalls(data.chunk.message.tool_calls);
+          if (setMcpToolCallsRef.current) {
+            setMcpToolCallsRef.current(data.chunk.message.tool_calls);
           }
 
           // Si on a un callback pour traiter les tool_calls, l'appeler
-          if (onToolCallsReceived && mcpEnabled) {
+          if (onToolCallsReceivedRef.current && mcpEnabledRef.current) {
             console.log('[useChatStreaming] 🚀 Exécution des outils MCP...');
-            if (setIsMcpExecuting) {
-              setIsMcpExecuting(true);
+            if (setIsMcpExecutingRef.current) {
+              setIsMcpExecutingRef.current(true);
             }
 
             try {
-              await onToolCallsReceived(data.chunk.message.tool_calls);
+              await onToolCallsReceivedRef.current(data.chunk.message.tool_calls);
             } catch (error) {
               console.error('[useChatStreaming] ❌ Erreur exécution outils:', error);
             } finally {
-              if (setIsMcpExecuting) {
-                setIsMcpExecuting(false);
+              if (setIsMcpExecutingRef.current) {
+                setIsMcpExecutingRef.current(false);
               }
             }
           }
@@ -168,32 +182,32 @@ export function useChatStreaming({
 
             // Vérifier si le contenu contient des appels d'outils au format texte
             // (utilisé par certains modèles comme qwen3-coder)
-            if (mcpEnabled && finalContent.includes('<function=')) {
+            if (mcpEnabledRef.current && finalContent.includes('<function=')) {
               const textToolCalls = parseTextToolCalls(finalContent);
               if (textToolCalls.length > 0) {
                 console.log('[useChatStreaming] 🔧 Tool calls détectés dans le texte:', textToolCalls);
                 toolCallsProcessedRef.current = true;
 
-                if (setMcpToolCalls) {
-                  setMcpToolCalls(textToolCalls);
+                if (setMcpToolCallsRef.current) {
+                  setMcpToolCallsRef.current(textToolCalls);
                 }
 
                 // Exécuter les outils via le callback
-                if (onToolCallsReceived) {
+                if (onToolCallsReceivedRef.current) {
                   console.log('[useChatStreaming] 🚀 Exécution des outils MCP (format texte)...');
-                  if (setIsMcpExecuting) {
-                    setIsMcpExecuting(true);
+                  if (setIsMcpExecutingRef.current) {
+                    setIsMcpExecutingRef.current(true);
                   }
 
                   // Exécuter de manière asynchrone
                   (async () => {
                     try {
-                      await onToolCallsReceived(textToolCalls);
+                      await onToolCallsReceivedRef.current!(textToolCalls);
                     } catch (error) {
                       console.error('[useChatStreaming] ❌ Erreur exécution outils:', error);
                     } finally {
-                      if (setIsMcpExecuting) {
-                        setIsMcpExecuting(false);
+                      if (setIsMcpExecutingRef.current) {
+                        setIsMcpExecutingRef.current(false);
                       }
                     }
                   })();
