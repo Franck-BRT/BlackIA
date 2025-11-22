@@ -391,21 +391,56 @@ export function useChatActions({
 
       // Récupérer les outils MCP si activés
       let tools: OllamaTool[] | undefined = undefined;
+      let disabledToolsInfo = '';
       if (mcpEnabled) {
         try {
-          console.log('[useChatActions] 🔧 Récupération des outils MCP...');
-          const mcpTools = await window.api.invoke('mcp:getToolsForChat');
-          if (mcpTools && Array.isArray(mcpTools) && mcpTools.length > 0) {
-            tools = mcpTools as OllamaTool[];
-            console.log('[useChatActions] ✅ Outils MCP récupérés:', mcpTools.length, mcpTools.map((t: OllamaTool) => t.function.name));
-          } else {
-            console.log('[useChatActions] ⚠️ Aucun outil MCP disponible (permissions non accordées ?)');
+          console.log('[useChatActions] 🔧 Récupération des outils MCP avec statut...');
+          const mcpResult = await window.api.invoke('mcp:getToolsForChatWithStatus');
+
+          if (mcpResult.enabledTools && mcpResult.enabledTools.length > 0) {
+            tools = mcpResult.enabledTools as OllamaTool[];
+            console.log('[useChatActions] ✅ Outils MCP activés:', mcpResult.enabledTools.length);
+          }
+
+          // Si des outils sont désactivés, préparer l'info pour le système
+          if (mcpResult.disabledTools && mcpResult.disabledTools.length > 0) {
+            console.log('[useChatActions] ⚠️ Outils désactivés:', mcpResult.disabledTools.length);
+
+            const disabledInfo = mcpResult.disabledTools.map((tool: any) => {
+              const reasons: string[] = [];
+              if (tool.isToolDisabled) {
+                reasons.push('outil désactivé par l\'utilisateur');
+              }
+              if (tool.missingPermissions && tool.missingPermissions.length > 0) {
+                const permDetails = tool.missingPermissions.map((p: any) => {
+                  if (!p.granted) {
+                    return `"${p.label}" (non accordée dans macOS - aller dans Préférences Système > Confidentialité)`;
+                  } else if (!p.enabled) {
+                    return `"${p.label}" (désactivée dans BlackIA - aller dans Outils > Permissions)`;
+                  }
+                  return p.label;
+                });
+                reasons.push(`permissions manquantes: ${permDetails.join(', ')}`);
+              }
+              return `- ${tool.icon} ${tool.name}: ${tool.description}\n  Raison: ${reasons.join('; ')}\n  → Pour activer: Outils > Permissions`;
+            });
+
+            disabledToolsInfo = `\n\n---\nOUTILS SYSTÈME DISPONIBLES MAIS NON ACTIVÉS:\nSi l'utilisateur demande une action nécessitant un de ces outils, explique-lui quel outil serait nécessaire et comment activer les permissions:\n${disabledInfo.join('\n\n')}`;
+          }
+
+          if (!tools || tools.length === 0) {
+            console.log('[useChatActions] ⚠️ Aucun outil MCP activé');
           }
         } catch (error) {
           console.error('[useChatActions] ❌ Erreur récupération outils MCP:', error);
           setMcpError(error instanceof Error ? error.message : 'Erreur outils MCP');
           // Continuer sans outils en cas d'erreur
         }
+      }
+
+      // Ajouter les infos sur les outils désactivés au system prompt
+      if (disabledToolsInfo) {
+        systemPromptToUse += disabledToolsInfo;
       }
 
       // Construire la requête de chat

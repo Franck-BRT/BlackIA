@@ -376,6 +376,115 @@ export class MCPServer extends EventEmitter {
     return result;
   }
 
+  /**
+   * Récupère les outils pour le chat avec leur statut et les permissions manquantes
+   */
+  public getToolsForChatWithStatus(): {
+    enabledTools: ChatToolDefinition[];
+    disabledTools: Array<{
+      name: string;
+      description: string;
+      icon: string;
+      category: string;
+      missingPermissions: Array<{
+        permission: string;
+        label: string;
+        granted: boolean;
+        enabled: boolean;
+      }>;
+      isToolDisabled: boolean;
+    }>;
+  } {
+    const allTools = mcpToolsRegistry.getAllTools();
+    const chatTools = mcpToolsRegistry.getToolsForChat();
+    const enabledTools: ChatToolDefinition[] = [];
+    const disabledTools: Array<{
+      name: string;
+      description: string;
+      icon: string;
+      category: string;
+      missingPermissions: Array<{
+        permission: string;
+        label: string;
+        granted: boolean;
+        enabled: boolean;
+      }>;
+      isToolDisabled: boolean;
+    }> = [];
+
+    const permissionLabels: Record<string, string> = {
+      'files': 'Accès aux fichiers',
+      'clipboard': 'Presse-papiers',
+      'notifications': 'Notifications',
+      'calendar': 'Calendrier',
+      'contacts': 'Contacts',
+      'reminders': 'Rappels',
+      'photos': 'Photos',
+      'music': 'Musique',
+      'camera': 'Caméra',
+      'microphone': 'Microphone',
+      'location': 'Localisation',
+      'screen': 'Enregistrement écran',
+      'accessibility': 'Accessibilité',
+      'automation': 'Automatisation',
+      'full-disk-access': 'Accès disque complet',
+      'system': 'Système',
+      'network': 'Réseau',
+      'browser': 'Navigateur',
+    };
+
+    for (const tool of allTools) {
+      const isToolDisabled = tool.enabled === false;
+      const missingPermissions: Array<{
+        permission: string;
+        label: string;
+        granted: boolean;
+        enabled: boolean;
+      }> = [];
+
+      // Vérifier chaque permission requise
+      for (const perm of tool.permissions) {
+        const permConfig = this.permissionsConfig.permissions.find(p => p.permission === perm);
+        const granted = permConfig?.granted ?? false;
+        const enabled = permConfig?.enabled ?? false;
+
+        if (!granted || !enabled) {
+          missingPermissions.push({
+            permission: perm,
+            label: permissionLabels[perm] || perm,
+            granted,
+            enabled,
+          });
+        }
+      }
+
+      if (isToolDisabled || missingPermissions.length > 0) {
+        // Outil désactivé ou avec permissions manquantes
+        disabledTools.push({
+          name: tool.name,
+          description: tool.description,
+          icon: tool.icon || '🔧',
+          category: tool.category,
+          missingPermissions,
+          isToolDisabled,
+        });
+      } else {
+        // Outil activé et avec toutes les permissions
+        const chatTool = chatTools.find(t => t.function.name === tool.name);
+        if (chatTool) {
+          enabledTools.push(chatTool);
+        }
+      }
+    }
+
+    console.log('[MCPServer] getToolsForChatWithStatus:', {
+      enabled: enabledTools.length,
+      disabled: disabledTools.length,
+    });
+
+    return { enabledTools, disabledTools };
+  }
+
   // ============================================================================
   // STATISTICS
   // ============================================================================

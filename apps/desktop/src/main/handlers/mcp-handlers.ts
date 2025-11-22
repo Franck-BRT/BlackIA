@@ -39,6 +39,7 @@ export function registerMCPHandlers(): void {
   ipcMain.handle('mcp:getTool', handleGetTool);
   ipcMain.handle('mcp:setToolEnabled', handleSetToolEnabled);
   ipcMain.handle('mcp:getToolsForChat', handleGetToolsForChat);
+  ipcMain.handle('mcp:getToolsForChatWithStatus', handleGetToolsForChatWithStatus);
 
   // Permissions management
   ipcMain.handle('mcp:getPermissionsConfig', handleGetPermissionsConfig);
@@ -165,6 +166,15 @@ async function handleGetToolsForChat(): Promise<ReturnType<typeof mcpServer.getT
     tools: tools.map(t => t.function.name),
   });
   return tools;
+}
+
+async function handleGetToolsForChatWithStatus(): Promise<ReturnType<typeof mcpServer.getToolsForChatWithStatus>> {
+  const result = mcpServer.getToolsForChatWithStatus();
+  console.log('[MCP Handler] getToolsForChatWithStatus:', {
+    enabled: result.enabledTools.length,
+    disabled: result.disabledTools.length,
+  });
+  return result;
 }
 
 // ============================================================================
