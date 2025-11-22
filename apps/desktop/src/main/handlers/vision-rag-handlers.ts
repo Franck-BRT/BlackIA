@@ -124,5 +124,122 @@ export function registerVisionRAGHandlers(): void {
     }
   });
 
+  /**
+   * Récupérer les patches d'un document pour visualisation dans la bibliothèque
+   */
+  ipcMain.handle('vision-rag:getDocumentPatches', async (_event, attachmentId: string) => {
+    try {
+      const patches = await coletteVisionRAGService.getDocumentPatches(attachmentId);
+      return { success: true, data: patches };
+    } catch (error) {
+      console.error('[VisionRAG] Error in getDocumentPatches:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  /**
+   * Réinitialiser la collection Vision RAG (supprime et recrée)
+   */
+  ipcMain.handle('vision-rag:recreateCollection', async () => {
+    try {
+      const { vectorStore } = await import('../services/vector-store');
+      await vectorStore.recreateVisionCollection();
+      return { success: true, message: 'Vision collection recreated successfully' };
+    } catch (error) {
+      console.error('[VisionRAG] Error in recreateCollection:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  /**
+   * Récupérer les informations de debug pour un document Vision RAG
+   */
+  ipcMain.handle('vision-rag:getDebugInfo', async (_event, attachmentId: string) => {
+    try {
+      const { vectorStore } = await import('../services/vector-store');
+
+      // Récupérer les patches bruts
+      const rawPatches = await vectorStore.getVisionPatchesByAttachment(attachmentId);
+
+      // Formater les patches
+      const patches = await coletteVisionRAGService.getDocumentPatches(attachmentId);
+
+      // Récupérer des infos sur la collection
+      let collectionInfo = null;
+      try {
+        const visionCollection = (vectorStore as any).visionCollection;
+        if (visionCollection) {
+          // Essayer de compter le total de patches dans la collection
+          const allPatches = await visionCollection
+            .search([0.0])
+            .limit(200000)
+            .nprobes(100)
+            .execute();
+
+          // Grouper par attachmentId
+          const byAttachment: Record<string, number> = {};
+          allPatches.forEach((p: any) => {
+            byAttachment[p.attachmentId] = (byAttachment[p.attachmentId] || 0) + 1;
+          });
+
+          collectionInfo = {
+            totalPatches: allPatches.length,
+            patchesByAttachment: byAttachment,
+            sampleAttachmentIds: Object.keys(byAttachment).slice(0, 5),
+          };
+        }
+      } catch (collErr) {
+        collectionInfo = { error: String(collErr) };
+      }
+
+      // Tronquer les imageBase64 pour éviter un JSON trop gros
+      const truncateBase64 = (str: string | undefined): string => {
+        if (!str) return 'undefined';
+        if (!str.startsWith('data:image')) return 'not_base64';
+        return str.substring(0, 100) + '... [truncated, length: ' + str.length + ']';
+      };
+
+      const debugInfo = {
+        attachmentId,
+        timestamp: new Date().toISOString(),
+        rawPatchesCount: rawPatches.length,
+        formattedPatchesCount: patches.length,
+        collectionInfo,
+        rawPatchesSample: rawPatches.slice(0, 2).map((p: any) => {
+          const metadata = typeof p.metadata === 'string' ? JSON.parse(p.metadata) : p.metadata;
+          return {
+            id: p.id,
+            pageIndex: p.pageIndex,
+            attachmentId: p.attachmentId,
+            hasMetadata: !!p.metadata,
+            hasPatchVectors: !!p.patchVectors,
+            metadataType: typeof p.metadata,
+            metadataPreview: {
+              ...metadata,
+              imageBase64: truncateBase64(metadata?.imageBase64),
+            },
+          };
+        }),
+        formattedPatchesSample: patches.slice(0, 2).map(p => ({
+          ...p,
+          pageThumbnail: truncateBase64(p.pageThumbnail),
+          metadata: {
+            ...p.metadata,
+            imageBase64: truncateBase64(p.metadata?.imageBase64),
+          },
+        })),
+      };
+
+      return { success: true, data: debugInfo };
+    } catch (error) {
+      console.error('[VisionRAG] Error in getDebugInfo:', error);
+      return {
+        success: false,
+        error: String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      };
+    }
+  });
+
   console.log('[VisionRAG] ✅ IPC handlers registered');
 }

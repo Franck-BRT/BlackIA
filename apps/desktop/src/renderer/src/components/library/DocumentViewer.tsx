@@ -6,11 +6,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, List, RefreshCw, Check, Settings } from 'lucide-react';
+import { X, List, RefreshCw, Check, Settings, Eye, FileText, Bug } from 'lucide-react';
 import { MarkdownEditor } from '../editor/MarkdownEditor';
 import { useChunkEditor } from '../../hooks/useChunkEditor';
+import { useVisionPatches } from '../../hooks/useVisionPatches';
 import { useResizable } from '../../hooks/useResizable';
 import { ChunkList } from './ChunkList';
+import { PatchList } from './PatchList';
 import { IndexConfigModal } from './IndexConfigModal';
 import { cn } from '@blackia/ui';
 import type { LibraryDocument } from '../../hooks/useLibraryDocuments';
@@ -24,8 +26,17 @@ interface DocumentViewerProps {
 
 export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }: DocumentViewerProps) {
   const { chunks, loading, getDocumentChunks } = useChunkEditor();
+  const { patches, loading: patchesLoading, getDocumentPatches } = useVisionPatches();
   const [selectedChunkId, setSelectedChunkId] = useState<string | null>(null);
+  const [selectedPatchId, setSelectedPatchId] = useState<string | null>(null);
   const [showChunksPanel, setShowChunksPanel] = useState(true);
+  // État local pour tracker la disponibilité des données (après indexation)
+  const [hasChunks, setHasChunks] = useState(doc.isIndexedText);
+  const [hasPatches, setHasPatches] = useState(doc.isIndexedVision);
+  // Mode d'affichage: par défaut sur chunks si indexé texte, sinon patches
+  const [viewMode, setViewMode] = useState<'chunks' | 'patches'>(
+    doc.isIndexedText ? 'chunks' : 'patches'
+  );
   const [showValidationPanel, setShowValidationPanel] = useState(false);
   const [validationNotes, setValidationNotes] = useState('');
   const [isIndexing, setIsIndexing] = useState(false);
@@ -94,6 +105,8 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
         textLength: doc.extractedText?.length || 0,
         isIndexedText: doc.isIndexedText,
         textChunkCount: doc.textChunkCount,
+        isIndexedVision: doc.isIndexedVision,
+        visionPatchCount: doc.visionPatchCount,
         ragMode: doc.ragMode
       }, null, 2));
 
@@ -102,10 +115,20 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
         console.log('[DocumentViewer] Chunks loaded:', loadedChunks.length);
         if (loadedChunks.length > 0) {
           console.log('[DocumentViewer] First chunk:', JSON.stringify(loadedChunks[0], null, 2));
+          setHasChunks(true);
+        }
+      });
+
+      // Load patches (always try, not just if isIndexedVision)
+      getDocumentPatches(doc.id).then((loadedPatches) => {
+        console.log('[DocumentViewer] Patches loaded:', loadedPatches.length);
+        if (loadedPatches.length > 0) {
+          console.log('[DocumentViewer] First patch:', JSON.stringify(loadedPatches[0], null, 2));
+          setHasPatches(true);
         }
       });
     }
-  }, [doc.id, doc.isIndexedText, doc.textChunkCount, getDocumentChunks]);
+  }, [doc.id, doc.isIndexedText, doc.textChunkCount, doc.isIndexedVision, doc.visionPatchCount, getDocumentChunks, getDocumentPatches]);
 
   // Listen for indexing progress events
   useEffect(() => {
@@ -172,11 +195,38 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
       console.log(`[DocumentViewer] [${sessionId}] Full result from backend:`, JSON.stringify(result, null, 2));
 
       if (result.success) {
+        // Recharger les chunks
         setIndexingMessage('Rechargement des chunks...');
         console.log(`[DocumentViewer] [${sessionId}] Result.data:`, JSON.stringify(result.data, null, 2));
         console.log(`[DocumentViewer] [${sessionId}] Reindex complete, reloading chunks...`);
         const reloadedChunks = await getDocumentChunks(doc.id);
         console.log(`[DocumentViewer] [${sessionId}] Chunks after reindex:`, reloadedChunks.length, reloadedChunks);
+
+        // Mettre à jour l'état local pour les chunks
+        if (reloadedChunks.length > 0) {
+          setHasChunks(true);
+        }
+
+        // Toujours recharger les patches après indexation (pour vision ou hybrid)
+        setIndexingMessage('Rechargement des patches...');
+        const reloadedPatches = await getDocumentPatches(doc.id);
+        console.log(`[DocumentViewer] [${sessionId}] Patches after reindex:`, reloadedPatches.length, reloadedPatches);
+
+        // Mettre à jour l'état local pour les patches
+        if (reloadedPatches.length > 0) {
+          setHasPatches(true);
+        }
+
+        // Auto-switch viewMode basé sur le type d'indexation
+        const indexMode = config?.mode || 'auto';
+        if (indexMode === 'vision' || (indexMode === 'auto' && result.data?.patchCount > 0 && !result.data?.chunkCount)) {
+          setViewMode('patches');
+          console.log(`[DocumentViewer] [${sessionId}] Auto-switched to patches view`);
+        } else if (indexMode === 'text' || (result.data?.chunkCount > 0 && !result.data?.patchCount)) {
+          setViewMode('chunks');
+          console.log(`[DocumentViewer] [${sessionId}] Auto-switched to chunks view`);
+        }
+        // Pour le mode hybride, on garde le viewMode actuel mais les deux boutons seront visibles
 
         // Message adapté selon le type d'indexation
         let successMessage = '✓ Indexation terminée';
@@ -223,6 +273,60 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
     }
   };
 
+  const handleCopyDebugInfo = async () => {
+    try {
+      const debugInfo = await window.api.visionRAG.getDebugInfo(doc.id);
+      const debugJson = JSON.stringify(debugInfo, null, 2);
+
+      // Copier dans le presse-papier
+      await navigator.clipboard.writeText(debugJson);
+
+      // Afficher un message de succès temporaire
+      setIndexingMessage('✓ Debug info copié dans le presse-papier');
+      setTimeout(() => setIndexingMessage(''), 3000);
+
+      console.log('[DocumentViewer] Debug info copied to clipboard:', debugInfo);
+    } catch (error) {
+      console.error('[DocumentViewer] Error copying debug info:', error);
+      setIndexingMessage('❌ Erreur lors de la copie du debug info');
+      setTimeout(() => setIndexingMessage(''), 3000);
+    }
+  };
+
+  const handleRecreateCollection = async () => {
+    // Demander confirmation car c'est une opération destructive
+    const confirmed = window.confirm(
+      'Êtes-vous sûr de vouloir recréer la collection Vision RAG ?\n\n' +
+      'Cette action va:\n' +
+      '• Supprimer toutes les données Vision RAG existantes\n' +
+      '• Nécessiter une réindexation de tous vos documents\n\n' +
+      'Cette opération est utile si la collection est corrompue.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIndexingMessage('⏳ Recréation de la collection Vision RAG...');
+      const result = await window.api.visionRAG.recreateCollection();
+
+      if (result.success) {
+        setIndexingMessage('✓ Collection Vision RAG recréée avec succès. Vous devez maintenant réindexer vos documents.');
+        setTimeout(() => setIndexingMessage(''), 5000);
+        console.log('[DocumentViewer] Vision RAG collection recreated successfully');
+      } else {
+        setIndexingMessage('❌ Erreur lors de la recréation de la collection');
+        setTimeout(() => setIndexingMessage(''), 3000);
+        console.error('[DocumentViewer] Failed to recreate collection:', result);
+      }
+    } catch (error) {
+      console.error('[DocumentViewer] Error recreating collection:', error);
+      setIndexingMessage('❌ Erreur lors de la recréation de la collection');
+      setTimeout(() => setIndexingMessage(''), 3000);
+    }
+  };
+
   // Use window.document to avoid conflict with 'doc' prop
   const portalRoot = window.document.getElementById('root');
   if (!portalRoot) return null;
@@ -238,6 +342,26 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
             title="Fermer"
           >
             <X className="w-5 h-5" />
+          </button>
+
+          {/* Bouton Debug Vision RAG */}
+          {doc.isIndexedVision && (
+            <button
+              onClick={handleCopyDebugInfo}
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors text-orange-400"
+              title="Copier les informations de debug Vision RAG dans le presse-papier"
+            >
+              <Bug className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Bouton Recréer Collection Vision RAG */}
+          <button
+            onClick={handleRecreateCollection}
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors text-red-400"
+            title="Recréer la collection Vision RAG (supprime toutes les données Vision RAG)"
+          >
+            <RefreshCw className="w-4 h-4" />
           </button>
 
           <div>
@@ -279,17 +403,56 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Toggle pour afficher/masquer le panel */}
           <button
             onClick={() => setShowChunksPanel(!showChunksPanel)}
             className={cn(
               'px-3 py-2 rounded-lg transition-colors flex items-center gap-2 text-sm',
               showChunksPanel ? 'bg-white/20' : 'hover:bg-white/10'
             )}
-            title="Afficher/masquer les chunks"
+            title="Afficher/masquer le panel"
           >
             <List className="w-4 h-4" />
-            <span>Chunks ({chunks.length})</span>
+            <span>
+              {viewMode === 'chunks' ? `Chunks (${chunks.length})` : `Patches (${patches.length})`}
+            </span>
           </button>
+
+          {/* Toggle chunks/patches si au moins un est disponible */}
+          {(hasChunks || hasPatches || doc.isIndexedText || doc.isIndexedVision) && (
+            <div className="flex items-center gap-1 bg-neutral-800 rounded-lg p-1">
+              {(hasChunks || doc.isIndexedText) && (
+                <button
+                  onClick={() => setViewMode('chunks')}
+                  className={cn(
+                    'px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-1.5',
+                    viewMode === 'chunks'
+                      ? 'bg-white/20 text-white'
+                      : 'text-neutral-400 hover:text-white'
+                  )}
+                  title="Afficher les chunks texte"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Chunks ({chunks.length})</span>
+                </button>
+              )}
+              {(hasPatches || doc.isIndexedVision) && (
+                <button
+                  onClick={() => setViewMode('patches')}
+                  className={cn(
+                    'px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-1.5',
+                    viewMode === 'patches'
+                      ? 'bg-white/20 text-white'
+                      : 'text-neutral-400 hover:text-white'
+                  )}
+                  title="Afficher les patches vision"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Patches ({patches.length})</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {onReindex && (
             <>
@@ -416,7 +579,7 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
           </div>
         )}
 
-        {/* Chunks Panel */}
+        {/* Chunks/Patches Panel */}
         {showChunksPanel && (
           <div
             className="flex flex-col bg-neutral-900/50"
@@ -425,31 +588,41 @@ export function DocumentViewer({ document: doc, onClose, onReindex, onValidate }
             <div className="p-4 border-b border-neutral-800">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-medium text-neutral-200">
-                  Chunks RAG
+                  {viewMode === 'chunks' ? 'Chunks RAG' : 'Patches Vision RAG'}
                 </h3>
-                {loading && (
+                {(viewMode === 'chunks' ? loading : patchesLoading) && (
                   <span className="text-xs text-muted-foreground">Chargement...</span>
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                {chunks.length} chunks générés
+                {viewMode === 'chunks'
+                  ? `${chunks.length} chunks générés`
+                  : `${patches.length} patches générés`}
               </p>
             </div>
 
-            <div className="flex-1 overflow-auto p-4">
-              {chunks.length === 0 ? (
-                <div className="text-center text-muted-foreground py-12">
-                  <p className="text-sm">Aucun chunk généré</p>
-                  <p className="text-xs mt-2 opacity-75">
-                    Indexez ce document pour générer des chunks
-                  </p>
-                </div>
+            <div className="flex-1 overflow-auto">
+              {viewMode === 'chunks' ? (
+                chunks.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-12">
+                    <p className="text-sm">Aucun chunk généré</p>
+                    <p className="text-xs mt-2 opacity-75">
+                      Indexez ce document pour générer des chunks
+                    </p>
+                  </div>
+                ) : (
+                  <ChunkList
+                    chunks={chunks}
+                    selectedChunkId={selectedChunkId}
+                    onSelectChunk={setSelectedChunkId}
+                    documentId={doc.id}
+                  />
+                )
               ) : (
-                <ChunkList
-                  chunks={chunks}
-                  selectedChunkId={selectedChunkId}
-                  onSelectChunk={setSelectedChunkId}
-                  documentId={doc.id}
+                <PatchList
+                  patches={patches}
+                  selectedPatchId={selectedPatchId}
+                  onSelectPatch={setSelectedPatchId}
                 />
               )}
             </div>

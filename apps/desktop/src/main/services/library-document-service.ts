@@ -578,48 +578,18 @@ export class LibraryDocumentService {
               documentId: params.documentId,
               stage: 'vision-indexing',
               percentage: mode === 'hybrid' ? 50 : 30,
-              message: 'Conversion PDF en images...',
+              message: 'Indexation visuelle MLX en cours...',
             });
 
-            // MLX requires PDF to be converted to images first
-            const tempDir = path.join(process.env.TEMP || '/tmp', `vision-rag-${doc.id}`);
-            await fs.mkdir(tempDir, { recursive: true });
-
-            try {
-              // Convert PDF to images
-              const conversionResult = await visionRAGService.convertPDFToImages(
-                doc.filePath,
-                tempDir,
-                200 // DPI
-              );
-
-              if (!conversionResult.success || !conversionResult.imagePaths) {
-                throw new Error(conversionResult.error || 'Failed to convert PDF to images');
-              }
-
-              params.onProgress?.({
-                documentId: params.documentId,
-                stage: 'vision-indexing',
-                percentage: mode === 'hybrid' ? 60 : 50,
-                message: `Indexation visuelle MLX (${conversionResult.imagePaths.length} pages)...`,
-              });
-
-              // Index with MLX
-              visionResult = await visionRAGService.indexDocument({
-                imagePaths: conversionResult.imagePaths,
-                attachmentId: doc.id,
-                entityType: 'document' as EntityType,
-                entityId: doc.libraryId,
-                model: visionModelName,
-              });
-
-              // Clean up temp images
-              await fs.rm(tempDir, { recursive: true, force: true });
-            } catch (error) {
-              // Clean up temp images even on error
-              await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
-              throw error;
-            }
+            // Pass PDF path directly to MLX (like Colette) - MLX embedder handles PDF conversion internally
+            // This ensures proper caching to ~/.blackia/mlx_vision_cache/
+            visionResult = await visionRAGService.indexDocument({
+              imagePaths: [doc.filePath], // PDF path directly, MLX handles conversion
+              attachmentId: doc.id,
+              entityType: 'document' as EntityType,
+              entityId: doc.libraryId,
+              model: visionModelName,
+            });
 
           } else if (modelBackend === 'colette' || !modelBackend) {
             // Use Colette Vision RAG Service for ColPali models
@@ -717,11 +687,21 @@ export class LibraryDocumentService {
         duration: `${duration}ms`,
       });
 
+      // Adapter le message selon le mode d'indexation
+      let completionMessage: string;
+      if (mode === 'vision') {
+        completionMessage = `Indexation terminée (${patchCount} patches)`;
+      } else if (mode === 'text') {
+        completionMessage = `Indexation terminée (${chunkCount} chunks)`;
+      } else {
+        completionMessage = `Indexation terminée (${chunkCount} chunks, ${patchCount} patches)`;
+      }
+
       params.onProgress?.({
         documentId: params.documentId,
         stage: 'complete',
         percentage: 100,
-        message: `Indexation terminée (${chunkCount} chunks, ${patchCount} patches)`,
+        message: completionMessage,
       });
 
       return {
@@ -878,9 +858,33 @@ export class LibraryDocumentService {
    */
   private async getModelBackend(modelName: string): Promise<'sentence-transformers' | 'mlx' | 'colette' | undefined> {
     try {
+      console.log('[LibraryDocumentService] getModelBackend called with:', modelName);
+
       const embeddingManager = getEmbeddingManager();
       const models = await embeddingManager.listModels();
+
+      console.log('[LibraryDocumentService] Available models count:', models.length);
+
       const model = models.find(m => m.name === modelName);
+
+      if (model) {
+        console.log('[LibraryDocumentService] Found model:', {
+          name: model.name,
+          backend: model.backend,
+          downloaded: model.downloaded,
+          modality: model.modality,
+        });
+      } else {
+        console.log('[LibraryDocumentService] Model NOT found:', modelName);
+        // Log available vision models for debugging
+        const visionModels = models.filter(m => m.modality === 'vision' || m.modality === 'multimodal');
+        console.log('[LibraryDocumentService] Available vision/multimodal models:', visionModels.map(m => ({
+          name: m.name,
+          backend: m.backend,
+          downloaded: m.downloaded,
+        })));
+      }
+
       return model?.backend;
     } catch (error) {
       console.error('[LibraryDocumentService] Error getting model backend:', error);

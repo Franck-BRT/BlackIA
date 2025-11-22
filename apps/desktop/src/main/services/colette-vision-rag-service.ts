@@ -31,6 +31,7 @@ interface ColetteEmbeddingsResult {
     embedding_dim: number;
     total_patches: number;
   };
+  cached_image_paths?: string[]; // Paths to cached page images (snake_case from Python)
   error?: string;
 }
 
@@ -276,6 +277,35 @@ export class ColetteVisionRAGService {
   }
 
   /**
+   * Convertir une image en base64
+   */
+  private async imageToBase64(imagePath: string): Promise<string | undefined> {
+    try {
+      console.log('[Colette] Converting to base64:', imagePath);
+      const fs = await import('fs/promises');
+
+      // Check if file exists first
+      try {
+        await fs.access(imagePath);
+      } catch {
+        console.error('[Colette] Image file not found:', imagePath);
+        return undefined;
+      }
+
+      const imageBuffer = await fs.readFile(imagePath);
+      const base64 = imageBuffer.toString('base64');
+      const ext = imagePath.toLowerCase().split('.').pop() || 'png';
+      const mimeType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
+      const result = `data:${mimeType};base64,${base64}`;
+      console.log('[Colette] Base64 conversion success, length:', result.length);
+      return result;
+    } catch (error) {
+      console.error('[Colette] Error converting image to base64:', imagePath, error);
+      return undefined;
+    }
+  }
+
+  /**
    * Indexer un document avec Colette Vision RAG
    */
   async indexDocument(params: VisionRAGIndexParams): Promise<{
@@ -308,15 +338,32 @@ export class ColetteVisionRAGService {
 
       const embeddings = embeddingsResult.embeddings; // [pages, patches, dims]
       const pageCount = embeddings.length;
+      // Note: Python uses snake_case, so we access cached_image_paths
+      const cachedImagePaths = embeddingsResult.cached_image_paths || [];
 
       console.log('[Colette] Generated embeddings for', pageCount, 'pages');
       console.log('[Colette] Metadata:', embeddingsResult.metadata);
+      console.log('[Colette] Cached image paths:', cachedImagePaths.length);
+      if (cachedImagePaths.length > 0) {
+        console.log('[Colette] First cached path:', cachedImagePaths[0]);
+      }
 
       // 2. Créer les schemas pour LanceDB
       const patchSchemas: VisionRAGPatchSchema[] = [];
 
       for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
         const patchVectors = embeddings[pageIndex]; // [patches, dims]
+
+        // Convertir l'image de la page en base64 pour l'affichage dans l'UI
+        // Utiliser les images cachées générées par le script Python
+        const cachedPath = cachedImagePaths[pageIndex];
+        console.log(`[Colette] Page ${pageIndex}: cached path = ${cachedPath || 'undefined'}`);
+
+        const imageBase64 = cachedPath
+          ? await this.imageToBase64(cachedPath)
+          : undefined;
+
+        console.log(`[Colette] Page ${pageIndex}: imageBase64 = ${imageBase64 ? 'set (length: ' + imageBase64.length + ')' : 'undefined'}`);
 
         const schema: VisionRAGPatchSchema = {
           id: `${params.attachmentId}-page-${pageIndex}`,
@@ -332,6 +379,7 @@ export class ColetteVisionRAGService {
             model: embeddingsResult.metadata?.model || model,
             numPatches: patchVectors.length,
             embeddingDim: patchVectors[0]?.length || 0,
+            imageBase64, // Stocker l'image pour l'affichage dans les sources
           }),
           createdAt: Date.now(),
         };
@@ -436,6 +484,74 @@ export class ColetteVisionRAGService {
         results: [],
         error: error instanceof Error ? error.message : 'Unknown error',
       };
+    }
+  }
+
+  /**
+   * Récupérer tous les patches d'un document pour visualisation
+   * Groupe les patches par page pour l'affichage dans l'UI
+   */
+  async getDocumentPatches(attachmentId: string): Promise<Array<{
+    id: string;
+    pageIndex: number;
+    pageNumber: number;
+    patchCount: number;
+    pageThumbnail?: string;
+    metadata: any;
+  }>> {
+    try {
+      console.log('[Colette] Getting patches for attachment:', attachmentId);
+      const patches = await vectorStore.getVisionPatchesByAttachment(attachmentId);
+      console.log('[Colette] Raw patches count:', patches.length);
+
+      // Grouper les patches par page
+      const patchesByPage = new Map<number, any[]>();
+
+      for (const patch of patches) {
+        const pageIndex = patch.pageIndex;
+        if (!patchesByPage.has(pageIndex)) {
+          patchesByPage.set(pageIndex, []);
+        }
+        patchesByPage.get(pageIndex)!.push(patch);
+      }
+
+      console.log('[Colette] Pages found:', patchesByPage.size);
+
+      // Créer un élément par page avec le total de patches
+      const result = Array.from(patchesByPage.entries()).map(([pageIndex, pagePatches]) => {
+        // Utiliser le premier patch de la page pour obtenir les métadonnées
+        const firstPatch = pagePatches[0];
+        const metadata = typeof firstPatch.metadata === 'string'
+          ? JSON.parse(firstPatch.metadata)
+          : firstPatch.metadata;
+
+        // Compter tous les vecteurs de patches pour cette page
+        let totalPatchCount = 0;
+        for (const patch of pagePatches) {
+          const patchVectors = typeof patch.patchVectors === 'string'
+            ? JSON.parse(patch.patchVectors)
+            : patch.patchVectors;
+          totalPatchCount += patchVectors.length;
+        }
+
+        return {
+          id: `page-${pageIndex}`, // ID unique par page
+          pageIndex,
+          pageNumber: pageIndex + 1,
+          patchCount: totalPatchCount,
+          pageThumbnail: metadata.imageBase64,
+          metadata,
+        };
+      });
+
+      // Trier par index de page
+      result.sort((a, b) => a.pageIndex - b.pageIndex);
+
+      console.log('[Colette] Returning', result.length, 'pages with patches');
+      return result;
+    } catch (error) {
+      console.error('[Colette] Error getting document patches:', error);
+      return [];
     }
   }
 

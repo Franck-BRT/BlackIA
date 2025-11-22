@@ -816,6 +816,55 @@ export class VectorStoreService {
   }
 
   /**
+   * Récupérer tous les patches d'un attachment pour visualisation
+   */
+  async getVisionPatchesByAttachment(attachmentId: string): Promise<any[]> {
+    if (!this.visionCollection) {
+      console.warn('[VectorStore] No vision collection available');
+      return [];
+    }
+
+    try {
+      console.log('[VectorStore] getVisionPatchesByAttachment called for:', attachmentId);
+
+      // Refresh collection to ensure we have the latest data
+      try {
+        this.visionCollection = await this.db.openTable(this.VISION_COLLECTION);
+        console.log('[VectorStore] Vision collection refreshed');
+      } catch (refreshError) {
+        console.warn('[VectorStore] Could not refresh vision collection:', refreshError);
+      }
+
+      // Fetch patches using dummy vector search with high limit
+      // Note: We need a high limit because we can't use WHERE filters reliably in LanceDB 0.4.x
+      const dummyVector = [0.0];
+      const query = this.visionCollection
+        .search(dummyVector)
+        .limit(200000) // Increased limit to handle large documents
+        .nprobes(100);
+
+      console.log('[VectorStore] Executing query...');
+      const allResults = await query.execute();
+      console.log('[VectorStore] Query returned', allResults.length, 'total patches');
+
+      // Log first few attachmentIds to debug
+      const sampleIds = allResults.slice(0, 5).map((r: any) => r.attachmentId);
+      console.log('[VectorStore] Sample attachmentIds from results:', sampleIds);
+      console.log('[VectorStore] Looking for attachmentId:', attachmentId);
+
+      // Filter by attachmentId in-memory
+      const filtered = allResults.filter((row: any) => row.attachmentId === attachmentId);
+
+      console.log('[VectorStore] Found', filtered.length, 'patches for attachment:', attachmentId);
+
+      return filtered;
+    } catch (error) {
+      console.error('[VectorStore] Error getting vision patches:', error);
+      return [];
+    }
+  }
+
+  /**
    * Recreate text collection with correct schema
    * Useful when changing embedding dimensions (e.g., 384 -> 768)
    */
@@ -843,6 +892,37 @@ export class VectorStoreService {
       logger.error('rag', 'Failed to recreate text collection', '', {
         error: error instanceof Error ? error.message : String(error)
       });
+      throw error;
+    }
+  }
+
+  /**
+   * Recreate vision collection with correct schema
+   * Useful when collection is corrupted or schema needs update
+   */
+  async recreateVisionCollection(): Promise<void> {
+    if (!this.db) {
+      throw new Error('VectorStore not initialized');
+    }
+
+    try {
+      console.log('[VectorStore] Recreating vision collection...');
+
+      // Drop existing table if it exists
+      try {
+        await this.db.dropTable(this.VISION_COLLECTION);
+        console.log('[VectorStore] Dropped old vision collection');
+      } catch (error) {
+        console.log('[VectorStore] No existing vision collection to drop');
+      }
+
+      // Reset the collection reference
+      this.visionCollection = null;
+
+      console.log('[VectorStore] Vision collection recreated successfully');
+      return;
+    } catch (error) {
+      console.error('[VectorStore] Failed to recreate vision collection:', error);
       throw error;
     }
   }
