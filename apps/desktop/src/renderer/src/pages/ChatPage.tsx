@@ -227,6 +227,25 @@ export function ChatPage() {
             errorCode: result.error?.code,
             fullResult: result,
           });
+
+          // Si l'outil n'est pas trouvé, afficher les outils disponibles pour debug
+          if (result.error?.code === 'TOOL_NOT_FOUND') {
+            try {
+              const availableTools = await window.api.invoke('mcp:getAllTools');
+              const toolNames = availableTools.map((t: any) => t.name);
+              console.log('[ChatPage] 📋 Outils MCP disponibles (premiers 30):', toolNames.slice(0, 30));
+              // Chercher des outils similaires
+              const similarTools = toolNames.filter((name: string) =>
+                name.toLowerCase().includes('file') ||
+                name.toLowerCase().includes('directory') ||
+                name.toLowerCase().includes('list') ||
+                name.toLowerCase().includes('ls')
+              );
+              console.log('[ChatPage] 🔍 Outils similaires (fichiers/répertoires):', similarTools);
+            } catch (e) {
+              console.error('[ChatPage] Impossible de récupérer la liste des outils');
+            }
+          }
         }
       } catch (error) {
         toolResults.push({
