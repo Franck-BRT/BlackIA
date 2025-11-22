@@ -21,6 +21,7 @@ import {
 } from './mcp-protocol';
 import { mcpToolsRegistry } from './mcp-tools-registry';
 import { mcpExecutor, MCPExecutor } from './mcp-executor';
+import * as mcpPersistence from './mcp-persistence';
 
 // ============================================================================
 // MCP SERVER CLASS
@@ -75,6 +76,45 @@ export class MCPServer extends EventEmitter {
   public async start(): Promise<void> {
     if (this.state.running) {
       return;
+    }
+
+    // Charger les répertoires depuis la base de données
+    try {
+      const savedDirectories = await mcpPersistence.loadDirectories();
+      if (savedDirectories.length > 0) {
+        this.permissionsConfig.directories = savedDirectories;
+        console.log('[MCPServer] Loaded', savedDirectories.length, 'directories from database');
+      }
+    } catch (error) {
+      console.error('[MCPServer] Error loading directories:', error);
+    }
+
+    // Charger les permissions depuis la base de données
+    try {
+      const savedPermissions = await mcpPersistence.loadPermissions();
+      for (const saved of savedPermissions) {
+        const perm = this.permissionsConfig.permissions.find(p => p.permission === saved.permission);
+        if (perm) {
+          perm.enabled = saved.enabled;
+        }
+      }
+      console.log('[MCPServer] Loaded', savedPermissions.length, 'permissions from database');
+    } catch (error) {
+      console.error('[MCPServer] Error loading permissions:', error);
+    }
+
+    // Charger les configurations d'outils
+    try {
+      const savedToolConfigs = await mcpPersistence.loadToolConfigs();
+      for (const config of savedToolConfigs) {
+        const tool = mcpToolsRegistry.getTool(config.toolName);
+        if (tool) {
+          tool.enabled = config.enabled;
+        }
+      }
+      console.log('[MCPServer] Loaded', savedToolConfigs.length, 'tool configs from database');
+    } catch (error) {
+      console.error('[MCPServer] Error loading tool configs:', error);
     }
 
     this.state = {
@@ -236,6 +276,11 @@ export class MCPServer extends EventEmitter {
       perm.enabled = enabled;
       this.applyPermissionsToExecutor();
       this.emit('permissionChanged', { permission, enabled });
+
+      // Sauvegarder dans la base de données
+      mcpPersistence.savePermission(permission, enabled).catch(err => {
+        console.error('[MCPServer] Error saving permission to database:', err);
+      });
     }
   }
 
@@ -265,6 +310,11 @@ export class MCPServer extends EventEmitter {
     }
     this.applyPermissionsToExecutor();
     this.emit('directoryAdded', directory);
+
+    // Sauvegarder dans la base de données
+    mcpPersistence.saveDirectory(directory).catch(err => {
+      console.error('[MCPServer] Error saving directory to database:', err);
+    });
   }
 
   /**
@@ -276,6 +326,11 @@ export class MCPServer extends EventEmitter {
       const removed = this.permissionsConfig.directories.splice(index, 1)[0];
       this.applyPermissionsToExecutor();
       this.emit('directoryRemoved', removed);
+
+      // Supprimer de la base de données
+      mcpPersistence.deleteDirectory(directoryId).catch(err => {
+        console.error('[MCPServer] Error deleting directory from database:', err);
+      });
     }
   }
 
@@ -289,6 +344,11 @@ export class MCPServer extends EventEmitter {
       directory.updatedAt = Date.now();
       this.applyPermissionsToExecutor();
       this.emit('directoryUpdated', directory);
+
+      // Sauvegarder dans la base de données
+      mcpPersistence.updateDirectoryPermissions(directoryId, permissions).catch(err => {
+        console.error('[MCPServer] Error updating directory permissions in database:', err);
+      });
     }
   }
 
@@ -332,6 +392,11 @@ export class MCPServer extends EventEmitter {
     if (tool) {
       tool.enabled = enabled;
       this.emit('toolChanged', { tool: toolName, enabled });
+
+      // Sauvegarder dans la base de données
+      mcpPersistence.saveToolConfig(toolName, tool.category, enabled).catch(err => {
+        console.error('[MCPServer] Error saving tool config to database:', err);
+      });
     }
   }
 

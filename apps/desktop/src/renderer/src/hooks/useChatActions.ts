@@ -393,30 +393,25 @@ export function useChatActions({
             console.log('[useChatActions] ✅ Outils MCP activés:', mcpResult.enabledTools.length);
           }
 
-          // Si des outils sont désactivés, préparer l'info pour le système
+          // Si des outils sont désactivés, préparer l'info pour le système (limité à 10 outils max)
           if (mcpResult.disabledTools && mcpResult.disabledTools.length > 0) {
             console.log('[useChatActions] ⚠️ Outils désactivés:', mcpResult.disabledTools.length);
 
-            const disabledInfo = mcpResult.disabledTools.map((tool: any) => {
-              const reasons: string[] = [];
-              if (tool.isToolDisabled) {
-                reasons.push('outil désactivé par l\'utilisateur');
-              }
-              if (tool.missingPermissions && tool.missingPermissions.length > 0) {
-                const permDetails = tool.missingPermissions.map((p: any) => {
-                  if (!p.granted) {
-                    return `"${p.label}" (non accordée dans macOS - aller dans Préférences Système > Confidentialité)`;
-                  } else if (!p.enabled) {
-                    return `"${p.label}" (désactivée dans BlackIA - aller dans Outils > Permissions)`;
-                  }
-                  return p.label;
-                });
-                reasons.push(`permissions manquantes: ${permDetails.join(', ')}`);
-              }
-              return `- ${tool.icon} ${tool.name}: ${tool.description}\n  Raison: ${reasons.join('; ')}\n  → Pour activer: Outils > Permissions`;
+            // Limiter à 10 outils pour ne pas surcharger le prompt
+            const toolsToShow = mcpResult.disabledTools.slice(0, 10);
+            const remainingCount = mcpResult.disabledTools.length - toolsToShow.length;
+
+            const disabledInfo = toolsToShow.map((tool: any) => {
+              const missingPerms = tool.missingPermissions?.map((p: any) => p.label).join(', ') || 'permission manquante';
+              return `• ${tool.name}: ${missingPerms}`;
             });
 
-            disabledToolsInfo = `\n\n---\nOUTILS SYSTÈME DISPONIBLES MAIS NON ACTIVÉS:\nSi l'utilisateur demande une action nécessitant un de ces outils, explique-lui quel outil serait nécessaire et comment activer les permissions:\n${disabledInfo.join('\n\n')}`;
+            let infoText = disabledInfo.join('\n');
+            if (remainingCount > 0) {
+              infoText += `\n• ... et ${remainingCount} autres outils`;
+            }
+
+            disabledToolsInfo = `\n\n[OUTILS NON DISPONIBLES - permissions manquantes]\nPour activer: Outils > Permissions\n${infoText}`;
           }
 
           if (!tools || tools.length === 0) {
