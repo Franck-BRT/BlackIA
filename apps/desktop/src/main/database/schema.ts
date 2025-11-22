@@ -627,6 +627,7 @@ export const mcpPermissions = sqliteTable('mcp_permissions', {
   id: text('id').primaryKey(),
   permission: text('permission').notNull().unique(), // accessibility, screen_capture, etc.
   enabled: integer('enabled', { mode: 'boolean' }).notNull().default(false),
+  granted: integer('granted', { mode: 'boolean' }).notNull().default(false), // Permission accordée par l'utilisateur
   grantedAt: integer('granted_at', { mode: 'timestamp' }),
   lastCheckedAt: integer('last_checked_at', { mode: 'timestamp' }),
 

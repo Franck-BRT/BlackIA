@@ -122,7 +122,7 @@ export async function updateDirectoryPermissions(
 /**
  * Charge toutes les permissions depuis la base de données
  */
-export async function loadPermissions(): Promise<Array<{ permission: string; enabled: boolean }>> {
+export async function loadPermissions(): Promise<Array<{ permission: string; enabled: boolean; granted: boolean }>> {
   try {
     const db = getDatabase();
     const rows = await db.select().from(mcpPermissions);
@@ -132,6 +132,7 @@ export async function loadPermissions(): Promise<Array<{ permission: string; ena
     return rows.map(row => ({
       permission: row.permission,
       enabled: row.enabled,
+      granted: row.granted ?? false, // Fallback pour les anciennes entrées sans ce champ
     }));
   } catch (error) {
     console.error('[MCP Persistence] Error loading permissions:', error);
@@ -142,7 +143,7 @@ export async function loadPermissions(): Promise<Array<{ permission: string; ena
 /**
  * Sauvegarde une permission dans la base de données
  */
-export async function savePermission(permission: string, enabled: boolean): Promise<void> {
+export async function savePermission(permission: string, enabled: boolean, granted: boolean = true): Promise<void> {
   try {
     const db = getDatabase();
     const now = new Date();
@@ -152,6 +153,8 @@ export async function savePermission(permission: string, enabled: boolean): Prom
         id: `perm-${permission}`,
         permission,
         enabled,
+        granted,
+        grantedAt: granted ? now : undefined,
         lastCheckedAt: now,
         createdAt: now,
         updatedAt: now,
@@ -160,12 +163,14 @@ export async function savePermission(permission: string, enabled: boolean): Prom
         target: mcpPermissions.permission,
         set: {
           enabled,
+          granted,
+          grantedAt: granted ? now : undefined,
           lastCheckedAt: now,
           updatedAt: now,
         },
       });
 
-    console.log('[MCP Persistence] Saved permission:', permission, enabled);
+    console.log('[MCP Persistence] Saved permission:', permission, 'enabled:', enabled, 'granted:', granted);
   } catch (error) {
     console.error('[MCP Persistence] Error saving permission:', error);
     throw error;

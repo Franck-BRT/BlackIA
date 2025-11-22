@@ -96,6 +96,7 @@ export class MCPServer extends EventEmitter {
         const perm = this.permissionsConfig.permissions.find(p => p.permission === saved.permission);
         if (perm) {
           perm.enabled = saved.enabled;
+          perm.granted = saved.granted; // Restaurer aussi le statut granted
         }
       }
       console.log('[MCPServer] Loaded', savedPermissions.length, 'permissions from database');
@@ -274,11 +275,15 @@ export class MCPServer extends EventEmitter {
     const perm = this.permissionsConfig.permissions.find(p => p.permission === permission);
     if (perm) {
       perm.enabled = enabled;
+      // Quand l'utilisateur active une permission, on considère qu'il l'a aussi accordée
+      if (enabled) {
+        perm.granted = true;
+      }
       this.applyPermissionsToExecutor();
-      this.emit('permissionChanged', { permission, enabled });
+      this.emit('permissionChanged', { permission, enabled, granted: perm.granted });
 
-      // Sauvegarder dans la base de données
-      mcpPersistence.savePermission(permission, enabled).catch(err => {
+      // Sauvegarder dans la base de données (avec le statut granted)
+      mcpPersistence.savePermission(permission, enabled, perm.granted).catch(err => {
         console.error('[MCPServer] Error saving permission to database:', err);
       });
     }
