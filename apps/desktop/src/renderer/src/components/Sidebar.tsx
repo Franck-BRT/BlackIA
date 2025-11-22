@@ -14,6 +14,7 @@ import {
   PenSquare,
   X,
   Library,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@blackia/ui';
 
@@ -38,6 +39,7 @@ const navItems: NavItem[] = [
   { icon: User, label: 'Personas', path: '/personas' },
   { icon: FolderOpen, label: 'Projets', path: '/projects' },
   { icon: Library, label: 'Bibliothèque', path: '/library' },
+  { icon: Zap, label: 'Outils', path: '/tools' },
   { icon: ScrollText, label: 'Logs', path: '/logs' },
   { icon: BookOpen, label: 'Documentation', path: '/documentation' },
 ];

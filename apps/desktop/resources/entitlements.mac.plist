@@ -29,5 +29,39 @@
     <!-- Autoriser le debugging -->
     <key>com.apple.security.get-task-allow</key>
     <true/>
+
+    <!-- === PERMISSIONS MCP (Outils Système) === -->
+
+    <!-- Automation/AppleScript - Contrôle d'applications tierces -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+
+    <!-- Accès au micro (pour certains outils multimedia) -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+
+    <!-- Accès caméra (pour capture) -->
+    <key>com.apple.security.device.camera</key>
+    <true/>
+
+    <!-- Accès Bluetooth -->
+    <key>com.apple.security.device.bluetooth</key>
+    <true/>
+
+    <!-- Accès localisation -->
+    <key>com.apple.security.personal-information.location</key>
+    <true/>
+
+    <!-- Accès photos -->
+    <key>com.apple.security.personal-information.photos-library</key>
+    <true/>
+
+    <!-- Accès calendriers -->
+    <key>com.apple.security.personal-information.calendars</key>
+    <true/>
+
+    <!-- Accès contacts -->
+    <key>com.apple.security.personal-information.addressbook</key>
+    <true/>
 </dict>
 </plist>

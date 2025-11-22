@@ -22,6 +22,8 @@ import { registerAttachmentHandlers } from './handlers/attachment-handlers';
 import { registerLibraryHandlers } from './handlers/library-handlers';
 import { registerLibraryDocumentHandlers } from './handlers/library-document-handlers';
 import { registerChunkEditorHandlers } from './handlers/chunk-editor-handlers';
+import { registerMCPHandlers } from './handlers/mcp-handlers';
+import { mcpServer } from './services/mcp';
 import { initDatabase, runMigrations } from './database/client';
 import { DocumentationService } from './services/documentation-db-service';
 import { WorkflowTemplateService } from './services/workflow-db-service';
@@ -185,7 +187,13 @@ app.whenReady().then(async () => {
     registerLibraryHandlers(); // Library management
     registerLibraryDocumentHandlers(); // Library documents
     registerChunkEditorHandlers(); // Chunk editor
+    registerMCPHandlers(); // MCP Tools system
     console.log('[App] ✅ IPC handlers registered');
+
+    // Démarrer le serveur MCP
+    console.log('[App] Starting MCP Server...');
+    await mcpServer.start();
+    console.log('[App] ✅ MCP Server started');
 
     console.log('[App] =====================================');
     console.log('[App] ✅ ALL SERVICES INITIALIZED SUCCESSFULLY');

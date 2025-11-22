@@ -4,6 +4,7 @@ import { ModelSelector } from './ModelSelector';
 import { ExportMenu } from './ExportMenu';
 import { ImportExportMenu, BackupData } from './ImportExportMenu';
 import { WebSearchToggle } from './WebSearchToggle';
+import { MCPToggle } from './MCPToggle';
 import { AttachmentHeaderButton } from './AttachmentHeaderButton';
 import { RAGToggle } from './RAGToggle';
 import type { OllamaMessage } from '@blackia/ollama';
@@ -41,6 +42,13 @@ interface ChatHeaderProps {
   ragMode: 'text' | 'vision' | 'hybrid' | 'auto';
   setRagMode: (mode: 'text' | 'vision' | 'hybrid' | 'auto') => void;
 
+  // MCP (outils système)
+  mcpEnabled: boolean;
+  setMcpEnabled: (enabled: boolean) => void;
+  isMcpExecuting?: boolean;
+  mcpEnabledToolsCount?: number;
+  mcpError?: string | null;
+
   // Messages
   messages: OllamaMessage[];
   conversations: Conversation[];
@@ -77,6 +85,11 @@ export function ChatHeader({
   setRagEnabled,
   ragMode,
   setRagMode,
+  mcpEnabled,
+  setMcpEnabled,
+  isMcpExecuting,
+  mcpEnabledToolsCount,
+  mcpError,
   messages,
   conversations,
   folders,
@@ -163,6 +176,17 @@ export function ChatHeader({
             />
           </div>
         )}
+
+        {/* MCP Toggle (outils système) */}
+        <div className="hidden md:block">
+          <MCPToggle
+            enabled={mcpEnabled}
+            isExecuting={isMcpExecuting}
+            onToggle={setMcpEnabled}
+            enabledToolsCount={mcpEnabledToolsCount}
+            hasError={!!mcpError}
+          />
+        </div>
       </div>
 
       {/* Right side - Actions (adaptés pour mobile) */}

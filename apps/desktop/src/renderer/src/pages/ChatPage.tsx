@@ -103,6 +103,15 @@ export function ChatPage() {
     setRagEnabled,
     ragMode,
     setRagMode,
+    // MCP (outils système)
+    mcpEnabled,
+    setMcpEnabled,
+    mcpToolCalls,
+    setMcpToolCalls,
+    isMcpExecuting,
+    setIsMcpExecuting,
+    mcpError,
+    setMcpError,
     // Settings
     chatSettings,
     updateChatSettings,
@@ -163,6 +172,25 @@ export function ChatPage() {
   const activeProvider = settings.webSearch.providers.find(
     (p) => p.id === settings.webSearch.defaultProvider
   );
+
+  // État pour le nombre d'outils MCP activés
+  const [mcpEnabledToolsCount, setMcpEnabledToolsCount] = useState(0);
+
+  // Charger le nombre d'outils MCP activés
+  useEffect(() => {
+    const loadMcpToolsCount = async () => {
+      try {
+        const result = await window.api.invoke('mcp:getTools');
+        if (result.success && result.tools) {
+          const enabledCount = result.tools.filter((t: any) => t.enabled).length;
+          setMcpEnabledToolsCount(enabledCount);
+        }
+      } catch (error) {
+        console.error('[ChatPage] Erreur lors du chargement des outils MCP:', error);
+      }
+    };
+    loadMcpToolsCount();
+  }, [mcpEnabled]);
 
   // 3. Streaming Ollama
   useChatStreaming({
@@ -562,6 +590,11 @@ export function ChatPage() {
           setRagEnabled={setRagEnabled}
           ragMode={ragMode}
           setRagMode={setRagMode}
+          mcpEnabled={mcpEnabled}
+          setMcpEnabled={setMcpEnabled}
+          isMcpExecuting={isMcpExecuting}
+          mcpEnabledToolsCount={mcpEnabledToolsCount}
+          mcpError={mcpError}
           messages={messages}
           conversations={conversations}
           folders={folders}
@@ -605,6 +638,7 @@ export function ChatPage() {
             showSources: settings.webSearch.showSources,
             sourcesCollapsed: settings.webSearch.sourcesCollapsed,
           }}
+          mcpToolCalls={mcpToolCalls}
           handleRegenerate={handleRegenerate}
           handleEditUserMessage={handleEditUserMessage}
           messagesEndRef={messagesEndRef}

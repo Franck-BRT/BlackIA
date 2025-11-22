@@ -597,3 +597,96 @@ export const mlxModelsTypeIndex = index('mlx_models_type_idx').on(mlxModels.mode
 
 export type MLXModel = typeof mlxModels.$inferSelect;
 export type NewMLXModel = typeof mlxModels.$inferInsert;
+
+/**
+ * Table MCPToolsConfig
+ * Configuration des outils MCP (activé/désactivé, paramètres personnalisés)
+ */
+export const mcpToolsConfig = sqliteTable('mcp_tools_config', {
+  id: text('id').primaryKey(),
+  toolName: text('tool_name').notNull().unique(),
+  category: text('category').notNull(),
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+  config: text('config').notNull().default('{}'), // JSON object pour config personnalisée
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const mcpToolsConfigNameIndex = index('mcp_tools_config_name_idx').on(mcpToolsConfig.toolName);
+
+export type MCPToolConfig = typeof mcpToolsConfig.$inferSelect;
+export type NewMCPToolConfig = typeof mcpToolsConfig.$inferInsert;
+
+/**
+ * Table MCPPermissions
+ * Permissions système macOS pour MCP
+ */
+export const mcpPermissions = sqliteTable('mcp_permissions', {
+  id: text('id').primaryKey(),
+  permission: text('permission').notNull().unique(), // accessibility, screen_capture, etc.
+  enabled: integer('enabled', { mode: 'boolean' }).notNull().default(false),
+  grantedAt: integer('granted_at', { mode: 'timestamp' }),
+  lastCheckedAt: integer('last_checked_at', { mode: 'timestamp' }),
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export type MCPPermission = typeof mcpPermissions.$inferSelect;
+export type NewMCPPermission = typeof mcpPermissions.$inferInsert;
+
+/**
+ * Table MCPDirectoryAccess
+ * Répertoires autorisés pour les outils fichiers MCP
+ */
+export const mcpDirectoryAccess = sqliteTable('mcp_directory_access', {
+  id: text('id').primaryKey(),
+  path: text('path').notNull().unique(),
+  name: text('name').notNull(), // Nom affiché (ex: "Documents", "Bureau")
+
+  // Permissions pour ce répertoire (JSON array: ["read", "write", "delete", "execute", "move"])
+  permissions: text('permissions').notNull().default('["read"]'),
+  includeSubdirectories: integer('include_subdirectories', { mode: 'boolean' }).notNull().default(true),
+
+  // Timestamps
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const mcpDirectoryAccessPathIndex = index('mcp_directory_access_path_idx').on(mcpDirectoryAccess.path);
+
+export type MCPDirectoryAccess = typeof mcpDirectoryAccess.$inferSelect;
+export type NewMCPDirectoryAccess = typeof mcpDirectoryAccess.$inferInsert;
+
+/**
+ * Table MCPToolCallLogs
+ * Historique des appels d'outils MCP
+ */
+export const mcpToolCallLogs = sqliteTable('mcp_tool_call_logs', {
+  id: text('id').primaryKey(),
+  toolName: text('tool_name').notNull(),
+  parameters: text('parameters').notNull().default('{}'), // JSON
+
+  // Résultat
+  status: text('status', {
+    enum: ['pending', 'running', 'success', 'error', 'cancelled', 'timeout']
+  }).notNull(),
+  result: text('result'), // JSON
+  error: text('error'), // JSON error object
+
+  // Métriques
+  duration: integer('duration'), // millisecondes
+
+  // Timestamp
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+export const mcpToolCallLogsToolIndex = index('mcp_tool_call_logs_tool_idx').on(mcpToolCallLogs.toolName);
+export const mcpToolCallLogsStatusIndex = index('mcp_tool_call_logs_status_idx').on(mcpToolCallLogs.status);
+export const mcpToolCallLogsCreatedIndex = index('mcp_tool_call_logs_created_idx').on(mcpToolCallLogs.createdAt);
+
+export type MCPToolCallLog = typeof mcpToolCallLogs.$inferSelect;
+export type NewMCPToolCallLog = typeof mcpToolCallLogs.$inferInsert;

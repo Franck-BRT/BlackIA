@@ -15,6 +15,7 @@ import { LogsPage } from './pages/LogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { DocumentationPage } from './pages/DocumentationPage';
 import { LibraryPage } from './pages/LibraryPage';
+import { ToolsPage } from './pages/ToolsPage';
 
 // Map des composants de pages (défini en dehors pour éviter les re-créations)
 const PAGE_COMPONENTS: Record<string, React.ComponentType> = {
@@ -26,6 +27,7 @@ const PAGE_COMPONENTS: Record<string, React.ComponentType> = {
   'personas': PersonasPage,
   'projects': ProjectsPage,
   'library': LibraryPage,
+  'tools': ToolsPage,
   'logs': LogsPage,
   'documentation': DocumentationPage,
   'settings': SettingsPage,
@@ -65,6 +67,7 @@ function AppContent() {
           <Route path="/personas" element={<PersonasPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/library" element={<LibraryPage />} />
+          <Route path="/tools" element={<ToolsPage />} />
           <Route path="/logs" element={<LogsPage />} />
           <Route path="/documentation" element={<DocumentationPage />} />
           <Route path="/settings" element={<SettingsPage />} />

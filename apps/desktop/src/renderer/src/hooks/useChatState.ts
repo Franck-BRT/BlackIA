@@ -4,6 +4,7 @@ import type { MessageMetadata } from './useConversations';
 import type { Folder } from './useConversations';
 import type { WebSearchResponse } from '@blackia/shared';
 import { ChatSettingsData, DEFAULT_CHAT_SETTINGS } from '../components/chat/ChatSettings';
+import type { ToolCallData } from '../components/chat/ToolCallDisplay';
 
 /**
  * Hook pour centraliser tous les états du ChatPage
@@ -51,6 +52,12 @@ export function useChatState() {
   const [ragEnabled, setRagEnabled] = useState(false);
   const [ragMode, setRagMode] = useState<'text' | 'vision' | 'hybrid' | 'auto'>('auto');
 
+  // États MCP (outils système)
+  const [mcpEnabled, setMcpEnabled] = useState(false);
+  const [mcpToolCalls, setMcpToolCalls] = useState<Record<number, ToolCallData[]>>({}); // Par index de message
+  const [isMcpExecuting, setIsMcpExecuting] = useState(false);
+  const [mcpError, setMcpError] = useState<string | null>(null);
+
   // Chat settings avec persistence localStorage
   const [chatSettings, setChatSettings] = useState<ChatSettingsData>(() => {
     try {
@@ -86,6 +93,8 @@ export function useChatState() {
     previousMessagesLengthRef.current = 0;
     setRegenerationCounts(new Map());
     setWebSearchResults({});
+    setMcpToolCalls({});
+    setMcpError(null);
   };
 
   // Auto-scroll vers le bas
@@ -164,6 +173,16 @@ export function useChatState() {
     setRagEnabled,
     ragMode,
     setRagMode,
+
+    // MCP (outils système)
+    mcpEnabled,
+    setMcpEnabled,
+    mcpToolCalls,
+    setMcpToolCalls,
+    isMcpExecuting,
+    setIsMcpExecuting,
+    mcpError,
+    setMcpError,
 
     // Settings
     chatSettings,

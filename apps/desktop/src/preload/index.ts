@@ -549,6 +549,20 @@ const api = {
     getChunksForTextSelection: (params: any) => ipcRenderer.invoke('chunk-editor:getChunksForTextSelection', params),
     getTextPositionForChunk: (chunkId: string, documentId: string) => ipcRenderer.invoke('chunk-editor:getTextPositionForChunk', chunkId, documentId),
   },
+
+  // Generic IPC invoke (for MCP and other handlers)
+  invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
+
+  // Generic event listeners
+  on: (channel: string, callback: (...args: any[]) => void) => {
+    ipcRenderer.on(channel, (_event, ...args) => callback(_event, ...args));
+  },
+  off: (channel: string, callback: (...args: any[]) => void) => {
+    ipcRenderer.removeListener(channel, callback);
+  },
+  removeAllListeners: (channel: string) => {
+    ipcRenderer.removeAllListeners(channel);
+  },
 };
 
 // Exposer l'API dans le window

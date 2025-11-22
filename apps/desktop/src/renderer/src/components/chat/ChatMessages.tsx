@@ -3,6 +3,7 @@ import { ChatMessage } from './ChatMessage';
 import { SourcesList } from './SourcesList';
 import { RAGSources } from './RAGSources';
 import { ChunkViewModal } from './ChunkViewModal';
+import { ToolCallDisplay, ToolCallData } from './ToolCallDisplay';
 import type { OllamaMessage } from '@blackia/ollama';
 import type { Persona } from '../../types/persona';
 import type { MessageMetadata } from '../../hooks/useConversations';
@@ -40,6 +41,9 @@ interface ChatMessagesProps {
   webSearchResults: Record<number, WebSearchResponse>;
   webSearchSettings: { showSources: boolean; sourcesCollapsed: boolean };
 
+  // MCP Tool Calls
+  mcpToolCalls?: Record<number, ToolCallData[]>;
+
   // Handlers
   handleRegenerate: () => void;
   handleEditUserMessage: (content: string) => void;
@@ -67,6 +71,7 @@ export function ChatMessages({
   chatSettings,
   webSearchResults,
   webSearchSettings,
+  mcpToolCalls,
   handleRegenerate,
   handleEditUserMessage,
   messagesEndRef,
@@ -125,6 +130,8 @@ export function ChatMessages({
           const webSearch = webSearchResults[index];
           const shouldShowWebSources = webSearch && webSearchSettings.showSources && message.role === 'assistant';
           const shouldShowRAGSources = metadata?.ragMetadata && message.role === 'assistant';
+          const toolCalls = mcpToolCalls?.[index];
+          const shouldShowToolCalls = toolCalls && toolCalls.length > 0 && message.role === 'assistant';
 
           // Debug logging pour RAG
           if (message.role === 'assistant') {
@@ -167,6 +174,14 @@ export function ChatMessages({
                   provider={webSearch.provider}
                   defaultCollapsed={webSearchSettings.sourcesCollapsed}
                 />
+              )}
+              {shouldShowToolCalls && (
+                <div className="max-w-3xl w-full ml-[52px]">
+                  <ToolCallDisplay
+                    toolCalls={toolCalls}
+                    collapsed={true}
+                  />
+                </div>
               )}
             </React.Fragment>
           );
