@@ -220,7 +220,13 @@ export function ChatPage() {
             result: null,
             error: result.error?.message || 'Erreur inconnue',
           });
-          console.error(`[ChatPage] ❌ Erreur outil ${toolCall.function.name}:`, result.error);
+          console.error(`[ChatPage] ❌ Erreur outil ${toolCall.function.name}:`, {
+            status: result.status,
+            error: result.error,
+            errorMessage: result.error?.message,
+            errorCode: result.error?.code,
+            fullResult: result,
+          });
         }
       } catch (error) {
         toolResults.push({
