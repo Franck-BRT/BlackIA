@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2, FolderOpen, Search, Tag, X as XIcon, Star } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, Folder as FolderIcon, MoreVertical, Edit2, FolderOpen, Search, Tag, X as XIcon, Star, CheckSquare, Square } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { RenameConversationModal } from './RenameConversationModal';
 import { TagSelector } from './TagSelector';
@@ -20,6 +20,7 @@ interface ConversationSidebarProps {
   onSelectConversation: (id: string) => void;
   onNewConversation: () => void;
   onDeleteConversation: (id: string) => void;
+  onDeleteMultipleConversations?: (ids: string[]) => void;
   onCreateFolder: (name: string, color: string) => void;
   onRenameFolder: (id: string, newName: string) => void;
   onDeleteFolder: (id: string) => void;
@@ -42,6 +43,7 @@ export function ConversationSidebar({
   onSelectConversation,
   onNewConversation,
   onDeleteConversation,
+  onDeleteMultipleConversations,
   onCreateFolder,
   onRenameFolder,
   onDeleteFolder,
@@ -59,8 +61,55 @@ export function ConversationSidebar({
   const [searchQuery, setSearchQuery] = useState('');
   const [tagSelectorMenu, setTagSelectorMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null);
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const tagSelectorRef = useRef<HTMLDivElement>(null);
+
+  // Gérer la sélection/désélection d'une conversation
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Sélectionner/désélectionner tout
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredConversations.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredConversations.map(c => c.id)));
+    }
+  };
+
+  // Supprimer les conversations sélectionnées
+  const deleteSelected = () => {
+    if (selectedIds.size === 0) return;
+
+    const count = selectedIds.size;
+    if (confirm(`Supprimer ${count} conversation${count > 1 ? 's' : ''} ?`)) {
+      if (onDeleteMultipleConversations) {
+        onDeleteMultipleConversations(Array.from(selectedIds));
+      } else {
+        // Fallback: supprimer une par une
+        selectedIds.forEach(id => onDeleteConversation(id));
+      }
+      setSelectedIds(new Set());
+      setSelectionMode(false);
+    }
+  };
+
+  // Annuler la sélection
+  const cancelSelection = () => {
+    setSelectedIds(new Set());
+    setSelectionMode(false);
+  };
 
   // Fermer le menu contextuel si on clique à l'extérieur
   useEffect(() => {
@@ -180,20 +229,34 @@ export function ConversationSidebar({
   const renderConversation = (conv: Conversation) => {
     // Obtenir le persona de la conversation s'il existe
     const persona = conv.personaId ? personas.find(p => p.id === conv.personaId) : null;
+    const isSelected = selectedIds.has(conv.id);
 
     return (
       <div
         key={conv.id}
         className={`group relative rounded-xl transition-colors cursor-pointer ${
-          currentConversationId === conv.id
+          currentConversationId === conv.id && !selectionMode
             ? 'bg-blue-500/20 hover:bg-blue-500/30'
+            : isSelected
+            ? 'bg-purple-500/20 hover:bg-purple-500/30'
             : 'hover:bg-white/5'
         }`}
       >
-        <div onClick={() => onSelectConversation(conv.id)} className="p-3 pr-16">
+        <div
+          onClick={() => selectionMode ? toggleSelection(conv.id) : onSelectConversation(conv.id)}
+          className="p-3 pr-16"
+        >
           <div className="flex items-start gap-3">
-            {/* Afficher le persona avatar ou l'icône par défaut */}
-            {persona ? (
+            {/* Checkbox en mode sélection */}
+            {selectionMode ? (
+              <div className="mt-0.5">
+                {isSelected ? (
+                  <CheckSquare className="w-5 h-5 text-purple-400" />
+                ) : (
+                  <Square className="w-5 h-5 text-muted-foreground" />
+                )}
+              </div>
+            ) : persona ? (
               <div
                 className={`w-7 h-7 rounded-lg bg-gradient-to-br ${
                   PERSONA_COLOR_CLASSES[persona.color] || PERSONA_COLOR_CLASSES.purple
@@ -248,20 +311,22 @@ export function ConversationSidebar({
         </div>
       </div>
 
-      {/* Actions - Options button only */}
-      <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 z-10">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            const rect = e.currentTarget.getBoundingClientRect();
-            setContextMenu({ conversationId: conv.id, x: rect.left, y: rect.bottom + 5 });
-          }}
-          className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
-          title="Options"
-        >
-          <MoreVertical className="w-4 h-4" />
-        </button>
-      </div>
+      {/* Actions - Options button only (hidden in selection mode) */}
+      {!selectionMode && (
+        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 z-10">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              setContextMenu({ conversationId: conv.id, x: rect.left, y: rect.bottom + 5 });
+            }}
+            className="p-1.5 rounded-lg hover:bg-white/10 transition-all"
+            title="Options"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
     );
   };
@@ -269,30 +334,77 @@ export function ConversationSidebar({
   return (
     <div className="h-full flex flex-col glass-card border-r border-white/10">
       {/* Header */}
-      <div className="p-4 border-b border-white/10 space-y-2">
-        <button
-          onClick={onNewConversation}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 transition-colors text-blue-400"
-        >
-          <Plus className="w-5 h-5" />
-          <span className="font-medium">Nouvelle conversation</span>
-        </button>
-        <button
-          onClick={() => onOpenFolderModal()}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl glass-hover hover:bg-white/10 transition-colors text-sm"
-        >
-          <FolderIcon className="w-4 h-4" />
-          <span>Nouveau dossier</span>
-        </button>
-        {onOpenChatSearch && (
-          <button
-            onClick={() => onOpenChatSearch(searchQuery)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl glass-hover hover:bg-white/10 transition-colors text-sm"
-            title="Rechercher dans la conversation (Ctrl+F)"
-          >
-            <Search className="w-4 h-4" />
-            <span>Rechercher dans le chat</span>
-          </button>
+      <div className="p-4 border-b border-white/10">
+        {selectionMode ? (
+          // Mode sélection
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-purple-400">
+                {selectedIds.size} sélectionnée{selectedIds.size > 1 ? 's' : ''}
+              </span>
+              <button
+                onClick={cancelSelection}
+                className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                title="Annuler"
+              >
+                <XIcon className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={toggleSelectAll}
+                className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-white/5 hover:bg-white/10 transition-colors"
+              >
+                {selectedIds.size === filteredConversations.length ? 'Tout désélectionner' : 'Tout sélectionner'}
+              </button>
+              <button
+                onClick={deleteSelected}
+                disabled={selectedIds.size === 0}
+                className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Supprimer ({selectedIds.size})
+              </button>
+            </div>
+          </div>
+        ) : (
+          // Mode normal
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <button
+                onClick={onNewConversation}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-500/20 hover:bg-blue-500/30 transition-colors text-blue-400"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="font-medium">Nouvelle</span>
+              </button>
+              {conversations.length > 0 && (
+                <button
+                  onClick={() => setSelectionMode(true)}
+                  className="px-3 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-muted-foreground"
+                  title="Sélection multiple"
+                >
+                  <CheckSquare className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => onOpenFolderModal()}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl glass-hover hover:bg-white/10 transition-colors text-sm"
+            >
+              <FolderIcon className="w-4 h-4" />
+              <span>Nouveau dossier</span>
+            </button>
+            {onOpenChatSearch && (
+              <button
+                onClick={() => onOpenChatSearch(searchQuery)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl glass-hover hover:bg-white/10 transition-colors text-sm"
+                title="Rechercher dans la conversation (Ctrl+F)"
+              >
+                <Search className="w-4 h-4" />
+                <span>Rechercher dans le chat</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
 

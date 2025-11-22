@@ -134,6 +134,7 @@ export function ChatPage() {
     createConversation,
     updateConversation,
     deleteConversation,
+    deleteMultipleConversations,
     loadConversation,
     getCurrentConversation,
     generateTitle,
@@ -619,6 +620,7 @@ export function ChatPage() {
             onSelectConversation={handleSelectConversation}
             onNewConversation={handleNewConversation}
             onDeleteConversation={deleteConversation}
+            onDeleteMultipleConversations={deleteMultipleConversations}
             onCreateFolder={createFolder}
             onRenameFolder={renameFolder}
             onDeleteFolder={handleDeleteFolder}
@@ -679,6 +681,7 @@ export function ChatPage() {
                 setIsSidebarOpen(false);
               }}
               onDeleteConversation={deleteConversation}
+              onDeleteMultipleConversations={deleteMultipleConversations}
               onCreateFolder={createFolder}
               onRenameFolder={renameFolder}
               onDeleteFolder={handleDeleteFolder}

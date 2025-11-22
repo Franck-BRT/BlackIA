@@ -180,6 +180,24 @@ export function useConversations() {
     }
   }, [currentConversationId, saveToStorage]);
 
+  // Supprimer plusieurs conversations en une fois
+  const deleteMultipleConversations = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+
+    const idsSet = new Set(ids);
+    setConversations((prev) => {
+      const updated = prev.filter((conv) => !idsSet.has(conv.id));
+      saveToStorage(updated);
+      console.log('[useConversations] Conversations supprimées:', ids.length);
+      return updated;
+    });
+
+    // Si la conversation courante est dans la liste, la désélectionner
+    if (currentConversationId && idsSet.has(currentConversationId)) {
+      setCurrentConversationId(null);
+    }
+  }, [currentConversationId, saveToStorage]);
+
   // Charger une conversation
   const loadConversation = useCallback((id: string): Conversation | null => {
     const conv = conversations.find((c) => c.id === id);
@@ -380,6 +398,7 @@ export function useConversations() {
     createConversation,
     updateConversation,
     deleteConversation,
+    deleteMultipleConversations,
     loadConversation,
     getCurrentConversation,
     generateTitle,
